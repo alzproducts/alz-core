@@ -12751,16 +12751,16 @@
         },
         {
             "name": "phparkitect/phparkitect",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phparkitect/arkitect.git",
-                "reference": "c93d60c255acde6db7aedb829e86d7fa1eb85325"
+                "reference": "4c06ef1676f0e453744488807e7d012014c01777"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phparkitect/arkitect/zipball/c93d60c255acde6db7aedb829e86d7fa1eb85325",
-                "reference": "c93d60c255acde6db7aedb829e86d7fa1eb85325",
+                "url": "https://api.github.com/repos/phparkitect/arkitect/zipball/4c06ef1676f0e453744488807e7d012014c01777",
+                "reference": "4c06ef1676f0e453744488807e7d012014c01777",
                 "shasum": ""
             },
             "require": {
@@ -12816,7 +12816,7 @@
             "description": "Enforce architectural constraints in your PHP applications",
             "support": {
                 "issues": "https://github.com/phparkitect/arkitect/issues",
-                "source": "https://github.com/phparkitect/arkitect/tree/1.1.0"
+                "source": "https://github.com/phparkitect/arkitect/tree/1.2.0"
             },
             "funding": [
                 {
@@ -12828,7 +12828,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-23T08:47:00+00:00"
+            "time": "2026-07-02T09:50:50+00:00"
         },
         {
             "name": "phpdocumentor/graphviz",
