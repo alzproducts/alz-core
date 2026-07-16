@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Conversion;
 
+use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\QuoteConversionDetailsDTO;
 use App\Application\Conversion\UseCases\HandleQuoteConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessQuoteConversionUseCase;
+use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -20,11 +23,10 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Throwable;
 
 /**
- * Uploads a quote conversion to Google Ads asynchronously.
+ * Uploads a quote conversion to the given ad platform asynchronously.
  *
- * Uses ShouldBeUnique by submission ID to prevent duplicate uploads if the job
- * is retried while another instance is still processing. The unique-job cache
- * key is namespaced by class name, so this never collides with
+ * `ShouldBeUnique` is keyed on `submissionId:platform` so per-platform jobs for the
+ * same submission never dedupe each other, and this never collides with
  * {@see ProcessLeadConversionJob} for the same submission.
  *
  * Exception Strategy mirrors {@see ProcessLeadConversionJob}:
@@ -62,21 +64,27 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
         public readonly string $actionId,
         public readonly float $value,
         public readonly string $convertedAt,
+        public readonly AdPlatform $platform,
     ) {
         $this->onQueue(QueueName::Default->value);
     }
 
     public function uniqueId(): string
     {
-        return $this->submissionId;
+        return $this->submissionId . ':' . $this->platform->value;
     }
 
     /** @return list<object> */
     public function middleware(): array
     {
+        $circuitBreaker = match ($this->platform) {
+            AdPlatform::Google => ServiceCircuitBreaker::googleAds(),
+            AdPlatform::Bing => ServiceCircuitBreaker::bingAdsRest(),
+        };
+
         return [
             ...parent::middleware(),
-            ServiceCircuitBreaker::googleAds(),
+            $circuitBreaker,
             new HandleApiExceptions(),
         ];
     }
@@ -93,8 +101,13 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
     public function handle(ProcessQuoteConversionUseCase $useCase): void
     {
         try {
-            $useCase->execute($this->submissionId, $this->actionId, $this->value, $this->convertedAt);
-        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException $e) {
+            $useCase->execute(
+                $this->submissionId,
+                $this->actionId,
+                new QuoteConversionDetailsDTO($this->value, $this->convertedAt),
+                $this->platform,
+            );
+        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
             $this->fail($e);
         }
     }

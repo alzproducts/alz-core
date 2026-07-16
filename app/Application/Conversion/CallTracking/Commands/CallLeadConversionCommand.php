@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\CallTracking\Commands;
 
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
 use App\Domain\ValueObjects\Uuid;
 
@@ -17,5 +18,6 @@ final readonly class CallLeadConversionCommand
         public Uuid $visitId,
         public Uuid $actionId,
         public PhoneNumberE164 $callerPhone,
+        public AdPlatform $platform,
     ) {}
 }

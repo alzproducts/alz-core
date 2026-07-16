@@ -69,7 +69,7 @@ An event reported back to an ad platform (Google Ads, Bing Ads) indicating that 
 A platform-specific identifier appended to the landing URL when a user clicks a paid ad. `gclid` (Google), `msclkid` (Bing/Microsoft), `fbclid` (Facebook). Stored on the contact submission at form-submit time. A submission may carry click IDs from multiple platforms.
 
 **Qualified Lead** (conversion type: `lead_received`):
-A staff-initiated action marking a contact submission as a genuine sales lead. Triggers async upload of the conversion to every ad platform that has a click ID on that submission. Distinct from **Quote Issued** (`quote_issued`), which carries a monetary value and staff-supplied timestamp.
+A staff-initiated action marking a contact submission as a genuine sales lead. Triggers async upload of the conversion to every _eligible_ ad platform — one whose **ad platform adapter** supports this conversion type and has a click ID on that submission. Distinct from **Quote Issued** (`quote_issued`), which carries a monetary value and staff-supplied timestamp, and which no Bing adapter supports (an msclkid-only submission issues zero quote uploads).
 
 **Conversion goal name** (Bing-specific):
 The exact string name of an `OfflineConversionGoal` configured in the Bing Ads UI. Must match `ConversionName` in the upload payload case-sensitively. A mismatch causes silent drop — no error returned.
@@ -77,6 +77,9 @@ _Avoid_: confusing with Google's numeric **conversion action ID**, which serves 
 
 **Ad platform**:
 One of the advertising networks that receives offline conversion uploads (`Google`, `Bing`). Each platform tracks its upload status independently per submission — a submission can succeed on Google and fail on Bing.
+
+**Ad platform adapter**:
+The single seam (`AdPlatformConversionAdapterInterface`) the upload pipeline goes through for a given **ad platform**. Each adapter declares which conversion types it `supports` (Bing accepts only `lead_received`), reads its own **click ID** out of the shared attribution, and validates + performs the upload. Fan-out resolves the _eligible_ adapters per conversion (supports type AND click ID present) instead of branching on platform name — so adding a platform is one new adapter, not edits across every use case and job.
 
 ### Call tracking
 

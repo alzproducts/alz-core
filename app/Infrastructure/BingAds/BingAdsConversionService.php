@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\BingAds;
 
-use App\Application\Contracts\BingAdsConversionInterface;
-use App\Application\Conversion\BingConversionUploadDTO;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -21,7 +20,7 @@ use Webmozart\Assert\Assert;
  * Builds {@see OfflineConversion} models from application DTOs and delegates
  * the upload to {@see BingAdsConversionClient}.
  */
-final readonly class BingAdsConversionService implements BingAdsConversionInterface
+final readonly class BingAdsConversionService
 {
     private const string PLATFORM_NAME = 'Bing Ads';
 
@@ -38,7 +37,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
      * @throws InvalidApiResponseException
      * @throws UnsupportedConversionTypeException When Bing does not support the given ConversionType
      */
-    public function uploadOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): void
+    public function uploadOfflineConversion(ConversionType $type, ConversionUploadDTO $data): void
     {
         $conversion = $this->buildOfflineConversion($type, $data);
 
@@ -48,7 +47,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
     /**
      * @throws UnsupportedConversionTypeException
      */
-    private function buildOfflineConversion(ConversionType $type, BingConversionUploadDTO $data): OfflineConversion
+    private function buildOfflineConversion(ConversionType $type, ConversionUploadDTO $data): OfflineConversion
     {
         $fields = [
             'ConversionName' => $this->resolveGoalName($type),
@@ -57,7 +56,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
             // sidesteps the SDK serializer's `instanceof \DateTime` check (which excludes
             // DateTimeImmutable) by passing through the scalar branch.
             'ConversionTime' => $data->convertedAt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
-            'MicrosoftClickId' => $data->msclkid,
+            'MicrosoftClickId' => $data->clickId,
             ...$this->buildEmailMatchFields($data),
             ...$this->buildEnhancedMatchFields($data),
             ...$this->buildConversionValueFields($data),
@@ -73,7 +72,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
     /**
      * @return array<string, string>
      */
-    private function buildEmailMatchFields(BingConversionUploadDTO $data): array
+    private function buildEmailMatchFields(ConversionUploadDTO $data): array
     {
         if ($data->email === null) {
             return [];
@@ -85,7 +84,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
     /**
      * @return array<string, string>
      */
-    private function buildEnhancedMatchFields(BingConversionUploadDTO $data): array
+    private function buildEnhancedMatchFields(ConversionUploadDTO $data): array
     {
         if ($data->phone === null) {
             return [];
@@ -103,7 +102,7 @@ final readonly class BingAdsConversionService implements BingAdsConversionInterf
     /**
      * @return array<string, string|float>
      */
-    private function buildConversionValueFields(BingConversionUploadDTO $data): array
+    private function buildConversionValueFields(ConversionUploadDTO $data): array
     {
         if ($data->value === null) {
             return [];

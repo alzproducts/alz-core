@@ -6,22 +6,24 @@ namespace Tests\Unit\Application\Conversion\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Application\Conversion\UseCases\SubmitLeadConversionUseCase;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
-use App\Domain\ContactSubmission\ValueObjects\Msclkid;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\ValueObjects\Uuid;
 use Closure;
@@ -36,13 +38,17 @@ use RuntimeException;
 use Tests\TestCase;
 
 /**
- * Covers the COR-167 fan-out:
+ * Covers the adapter-seam fan-out (COR-207):
  *  - 400 when neither gclid nor msclkid is present
- *  - happy path: gclid-only → one Google action, one Google dispatch
- *  - happy path: msclkid-only → one Bing action, one Bing dispatch
- *  - happy path: both click IDs → two action rows, two dispatches
+ *  - gclid-only → one Google action, one Google dispatch
+ *  - msclkid-only → one Bing action, one Bing dispatch
+ *  - both click IDs → two action rows, two dispatches (one per platform)
  *  - is_potential_quote=false flows through to the annotation command
  *  - transaction failure short-circuits the dispatcher
+ *
+ * The resolver is a REAL {@see AdPlatformAdapterResolverService} wrapping fake
+ * in-memory adapters (it is `final readonly` and cannot be mocked); the
+ * dispatcher, repositories and gateway remain Mockery mocks.
  */
 #[CoversNothing]
 final class SubmitLeadConversionUseCaseTest extends TestCase
@@ -89,6 +95,7 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             annotationRepository: $this->annotationRepository,
             database: $this->database,
             dispatcher: $this->dispatcher,
+            adapterResolver: $this->buildResolver(),
             logger: $this->logger,
         );
     }
@@ -111,7 +118,6 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->actionRepository->shouldNotReceive('create');
         $this->annotationRepository->shouldNotReceive('upsert');
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         try {
             $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
@@ -146,13 +152,13 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$captured): void {
                 $captured = $cmd;
             });
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
         self::assertSame(self::GOOGLE_ACTION_ID, $captured->actionId->value);
+        self::assertSame(AdPlatform::Google, $captured->platform);
     }
 
     #[Test]
@@ -172,17 +178,17 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
         $this->annotationRepository->expects('upsert');
 
         $captured = null;
-        $this->dispatcher->expects('dispatchBingLeadConversion')
+        $this->dispatcher->expects('dispatchLeadConversion')
             ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$captured): void {
                 $captured = $cmd;
             });
-        $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
         self::assertSame(self::BING_ACTION_ID, $captured->actionId->value);
+        self::assertSame(AdPlatform::Bing, $captured->platform);
     }
 
     #[Test]
@@ -204,23 +210,18 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
 
         $this->annotationRepository->expects('upsert');
 
-        $googleCmd = null;
-        $bingCmd = null;
+        $captured = [];
         $this->dispatcher->expects('dispatchLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$googleCmd): void {
-                $googleCmd = $cmd;
-            });
-        $this->dispatcher->expects('dispatchBingLeadConversion')
-            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$bingCmd): void {
-                $bingCmd = $cmd;
+            ->twice()
+            ->andReturnUsing(static function (LeadConversionCommand $cmd) use (&$captured): void {
+                $captured[$cmd->platform->value] = $cmd;
             });
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
 
-        self::assertNotNull($googleCmd);
-        self::assertSame(self::GOOGLE_ACTION_ID, $googleCmd->actionId->value);
-        self::assertNotNull($bingCmd);
-        self::assertSame(self::BING_ACTION_ID, $bingCmd->actionId->value);
+        self::assertCount(2, $captured);
+        self::assertSame(self::GOOGLE_ACTION_ID, $captured[AdPlatform::Google->value]->actionId->value);
+        self::assertSame(self::BING_ACTION_ID, $captured[AdPlatform::Bing->value]->actionId->value);
     }
 
     #[Test]
@@ -253,11 +254,53 @@ final class SubmitLeadConversionUseCaseTest extends TestCase
             ->andThrow(new RuntimeException('boom'));
 
         $this->dispatcher->shouldNotReceive('dispatchLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingLeadConversion');
 
         $this->expectException(RuntimeException::class);
 
         $this->useCase->execute(new Uuid(self::SUBMISSION_ID), true);
+    }
+
+    private function buildResolver(): AdPlatformAdapterResolverService
+    {
+        $google = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Google;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return true;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->gclid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        $bing = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Bing;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return $type === ConversionType::LeadReceived;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->msclkid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        return new AdPlatformAdapterResolverService([$google, $bing]);
     }
 
     private function makeSubmission(?string $gclid, ?string $msclkid): ContactSubmission

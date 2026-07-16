@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Conversion\CallTracking\UseCases;
 
+use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallConversionDispatcherInterface;
 use App\Application\Contracts\Conversion\CallTracking\CallTrackingActionRepositoryInterface;
 use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\CallTracking\Commands\CallLeadConversionCommand;
 use App\Application\Conversion\CallTracking\UseCases\SubmitCallLeadConversionUseCase;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\Conversion\CallTracking\ValueObjects\CallTrackingVisit;
 use App\Domain\Conversion\CallTracking\ValueObjects\PhoneNumberE164;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\ValueObjects\IpAddress;
 use App\Domain\ValueObjects\Uuid;
@@ -29,10 +33,15 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /**
- * Covers the COR-180 annotation dual-write on call lead conversion:
+ * Covers the adapter-seam call-lead fan-out (COR-207):
  *  - 400 when neither gclid nor msclkid is present (no annotation, no dispatch)
  *  - annotation upsert is keyed by the CALL id (not the visit id) so the row matches the view
- *  - is_potential_quote flows through to the annotation command (true and false)
+ *  - gclid-only → one Google action, one Google dispatch
+ *  - both click IDs → two action rows, two dispatches (one per platform)
+ *  - is_potential_quote flows through to the annotation command
+ *
+ * The resolver is a REAL {@see AdPlatformAdapterResolverService} wrapping fake
+ * in-memory adapters; the dispatcher, repositories and gateway remain mocks.
  */
 #[CoversNothing]
 final class SubmitCallLeadConversionUseCaseTest extends TestCase
@@ -42,6 +51,8 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
     private const string CALL_ID = '99999999-9999-4999-8999-999999999999';
 
     private const string GOOGLE_ACTION_ID = '22222222-2222-4222-8222-222222222222';
+
+    private const string BING_ACTION_ID = '33333333-3333-4333-8333-333333333333';
 
     private const string GCLID = 'CjwKCAjwTestGclid12345';
 
@@ -79,6 +90,7 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
             annotationRepository: $this->annotationRepository,
             database: $this->database,
             dispatcher: $this->dispatcher,
+            adapterResolver: $this->buildResolver(),
             logger: $this->logger,
         );
     }
@@ -96,8 +108,7 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
         $this->database->shouldNotReceive('transact');
         $this->actionRepository->shouldNotReceive('create');
         $this->annotationRepository->shouldNotReceive('upsert');
-        $this->dispatcher->shouldNotReceive('dispatchGoogleCallLeadConversion');
-        $this->dispatcher->shouldNotReceive('dispatchBingCallLeadConversion');
+        $this->dispatcher->shouldNotReceive('dispatchCallLeadConversion');
 
         try {
             $this->execute(gclid: null, msclkid: null, isPotentialQuote: true);
@@ -124,11 +135,10 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
                 && $cmd->columnsToClear === []));
 
         $captured = null;
-        $this->dispatcher->expects('dispatchGoogleCallLeadConversion')
+        $this->dispatcher->expects('dispatchCallLeadConversion')
             ->andReturnUsing(static function (CallLeadConversionCommand $cmd) use (&$captured): void {
                 $captured = $cmd;
             });
-        $this->dispatcher->shouldNotReceive('dispatchBingCallLeadConversion');
 
         $this->execute(gclid: self::GCLID, msclkid: null, isPotentialQuote: true);
 
@@ -136,6 +146,36 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
         self::assertSame(self::VISIT_ID, $captured->visitId->value);
         self::assertSame(self::GOOGLE_ACTION_ID, $captured->actionId->value);
         self::assertSame(self::CALLER_PHONE, $captured->callerPhone->value);
+        self::assertSame(AdPlatform::Google, $captured->platform);
+    }
+
+    #[Test]
+    public function fans_out_to_both_platforms_when_both_click_ids_present(): void
+    {
+        $this->database->expects('transact')
+            ->andReturnUsing(static fn(Closure $cb): mixed => $cb());
+
+        $this->actionRepository->expects('create')
+            ->with(Mockery::on(static fn(Uuid $visitId): bool => $visitId->value === self::VISIT_ID), AdPlatform::Google)
+            ->andReturn(new Uuid(self::GOOGLE_ACTION_ID));
+        $this->actionRepository->expects('create')
+            ->with(Mockery::on(static fn(Uuid $visitId): bool => $visitId->value === self::VISIT_ID), AdPlatform::Bing)
+            ->andReturn(new Uuid(self::BING_ACTION_ID));
+
+        $this->annotationRepository->expects('upsert');
+
+        $captured = [];
+        $this->dispatcher->expects('dispatchCallLeadConversion')
+            ->twice()
+            ->andReturnUsing(static function (CallLeadConversionCommand $cmd) use (&$captured): void {
+                $captured[$cmd->platform->value] = $cmd;
+            });
+
+        $this->execute(gclid: self::GCLID, msclkid: self::MSCLKID, isPotentialQuote: true);
+
+        self::assertCount(2, $captured);
+        self::assertSame(self::GOOGLE_ACTION_ID, $captured[AdPlatform::Google->value]->actionId->value);
+        self::assertSame(self::BING_ACTION_ID, $captured[AdPlatform::Bing->value]->actionId->value);
     }
 
     #[Test]
@@ -151,7 +191,7 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
             ->with(Mockery::on(static fn(UpsertAnnotationCommand $cmd): bool => $cmd->sourceId === self::CALL_ID
                 && $cmd->valuesToSet === ['is_potential_quote' => false]));
 
-        $this->dispatcher->expects('dispatchGoogleCallLeadConversion');
+        $this->dispatcher->expects('dispatchCallLeadConversion');
 
         $this->execute(gclid: self::GCLID, msclkid: null, isPotentialQuote: false);
     }
@@ -164,6 +204,49 @@ final class SubmitCallLeadConversionUseCaseTest extends TestCase
             PhoneNumberE164::from(self::CALLER_PHONE),
             $isPotentialQuote,
         );
+    }
+
+    private function buildResolver(): AdPlatformAdapterResolverService
+    {
+        $google = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Google;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return true;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->gclid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        $bing = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Bing;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return $type === ConversionType::LeadReceived;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->msclkid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        return new AdPlatformAdapterResolverService([$google, $bing]);
     }
 
     private function makeVisit(?string $gclid, ?string $msclkid): CallTrackingVisit
