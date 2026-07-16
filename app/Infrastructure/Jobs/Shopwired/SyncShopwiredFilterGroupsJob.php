@@ -24,7 +24,7 @@ use RuntimeException;
  * Usage:
  * - SyncShopwiredFilterGroupsJob::dispatch()
  *
- * Recommended scheduling: Daily (definitions rarely change)
+ * Recommended scheduling: Hourly (registry must stay fresh — unknown groups fail silently)
  */
 final class SyncShopwiredFilterGroupsJob extends AbstractJob implements ShouldBeUnique
 {

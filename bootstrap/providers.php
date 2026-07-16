@@ -37,6 +37,7 @@ use App\Providers\Schedule\MixpanelScheduleServiceProvider;
 use App\Providers\Schedule\PopularitySnapshotScheduleServiceProvider;
 use App\Providers\Schedule\QueueMaintenanceScheduleServiceProvider;
 use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
+use App\Providers\Schedule\ShopwiredDefinitionScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
@@ -82,6 +83,7 @@ return [
     QueueMaintenanceScheduleServiceProvider::class,
     ReviewsIoScheduleServiceProvider::class,
     InventoryScheduleServiceProvider::class,
+    ShopwiredDefinitionScheduleServiceProvider::class,
     ShopwiredScheduleServiceProvider::class,
 
     ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
