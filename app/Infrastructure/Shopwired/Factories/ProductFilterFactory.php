@@ -9,8 +9,9 @@ use App\Domain\Catalog\Filters\ValueObjects\ProductFilter;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Infrastructure\Jobs\Shopwired\SyncShopwiredFilterGroupsJob;
 use App\Infrastructure\Shopwired\Filters\FilterGroupRegistry;
-use Illuminate\Support\Facades\Log;
+use App\Infrastructure\Shopwired\Filters\UnknownFilterGroupReporter;
 
 /**
  * Factory for typing raw product filter values into domain objects.
@@ -27,13 +28,15 @@ final class ProductFilterFactory
 
     public function __construct(
         private readonly FilterGroupRepositoryInterface $filterGroupRepository,
+        private readonly UnknownFilterGroupReporter $reporter,
     ) {}
 
     /**
      * Build typed ProductFilter values from raw filter data.
      *
-     * Unknown optionNo values are logged as warnings and skipped (may indicate
-     * filter group definitions are out of sync - re-run SyncFilterGroupsJob).
+     * Unknown optionNo values are counted and skipped, then emitted as a single
+     * per-request summary warning (may indicate filter group definitions are out
+     * of sync - re-run {@see SyncShopwiredFilterGroupsJob}).
      *
      * @param array<int|string, list<string>> $rawFilters Raw filter data (optionNo => values)
      *
@@ -58,9 +61,7 @@ final class ProductFilterFactory
             $definition = $this->registry()->findByOptionNo($optionNoInt);
 
             if ($definition === null) {
-                Log::warning('Unknown filter group optionNo in product - re-run SyncFilterGroupsJob', [
-                    'option_no' => $optionNoInt,
-                ]);
+                $this->reporter->record($optionNoInt);
 
                 continue;
             }
