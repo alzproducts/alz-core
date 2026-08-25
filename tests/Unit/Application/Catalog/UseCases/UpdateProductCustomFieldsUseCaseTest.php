@@ -13,11 +13,9 @@ use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\CustomFieldNotFoundException;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
-use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
-use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -82,8 +80,7 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
             ->shouldReceive('refreshById')
             ->once()
             ->with(99)
-            ->ordered()
-            ->andReturn($this->createProduct());
+            ->ordered();
 
         $this->useCase->execute($productId, $rawFields);
     }
@@ -167,39 +164,5 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
                 $e->reason,
             );
         }
-    }
-
-    private function createProduct(): Product
-    {
-        return new Product(
-            id: 99,
-            sku: 'PARENT-SKU',
-            gtin: null,
-            title: 'Test Product',
-            description: null,
-            slug: 'test-product',
-            url: 'https://example.com/test-product',
-            price: 29.99,
-            costPrice: 15.00,
-            salePrice: null,
-            comparePrice: null,
-            stock: 0,
-            isActive: true,
-            vatExclusive: false,
-            vatRelief: false,
-            weight: null,
-            metaTitle: null,
-            metaDescription: null,
-            categoryIds: [1],
-            variations: [],
-            images: [],
-            rawCustomFields: [],
-            customFields: CustomFieldValueList::empty(),
-            rawFilters: [],
-            filters: [],
-            sortOrder: null,
-            createdAt: new DateTimeImmutable(),
-            updatedAt: new DateTimeImmutable(),
-        );
     }
 }
