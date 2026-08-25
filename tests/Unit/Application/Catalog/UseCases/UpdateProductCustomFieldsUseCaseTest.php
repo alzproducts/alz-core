@@ -7,13 +7,17 @@ namespace Tests\Unit\Application\Catalog\UseCases;
 use App\Application\Catalog\UseCases\UpdateProductCustomFieldsUseCase;
 use App\Application\Contracts\Shopwired\CustomFieldValueFactoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
 use App\Domain\Catalog\CustomFields\Exceptions\CustomFieldNotFoundException;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
+use App\Domain\Catalog\Product\ValueObjects\Product;
+use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\ValueObjects\IntId;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,6 +32,8 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
 
     private ProductUpdateClientInterface&MockInterface $productUpdateClient;
 
+    private ProductSyncService&MockInterface $productSync;
+
     private LoggerInterface&MockInterface $logger;
 
     private UpdateProductCustomFieldsUseCase $useCase;
@@ -38,12 +44,14 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
 
         $this->valueFactory = Mockery::mock(CustomFieldValueFactoryInterface::class);
         $this->productUpdateClient = Mockery::mock(ProductUpdateClientInterface::class);
+        $this->productSync = Mockery::mock(ProductSyncService::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
         $this->logger->shouldReceive('info')->byDefault();
 
         $this->useCase = new UpdateProductCustomFieldsUseCase(
             $this->valueFactory,
             $this->productUpdateClient,
+            $this->productSync,
             $this->logger,
         );
     }
@@ -67,7 +75,40 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
         $this->productUpdateClient
             ->shouldReceive('updateCustomFields')
             ->once()
-            ->with(99, $rawFields);
+            ->with(99, $rawFields)
+            ->ordered();
+
+        $this->productSync
+            ->shouldReceive('refreshById')
+            ->once()
+            ->with(99)
+            ->ordered()
+            ->andReturn($this->createProduct());
+
+        $this->useCase->execute($productId, $rawFields);
+    }
+
+    #[Test]
+    public function does_not_sync_mirror_when_upstream_update_fails(): void
+    {
+        $productId = IntId::from(99);
+        $rawFields = ['colour' => 'Blue'];
+
+        $this->valueFactory
+            ->shouldReceive('fromRawFields')
+            ->once()
+            ->with($rawFields)
+            ->andReturn(CustomFieldValueList::empty());
+
+        $this->productUpdateClient
+            ->shouldReceive('updateCustomFields')
+            ->once()
+            ->with(99, $rawFields)
+            ->andThrow(new ResourceNotAvailableException('ShopWired', 'Product', 99));
+
+        $this->productSync->shouldNotReceive('refreshById');
+
+        $this->expectException(ResourceNotAvailableException::class);
 
         $this->useCase->execute($productId, $rawFields);
     }
@@ -89,6 +130,7 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
             ->andThrow(new CustomFieldNotFoundException('nonexistent', CustomFieldItemType::Product));
 
         $this->productUpdateClient->shouldNotReceive('updateCustomFields');
+        $this->productSync->shouldNotReceive('refreshById');
 
         $this->expectException(ValidationFailedException::class);
         $this->expectExceptionMessage("Unknown custom field 'nonexistent' for item type 'product'");
@@ -114,6 +156,7 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
             ));
 
         $this->productUpdateClient->shouldNotReceive('updateCustomFields');
+        $this->productSync->shouldNotReceive('refreshById');
 
         try {
             $this->useCase->execute($productId, $rawFields);
@@ -124,5 +167,39 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
                 $e->reason,
             );
         }
+    }
+
+    private function createProduct(): Product
+    {
+        return new Product(
+            id: 99,
+            sku: 'PARENT-SKU',
+            gtin: null,
+            title: 'Test Product',
+            description: null,
+            slug: 'test-product',
+            url: 'https://example.com/test-product',
+            price: 29.99,
+            costPrice: 15.00,
+            salePrice: null,
+            comparePrice: null,
+            stock: 0,
+            isActive: true,
+            vatExclusive: false,
+            vatRelief: false,
+            weight: null,
+            metaTitle: null,
+            metaDescription: null,
+            categoryIds: [1],
+            variations: [],
+            images: [],
+            rawCustomFields: [],
+            customFields: CustomFieldValueList::empty(),
+            rawFilters: [],
+            filters: [],
+            sortOrder: null,
+            createdAt: new DateTimeImmutable(),
+            updatedAt: new DateTimeImmutable(),
+        );
     }
 }

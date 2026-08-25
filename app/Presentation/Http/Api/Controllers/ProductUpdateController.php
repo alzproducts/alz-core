@@ -78,7 +78,7 @@ final readonly class ProductUpdateController
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails
-     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DatabaseOperationFailedException When custom field registry fails to load or the mirror upsert fails
      * @throws DuplicateRecordException On constraint violation
      */
     public function updateCustomFields(int $productId, UpdateCustomFieldsRequestDTO $data): JsonResponse

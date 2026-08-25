@@ -7,6 +7,7 @@ namespace App\Application\Catalog\UseCases;
 use App\Application\Catalog\Validators\CustomFieldSubmissionValidator;
 use App\Application\Contracts\Shopwired\CustomFieldValueFactoryInterface;
 use App\Application\Contracts\Shopwired\ProductUpdateClientInterface;
+use App\Application\Shopwired\Services\ProductSyncService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
@@ -22,13 +23,15 @@ use Psr\Log\LoggerInterface;
  * Validate and update custom fields on a product via ShopWired.
  *
  * Validates submitted key-value pairs against the custom field registry,
- * then delegates to the existing fetch-merge-PUT update pattern.
+ * delegates to the existing fetch-merge-PUT update pattern, then re-syncs
+ * the local product mirror so the saved values are immediately readable.
  */
 final readonly class UpdateProductCustomFieldsUseCase
 {
     public function __construct(
         private CustomFieldValueFactoryInterface $valueFactory,
         private ProductUpdateClientInterface $productUpdateClient,
+        private ProductSyncService $productSync,
         private LoggerInterface $logger,
     ) {}
 
@@ -41,7 +44,7 @@ final readonly class UpdateProductCustomFieldsUseCase
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     * @throws DatabaseOperationFailedException When custom field registry fails to load
+     * @throws DatabaseOperationFailedException When custom field registry fails to load or the mirror upsert fails
      * @throws DuplicateRecordException On constraint violation
      */
     public function execute(IntId $productId, array $rawFields): void
@@ -55,6 +58,8 @@ final readonly class UpdateProductCustomFieldsUseCase
         (new CustomFieldSubmissionValidator($this->valueFactory, $rawFields))->validate()->orFail();
 
         $this->productUpdateClient->updateCustomFields($productId->value, $rawFields);
+
+        $this->productSync->refreshById($productId->value);
 
         $this->logger->info('Updated product custom fields', [
             'product_id' => $productId->value,
