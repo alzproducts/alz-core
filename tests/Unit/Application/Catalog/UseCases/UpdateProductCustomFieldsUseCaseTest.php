@@ -85,6 +85,10 @@ final class UpdateProductCustomFieldsUseCaseTest extends TestCase
         $this->useCase->execute($productId, $rawFields);
     }
 
+    // ========================================================================
+    // Upstream Failures
+    // ========================================================================
+
     #[Test]
     public function does_not_sync_mirror_when_upstream_update_fails(): void
     {

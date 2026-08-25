@@ -196,7 +196,7 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
     }
 
     /**
-     * @param array<mixed> $rawValue The full submitted array, carried into the exception as context
+     * @param array<mixed> $rawValue
      *
      * @throws InvalidCustomFieldValueException
      */

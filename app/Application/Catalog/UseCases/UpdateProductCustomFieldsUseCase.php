@@ -42,7 +42,7 @@ final readonly class UpdateProductCustomFieldsUseCase
      * @throws ResourceNotAvailableException When product not found (404)
      * @throws InvalidApiRequestException When request parameters are invalid (400)
      * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
+     * @throws ExternalServiceUnavailableException When the API or database is unavailable, or a connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      * @throws DatabaseOperationFailedException When custom field registry fails to load or the mirror upsert fails
      * @throws DuplicateRecordException On constraint violation
