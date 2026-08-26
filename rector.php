@@ -38,7 +38,6 @@ return RectorConfig::configure()
         typeDeclarations: true,
         privatization: true,
         earlyReturn: true,
-        strictBooleans: true,
     )
     ->withSets([
         LaravelSetList::LARAVEL_120,
