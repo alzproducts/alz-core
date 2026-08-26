@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "265cf15c4c836a04ae715ed21fbca293",
+    "content-hash": "aadc9c801a63f37299212f2fc8f6833d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1242,16 +1242,16 @@
         },
         {
             "name": "googleads/google-ads-php",
-            "version": "v33.5.0",
+            "version": "v34.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/googleads/google-ads-php.git",
-                "reference": "1282f5d45910678c220ed4172fc4918a2d0e055c"
+                "reference": "0a22905f0da2e3e720a3e7ead1483f320b3097ef"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/googleads/google-ads-php/zipball/1282f5d45910678c220ed4172fc4918a2d0e055c",
-                "reference": "1282f5d45910678c220ed4172fc4918a2d0e055c",
+                "url": "https://api.github.com/repos/googleads/google-ads-php/zipball/0a22905f0da2e3e720a3e7ead1483f320b3097ef",
+                "reference": "0a22905f0da2e3e720a3e7ead1483f320b3097ef",
                 "shasum": ""
             },
             "require": {
@@ -1300,9 +1300,9 @@
             "homepage": "https://github.com/googleads/google-ads-php",
             "support": {
                 "issues": "https://github.com/googleads/google-ads-php/issues",
-                "source": "https://github.com/googleads/google-ads-php/tree/v33.5.0"
+                "source": "https://github.com/googleads/google-ads-php/tree/v34.0.0"
             },
-            "time": "2026-06-24T22:08:28+00:00"
+            "time": "2026-08-19T11:04:42+00:00"
         },
         {
             "name": "graham-campbell/result-type",
