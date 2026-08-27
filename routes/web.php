@@ -7,8 +7,9 @@ use App\Presentation\Http\Controllers\QueueHealthController;
 use App\Presentation\Http\Middleware\HorizonBasicAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
-// Health check is configured in bootstrap/app.php via health: '/up'
-// No need to define it here - Laravel 12 handles it at the framework level
+// Registered by the `then:` callback in bootstrap/app.php, outside the 'web' middleware
+// group — these routes are stateless (no session, cookies, or CSRF).
+// The /up health check is configured there too, via health: '/up'.
 
 /*
 |--------------------------------------------------------------------------

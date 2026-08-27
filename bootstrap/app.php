@@ -15,6 +15,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Log;
 use Sentry\Laravel\Integration;
 
@@ -23,10 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
         __DIR__ . '/../app/Presentation/Console/Commands',
     ])
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
+        then: static function (Application $app): void {
+            // Deliberately outside the 'web' group: these routes are stateless
+            // (signed-redirect feed + BasicAuth ops probe) — no session, cookies, or CSRF.
+            // Router comes from the container, not the Route facade: facade calls inside a
+            // closure resolve through Facade::__callStatic, whose @throws RuntimeException
+            // trips shipmonk.checkedExceptionInCallable.
+            $app['router']->group(['middleware' => [SubstituteBindings::class]], __DIR__ . '/../routes/web.php');
+        },
     )
     ->withMiddleware(static function (Middleware $middleware): void {
         // Trust all proxies for Railway deployment
