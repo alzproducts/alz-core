@@ -55,6 +55,8 @@ final class FeedRouteTest extends TestCase
                 // temporaryUrl() rebinds this callback to the FilesystemAdapter and PHP cannot
                 // bind an instance to a static closure, so the closure must stay non-static —
                 // the $this read below is what keeps Pint's static_lambda rule off it.
+                // The rebind also moves `self::` to FilesystemAdapter, hence the captured
+                // $signedUrl instead of a direct self::SIGNED_URL read.
                 \assert($this instanceof FilesystemAdapter);
 
                 return $signedUrl;

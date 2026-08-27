@@ -72,76 +72,54 @@ function fullyPopulatedConversation(int $id): Conversation
     );
 }
 
-it('round-trips a BingAdsSession', function (): void {
-    $session = new BingAdsSession(
-        accessToken: 'bing-access-token',
-        expiresAt: new DateTimeImmutable('2026-02-01 10:00:00'),
-    );
+// toEqual() compares classes recursively, so a class missing from the allow-list fails
+// here too: unserialize() hands back __PHP_Incomplete_Class in its place.
+it('round-trips a cached object', function (object $value): void {
+    $restored = roundTripThroughCache($this->store, $value);
 
-    $restored = roundTripThroughCache($this->store, $session);
-
-    expect($restored)->toEqual($session)
-        ->and($restored)->toBeInstanceOf(BingAdsSession::class)
-        ->and($restored->expiresAt)->toBeInstanceOf(DateTimeImmutable::class);
-});
-
-it('round-trips a LinnworksSession', function (): void {
-    $session = new LinnworksSession(
-        token: 'linnworks-token',
-        serverUrl: 'https://eu-ext.linnworks.test',
-        expiresAt: new DateTimeImmutable('2026-02-02 11:00:00'),
-    );
-
-    $restored = roundTripThroughCache($this->store, $session);
-
-    expect($restored)->toEqual($session)
-        ->and($restored)->toBeInstanceOf(LinnworksSession::class)
-        ->and($restored->expiresAt)->toBeInstanceOf(DateTimeImmutable::class);
-});
-
-it('round-trips a SupportAgent', function (): void {
-    $agent = new SupportAgent(
-        id: 12,
-        email: 'agent@example.test',
-        firstName: 'Alan',
-        lastName: 'Turing',
-        role: 'admin',
-    );
-
-    $restored = roundTripThroughCache($this->store, $agent);
-
-    expect($restored)->toEqual($agent)
-        ->and($restored)->toBeInstanceOf(SupportAgent::class);
-});
-
-it('round-trips an EscalationsConfig', function (): void {
-    $config = new EscalationsConfig(
-        lateThresholdHours: 24,
-        latePriorityThresholdHours: 4,
-        priorityTags: ['vip', 'urgent'],
-        excludedTags: ['spam'],
-        assignedTag: 'assigned',
-    );
-
-    $restored = roundTripThroughCache($this->store, $config);
-
-    expect($restored)->toEqual($config)
-        ->and($restored)->toBeInstanceOf(EscalationsConfig::class);
-});
-
-it('round-trips a Mailbox', function (): void {
-    $mailbox = new Mailbox(
-        id: 7,
-        name: 'Support',
-        email: 'support@example.test',
-        slug: 'support',
-    );
-
-    $restored = roundTripThroughCache($this->store, $mailbox);
-
-    expect($restored)->toEqual($mailbox)
-        ->and($restored)->toBeInstanceOf(Mailbox::class);
-});
+    expect($restored)->toEqual($value)
+        ->and($restored)->toBeInstanceOf($value::class);
+})->with([
+    'BingAdsSession' => [
+        new BingAdsSession(
+            accessToken: 'bing-access-token',
+            expiresAt: new DateTimeImmutable('2026-02-01 10:00:00'),
+        ),
+    ],
+    'LinnworksSession' => [
+        new LinnworksSession(
+            token: 'linnworks-token',
+            serverUrl: 'https://eu-ext.linnworks.test',
+            expiresAt: new DateTimeImmutable('2026-02-02 11:00:00'),
+        ),
+    ],
+    'SupportAgent' => [
+        new SupportAgent(
+            id: 12,
+            email: 'agent@example.test',
+            firstName: 'Alan',
+            lastName: 'Turing',
+            role: 'admin',
+        ),
+    ],
+    'EscalationsConfig' => [
+        new EscalationsConfig(
+            lateThresholdHours: 24,
+            latePriorityThresholdHours: 4,
+            priorityTags: ['vip', 'urgent'],
+            excludedTags: ['spam'],
+            assignedTag: 'assigned',
+        ),
+    ],
+    'Mailbox' => [
+        new Mailbox(
+            id: 7,
+            name: 'Support',
+            email: 'support@example.test',
+            slug: 'support',
+        ),
+    ],
+]);
 
 it('round-trips a Conversation with every nested object intact', function (): void {
     $conversation = fullyPopulatedConversation(1001);

@@ -25,6 +25,8 @@ final class QueueHealthRouteTest extends TestCase
 
     private const string PASS = 'ops-password';
 
+    private const string ENDPOINT = '/ops/queue-health';
+
     #[Override]
     protected function setUp(): void
     {
@@ -39,20 +41,15 @@ final class QueueHealthRouteTest extends TestCase
     /**
      * @return TestResponse<Response>
      */
-    private function getQueueHealth(?string $user, ?string $pass): TestResponse
+    private function getQueueHealthAsOps(): TestResponse
     {
-        $headers = [];
-        if (($user !== null) && ($pass !== null)) {
-            $headers['Authorization'] = 'Basic ' . \base64_encode($user . ':' . $pass);
-        }
-
-        return $this->withHeaders($headers)->get('/ops/queue-health');
+        return $this->withBasicAuth(self::USER, self::PASS)->get(self::ENDPOINT);
     }
 
     #[Test]
     public function request_without_credentials_is_unauthorized(): void
     {
-        $response = $this->getQueueHealth(null, null);
+        $response = $this->get(self::ENDPOINT);
 
         $response->assertUnauthorized();
         $response->assertHeader('WWW-Authenticate', 'Basic realm="Horizon Dashboard"');
@@ -61,7 +58,7 @@ final class QueueHealthRouteTest extends TestCase
     #[Test]
     public function valid_credentials_return_queue_depths(): void
     {
-        $response = $this->getQueueHealth(self::USER, self::PASS);
+        $response = $this->getQueueHealthAsOps();
 
         $response->assertOk();
         $response->assertJsonPath('status', 'ok');
@@ -71,7 +68,7 @@ final class QueueHealthRouteTest extends TestCase
     #[Test]
     public function queue_health_response_carries_no_cookies(): void
     {
-        $response = $this->getQueueHealth(self::USER, self::PASS);
+        $response = $this->getQueueHealthAsOps();
 
         $response->assertHeaderMissing('Set-Cookie');
     }
