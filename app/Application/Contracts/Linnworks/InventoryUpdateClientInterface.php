@@ -20,7 +20,7 @@ use App\Domain\ValueObjects\Guid;
  * Linnworks inventory update operations.
  *
  * Accepts either SKU or GUID as identifier:
- * - SKU: Resolved to stockItemId via getStockItemBySku() (extra API call)
+ * - SKU: Resolved to stockItemId via resolveStockItemId() (extra API call)
  * - GUID: Used directly as stockItemId (no resolution needed)
  *
  * For bulk operations, prefer resolving SKUs to GUIDs upfront via

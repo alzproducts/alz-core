@@ -2,20 +2,28 @@
 
 This file provides guidance to AI coding agents working on this repository.
 
+## Project harness references
+
+- **Anthropic (Claude Code) agents** — imported automatically:
+@harness-anthropic.md
+- **OpenAI (Codex) agents** — READ `./harness-openai.md` (this directory) now, before doing anything else. (The `@` line above is Claude-Code import syntax — ignore it.)
+
 **Architecture guide**: [`docs/architecture-overview.md`](docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
 
 > **Note**: `${FRONTEND_APP}` placeholders in this codebase resolve via the `FRONTEND_APP` env var in `.claude/settings.local.json`.
 
+Linear team: COR
+
 ## ⚠️ Important: Stop Hooks
 
 **Account-level stop hooks run automatically when you finish responding.** These hooks execute:
-- `make fix` — Auto-fix code style issues
 - `make lint` — Run all linters (Pint, PHPStan, PHPArkitect, Deptrac, TLint)
-- `make test` — Run full test suite
 
 **Hooks run in a loop**: If failures occur, fix the issues and stop again—hooks will re-run automatically.
 
-**Do NOT manually run these commands** during normal usage. Only run them if:
+Tests do NOT run on stop — run the relevant Pest tests yourself before declaring a change done (pre-push and CI remain the enforcement gates).
+
+**Do NOT manually run `make lint`** during normal usage. Only run it if:
 - You need to verify a fix mid-task before stopping
 - You're debugging an issue that didn't originate from a stop hook
 
@@ -84,7 +92,7 @@ Prefer `mcp__phpstorm__*` or `mcp__intellij__*` for **read-only** operations (se
 
 ## Implementation Logs
 
-When working on a GitHub issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{number}-{description}.md`.
+When working on a Linear issue with an associated plan document, maintain an implementation log at `.ai/implementation-logs/issue-{id}-{description}.md` (e.g. `issue-cor-123-add-widget.md`).
 
 **Key practices:**
 - Create the log when starting work on a non-trivial feature
@@ -150,7 +158,7 @@ make lint                         # Run linters
 Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
 - Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
 - Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
-- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (per-worktree, in `.claude/settings.local.json` → `env`). Each worktree binds Octane to its own port — main = 8000, `alz-core-two` = 8001.
+- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (per-worktree, in `.claude/settings.local.json` → `env`). Each worktree binds Octane to its own port — main = 8000, `alz-core-two` = 8001. On Codex they are NOT in the shell env — read the values from `.claude/settings.local.json` and substitute literals.
 - ALWAYS curl with `${API_PORT:-8000}`, never a hardcoded port: `curl -H "X-Local-Bypass: $API_BYPASS_SECRET" "http://127.0.0.1:${API_PORT:-8000}/..."`
 
 ### Debugging & Logs

@@ -15,14 +15,24 @@ One of four mutually-exclusive labels (`1 - Low margin`, `2 - Standard margin`, 
 The value `(net_margin_single_unit_min + net_margin_single_unit_max) / 2` compared against margin-tier thresholds. Smooths single-outlier variations without computing a true per-variation average.
 
 **ShopWired custom_label_N**:
-ShopWired's `custom_label_N` series of single-select string custom fields on products. Two known owners in this codebase: `custom_label_4` → Best Sellers, `custom_label_1` → Margin tier. Design intent: each field is written by exactly one sync (see **Drift** below for why).
+ShopWired's `custom_label_N` series of single-select string custom fields on products. Three known owners in this codebase: `custom_label_0` → Credit tier, `custom_label_1` → Margin tier, `custom_label_4` → Best Sellers. Design intent: each field is written by exactly one **drift sync** (see **Drift** below for why).
 _Avoid_: treating these as value-list/array fields. Despite the "label" naming, they are single-select strings — the confusion previously produced a silent-write bug.
 
 **Drift**:
-The state when a product's current `custom_label_N` value differs from the value the sync would compute now. Detected by a single SQL query per sync and resolved by dispatching per-product update jobs.
+The state when a product's current synced attribute — a `custom_label_N` value or a filter value set — differs from the value the owning sync would compute now. Detected by a single SQL query per sync and resolved by dispatching per-product update jobs.
+
+**Drift sync**:
+A scheduled sync that detects **drift** with one SQL query and corrects it by dispatching one update job per drifted product. Eight exist: three label syncs (credit tier, margin tier, Best Sellers) and five filter syncs (VAT relief, rating, offers, shipping offers, shipping options).
+
+**Credit tier**:
+One of three labels (`Credit - Tier 1` … `Credit - Tier 3`) assigned to a ShopWired product on `custom_label_0` from the credit product popularity snapshot. A product with no credit sales in the latest snapshot has no tier — its field is cleared.
 
 **Best Sellers label**:
 The string `"Best Sellers"` written to `custom_label_4` for products with `popularity_rank <= 2`.
+
+**Product search**:
+The free-text `search` filter on the products list API. Matches whole words of the product **title** with English stemming ("lamp" finds "lamps"); results order by relevance unless the caller requests an explicit sort.
+_Avoid_: expecting substring or prefix behaviour — "lam" does not find "lamp". SKU lookup is the separate exact-match `sku` filter, not product search.
 
 ### Pricing & margin
 
@@ -53,13 +63,13 @@ The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise
 ### Offline conversion tracking
 
 **Offline conversion**:
-An event reported back to an ad platform (Google Ads, Bing Ads) indicating that a user who clicked an ad later performed a valuable action (qualified lead, quote issued). Uploaded via platform-specific APIs using the click ID captured at landing time.
+An event reported back to an ad platform (Google Ads, Bing Ads) indicating that a user who clicked an ad later performed a valuable action (qualified lead, quote issued). Uploaded via platform-specific APIs using the click ID captured at landing time. Google's upload API (`ConversionUploadService`) is in transitional mode: closed to new adopters since June 2026 in favour of the Data Manager API, while our developer token remains a grandfathered existing adopter (uploads during the Dec 2025–Jun 2026 qualifying window; confirmed 2026-08) with no announced end date.
 
 **Click ID**:
 A platform-specific identifier appended to the landing URL when a user clicks a paid ad. `gclid` (Google), `msclkid` (Bing/Microsoft), `fbclid` (Facebook). Stored on the contact submission at form-submit time. A submission may carry click IDs from multiple platforms.
 
 **Qualified Lead** (conversion type: `lead_received`):
-A staff-initiated action marking a contact submission as a genuine sales lead. Triggers async upload of the conversion to every ad platform that has a click ID on that submission. Distinct from **Quote Issued** (`quote_issued`), which carries a monetary value and staff-supplied timestamp.
+A staff-initiated action marking a contact submission as a genuine sales lead. Triggers async upload of the conversion to every _eligible_ ad platform — one whose **ad platform adapter** supports this conversion type and has a click ID on that submission. Distinct from **Quote Issued** (`quote_issued`), which carries a monetary value and staff-supplied timestamp, and which no Bing adapter supports (an msclkid-only submission issues zero quote uploads).
 
 **Conversion goal name** (Bing-specific):
 The exact string name of an `OfflineConversionGoal` configured in the Bing Ads UI. Must match `ConversionName` in the upload payload case-sensitively. A mismatch causes silent drop — no error returned.
@@ -67,6 +77,9 @@ _Avoid_: confusing with Google's numeric **conversion action ID**, which serves 
 
 **Ad platform**:
 One of the advertising networks that receives offline conversion uploads (`Google`, `Bing`). Each platform tracks its upload status independently per submission — a submission can succeed on Google and fail on Bing.
+
+**Ad platform adapter**:
+The single seam (`AdPlatformConversionAdapterInterface`) the upload pipeline goes through for a given **ad platform**. Each adapter declares which conversion types it `supports` (Bing accepts only `lead_received`), reads its own **click ID** out of the shared attribution, and validates + performs the upload. Fan-out resolves the _eligible_ adapters per conversion (supports type AND click ID present) instead of branching on platform name — so adding a platform is one new adapter, not edits across every use case and job.
 
 ### Call tracking
 

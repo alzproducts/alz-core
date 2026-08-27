@@ -19,7 +19,6 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\PaginatedList;
-use Generator;
 
 /**
  * Repository for ShopWired product persistence.
@@ -166,23 +165,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     public function getVariation(Sku|IntId $identifier): ProductVariation;
 
     /**
-     * Stream all products with full data (memory-efficient).
-     *
-     * Yields Product objects one at a time using a generator pattern.
-     * Each product includes variations, images, and typed custom fields.
-     *
-     * IMPORTANT: Exceptions throw during iteration, not at method call.
-     * Wrap the foreach loop in try/catch, not the streamAll() call.
-     *
-     * @return Generator<int, Product> Yields products (array index as key)
-     *
-     * @throws InvalidCustomFieldValueException During iteration - value type mismatch
-     * @throws DatabaseOperationFailedException During iteration - query failure
-     * @throws ExternalServiceUnavailableException During iteration - DB unavailable
-     */
-    public function streamAll(): Generator;
-
-    /**
      * Get all unique SKUs from products and variations.
      *
      * Returns distinct SKUs from both master products and variations.
@@ -262,20 +244,6 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
      * @throws ExternalServiceUnavailableException When database temporarily unavailable
      */
     public function deleteByExternalId(IntId $externalId): void;
-
-    /**
-     * Get all products currently on sale (non-null, non-zero sale price).
-     *
-     * Used by the automatic sale removal cron to evaluate expiration conditions.
-     *
-     * @return list<Product>
-     *
-     * @throws InvalidCustomFieldValueException When custom field value type mismatches definition
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws DuplicateRecordException On constraint violation
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function getProductsOnSale(): array;
 
     /**
      * Get all on-sale products as read-side ProductView projections.

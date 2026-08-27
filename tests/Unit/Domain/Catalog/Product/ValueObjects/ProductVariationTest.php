@@ -242,14 +242,6 @@ final class ProductVariationTest extends TestCase
     }
 
     // ========================================================================
-    // Sale Price Logic - REMOVED
-    // isOnSale() and effectivePrice() removed from ProductVariation because
-    // it no longer implements BasicProductInterface. Nullable price semantics
-    // (null = inherit parent, 0.00 = removed from sale) require parent context.
-    // See: docs/known-issues.md "BasicProductInterface and ProductVariation"
-    // ========================================================================
-
-    // ========================================================================
     // Options Display
     // ========================================================================
 

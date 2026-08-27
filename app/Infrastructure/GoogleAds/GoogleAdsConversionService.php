@@ -4,22 +4,21 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\GoogleAds;
 
-use App\Application\Contracts\GoogleAdsConversionInterface;
-use App\Application\Conversion\GoogleConversionUploadDTO;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Phone\PhoneNormalisationService;
-use Google\Ads\GoogleAds\V22\Common\UserIdentifier;
-use Google\Ads\GoogleAds\V22\Services\ClickConversion;
+use Google\Ads\GoogleAds\V25\Common\UserIdentifier;
+use Google\Ads\GoogleAds\V25\Services\ClickConversion;
 use Webmozart\Assert\Assert;
 
 /**
  * Builds {@see ClickConversion} protobufs from application DTOs and delegates
  * the upload to {@see GoogleAdsConversionClient}.
  */
-final readonly class GoogleAdsConversionService implements GoogleAdsConversionInterface
+final readonly class GoogleAdsConversionService
 {
     public function __construct(
         private GoogleAdsConversionClient $client,
@@ -32,14 +31,14 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
      * @throws AuthenticationExpiredException
      * @throws InvalidApiRequestException
      */
-    public function uploadConversion(ConversionType $type, GoogleConversionUploadDTO $data): void
+    public function uploadConversion(ConversionType $type, ConversionUploadDTO $data): void
     {
         $conversion = $this->buildClickConversion($type, $data);
 
         $this->client->uploadConversion($conversion);
     }
 
-    private function buildClickConversion(ConversionType $type, GoogleConversionUploadDTO $data): ClickConversion
+    private function buildClickConversion(ConversionType $type, ConversionUploadDTO $data): ClickConversion
     {
         $actionResourceName = \sprintf(
             'customers/%s/conversionActions/%s',
@@ -49,7 +48,7 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
 
         $conversion = new ClickConversion();
         $conversion->setConversionAction($actionResourceName);
-        $conversion->setGclid($data->gclid);
+        $conversion->setGclid($data->clickId);
         $conversion->setConversionDateTime($data->convertedAt->format('Y-m-d H:i:sP'));
         $conversion->setUserIdentifiers($this->buildUserIdentifiers($data));
 
@@ -64,7 +63,7 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
     /**
      * @return list<UserIdentifier>
      */
-    private function buildUserIdentifiers(GoogleConversionUploadDTO $data): array
+    private function buildUserIdentifiers(ConversionUploadDTO $data): array
     {
         $userIdentifiers = [
             ...$this->buildEmailIdentifier($data),
@@ -79,7 +78,7 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
     /**
      * @return list<UserIdentifier>
      */
-    private function buildEmailIdentifier(GoogleConversionUploadDTO $data): array
+    private function buildEmailIdentifier(ConversionUploadDTO $data): array
     {
         if ($data->email === null) {
             return [];
@@ -94,7 +93,7 @@ final readonly class GoogleAdsConversionService implements GoogleAdsConversionIn
     /**
      * @return list<UserIdentifier>
      */
-    private function buildPhoneIdentifier(GoogleConversionUploadDTO $data): array
+    private function buildPhoneIdentifier(ConversionUploadDTO $data): array
     {
         if ($data->phone === null) {
             return [];

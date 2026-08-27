@@ -436,7 +436,7 @@ php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000
 
 ### Getting Help
 
-1. Check Laravel Octane docs: https://laravel.com/docs/12.x/octane
+1. Check Laravel Octane docs: https://laravel.com/docs/13.x/octane
 2. Review this troubleshooting guide
 3. Search issue tracker: https://github.com/laravel/octane/issues
 4. Check Swoole docs: https://www.swoole.co.uk/

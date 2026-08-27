@@ -55,25 +55,6 @@ final class EloquentCategoryRepository extends AbstractEloquentRepository implem
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findAll(): array
-    {
-        return $this->eloquentGateway->query(static fn(): array => \array_values(
-            CategoryModel::query()
-                ->orderBy('sort_order')
-                ->orderBy('title')
-                ->get()
-                ->map(static fn(CategoryModel $model): Category => $model->toDomain())
-                ->all(),
-        ));
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
     public function saveFromWebhook(Category $category, array $presentEmbeds = []): void
     {
         $attributes = CategoryModel::fromDomainAttributes($category);

@@ -11,15 +11,21 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Override;
 use Psr\Log\LoggerInterface;
 
-final readonly class SyncShippingOptionsFiltersUseCase
+/**
+ * @extends AbstractDriftSyncUseCase<ProductFilterChangeCommand>
+ */
+final readonly class SyncShippingOptionsFiltersUseCase extends AbstractDriftSyncUseCase
 {
     public function __construct(
         private ShippingOptionsFilterQueryRepositoryInterface $shippingOptionsFilterRepo,
         private CatalogSyncDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
-    ) {}
+        LoggerInterface $logger,
+    ) {
+        parent::__construct($logger);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
@@ -29,32 +35,30 @@ final readonly class SyncShippingOptionsFiltersUseCase
      */
     public function execute(): void
     {
-        $this->logger->info('SyncShippingOptionsFilters: starting');
-
-        $changes = $this->shippingOptionsFilterRepo->getProductsWithChangedShippingOptionsFilters();
-
-        if ($changes === []) {
-            $this->logger->info('SyncShippingOptionsFilters: no products with changed Shipping Options filters');
-
-            return;
-        }
-
-        $this->dispatchAll($changes);
-
-        $this->logger->info('SyncShippingOptionsFilters: dispatched Shipping Options filter updates', [
-            'count' => \count($changes),
-        ]);
+        $this->process();
     }
 
-    /** @param list<ProductFilterChangeCommand> $changes */
-    private function dispatchAll(array $changes): void
+    /** @return list<ProductFilterChangeCommand> */
+    #[Override]
+    protected function fetchDrift(): array
     {
-        foreach ($changes as $change) {
-            $this->dispatcher->dispatchFilterUpdate(
-                $change->productId,
-                $change->optionNo,
-                $change->filterValuesForDispatch(),
-            );
-        }
+        return $this->shippingOptionsFilterRepo->getProductsWithChangedShippingOptionsFilters();
+    }
+
+    #[Override]
+    protected function dispatchOne(object $item): void
+    {
+        /** @var ProductFilterChangeCommand $item */
+        $this->dispatcher->dispatchFilterUpdate(
+            $item->productId,
+            $item->optionNo,
+            $item->filterValuesForDispatch(),
+        );
+    }
+
+    #[Override]
+    protected function syncName(): string
+    {
+        return 'SyncShippingOptionsFilters';
     }
 }

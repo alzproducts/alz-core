@@ -11,21 +11,21 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use Override;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrate hourly sync of product rating filters to ShopWired.
- *
- * Queries the SQL view for products whose rating filter values have changed,
- * then dispatches one per-entity job per product to apply the update.
+ * @extends AbstractDriftSyncUseCase<ProductFilterChangeCommand>
  */
-final readonly class SyncRatingFiltersUseCase
+final readonly class SyncRatingFiltersUseCase extends AbstractDriftSyncUseCase
 {
     public function __construct(
         private RatingFilterQueryRepositoryInterface $ratingFilterRepo,
         private CatalogSyncDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
-    ) {}
+        LoggerInterface $logger,
+    ) {
+        parent::__construct($logger);
+    }
 
     /**
      * @throws DatabaseOperationFailedException
@@ -35,32 +35,30 @@ final readonly class SyncRatingFiltersUseCase
      */
     public function execute(): void
     {
-        $this->logger->info('SyncRatingFilters: starting');
-
-        $changes = $this->ratingFilterRepo->getProductsWithChangedRatingFilters();
-
-        if ($changes === []) {
-            $this->logger->info('SyncRatingFilters: no products with changed rating filters');
-
-            return;
-        }
-
-        $this->dispatchAll($changes);
-
-        $this->logger->info('SyncRatingFilters: dispatched rating filter updates', [
-            'count' => \count($changes),
-        ]);
+        $this->process();
     }
 
-    /** @param list<ProductFilterChangeCommand> $changes */
-    private function dispatchAll(array $changes): void
+    /** @return list<ProductFilterChangeCommand> */
+    #[Override]
+    protected function fetchDrift(): array
     {
-        foreach ($changes as $change) {
-            $this->dispatcher->dispatchFilterUpdate(
-                $change->productId,
-                $change->optionNo,
-                $change->filterValuesForDispatch(),
-            );
-        }
+        return $this->ratingFilterRepo->getProductsWithChangedRatingFilters();
+    }
+
+    #[Override]
+    protected function dispatchOne(object $item): void
+    {
+        /** @var ProductFilterChangeCommand $item */
+        $this->dispatcher->dispatchFilterUpdate(
+            $item->productId,
+            $item->optionNo,
+            $item->filterValuesForDispatch(),
+        );
+    }
+
+    #[Override]
+    protected function syncName(): string
+    {
+        return 'SyncRatingFilters';
     }
 }

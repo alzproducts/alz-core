@@ -6,10 +6,10 @@ namespace App\Infrastructure\GoogleAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\CampaignMetrics;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
-use Google\Ads\GoogleAds\V22\Common\Metrics;
-use Google\Ads\GoogleAds\V22\Common\Segments;
-use Google\Ads\GoogleAds\V22\Resources\Campaign;
-use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
+use Google\Ads\GoogleAds\V25\Common\Metrics;
+use Google\Ads\GoogleAds\V25\Common\Segments;
+use Google\Ads\GoogleAds\V25\Resources\Campaign;
+use Google\Ads\GoogleAds\V25\Services\GoogleAdsRow;
 
 /**
  * Validates and transforms Google Ads API responses into domain value objects.

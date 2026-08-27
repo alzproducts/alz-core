@@ -186,19 +186,32 @@ final class CustomFieldValueFactory implements CustomFieldValueFactoryInterface
             throw InvalidCustomFieldValueException::forMismatch($definition, $value);
         }
 
+        $productIds = [];
+
         foreach ($value as $item) {
-            if (!\is_int($item) || $item <= 0) {
-                throw new InvalidCustomFieldValueException(
-                    fieldName: $definition->base->name,
-                    expectedType: $definition->base->type,
-                    actualType: 'array with invalid product ID: ' . \get_debug_type($item),
-                    rawValue: $value,
-                );
-            }
+            $productIds[] = self::toProductId($definition, $item, $value);
         }
 
-        /** @var list<int> $value */
-        return new ProductListCustomFieldValue($definition, $value);
+        return new ProductListCustomFieldValue($definition, $productIds);
+    }
+
+    /**
+     * @param array<mixed> $rawValue
+     *
+     * @throws InvalidCustomFieldValueException
+     */
+    private static function toProductId(ConfiguredFieldDefinition $definition, mixed $item, array $rawValue): int
+    {
+        if (!\is_int($item) || $item <= 0) {
+            throw new InvalidCustomFieldValueException(
+                fieldName: $definition->base->name,
+                expectedType: $definition->base->type,
+                actualType: 'array with invalid product ID: ' . \get_debug_type($item),
+                rawValue: $rawValue,
+            );
+        }
+
+        return $item;
     }
 
     /**

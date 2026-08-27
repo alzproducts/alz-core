@@ -10,11 +10,16 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
-use Google\Ads\GoogleAds\Lib\V22\GoogleAdsClient as SdkGoogleAdsClient;
-use Google\Ads\GoogleAds\V22\Services\Client\ConversionUploadServiceClient;
-use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
-use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsResponse;
+use Google\Ads\GoogleAds\Lib\V25\GoogleAdsClient as SdkGoogleAdsClient;
+use Google\Ads\GoogleAds\V25\Errors\ConversionUploadErrorEnum\ConversionUploadError;
+use Google\Ads\GoogleAds\V25\Errors\ErrorCode;
+use Google\Ads\GoogleAds\V25\Errors\GoogleAdsError;
+use Google\Ads\GoogleAds\V25\Errors\GoogleAdsFailure;
+use Google\Ads\GoogleAds\V25\Services\Client\ConversionUploadServiceClient;
+use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsRequest;
+use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsResponse;
 use Google\ApiCore\ApiException;
+use Google\Protobuf\Any;
 use Google\Rpc\Code;
 use Google\Rpc\Status;
 use Illuminate\Support\Facades\Log;
@@ -181,6 +186,84 @@ final class GoogleAdsConversionTransportTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+    }
+
+    #[Test]
+    public function it_appends_decoded_error_code_names_to_the_partial_failure_detail(): void
+    {
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError(
+            self::statusWithPackedFailure('Errors in mutate operation.', ConversionUploadError::UNPARSEABLE_GCLID),
+        );
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Errors in mutate operation. [UNPARSEABLE_GCLID]', $e->detail);
+        }
+    }
+
+    #[Test]
+    public function it_degrades_to_the_status_message_when_the_details_cannot_be_decoded(): void
+    {
+        $undecodable = new Any();
+        $undecodable->setTypeUrl('type.googleapis.com/not.a.registered.Message');
+        $undecodable->setValue('not-a-protobuf');
+
+        $status = new Status();
+        $status->setCode(3);
+        $status->setMessage('Errors in mutate operation.');
+        $status->setDetails([$undecodable]);
+
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError($status);
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')->once();
+
+        try {
+            $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Errors in mutate operation.', $e->detail);
+        }
+    }
+
+    /**
+     * Build the real partial-failure shape: a Status whose details carry a packed
+     * GoogleAdsFailure, exactly as the API returns it.
+     */
+    private static function statusWithPackedFailure(string $message, int $conversionUploadError): Status
+    {
+        $errorCode = new ErrorCode();
+        $errorCode->setConversionUploadError($conversionUploadError);
+
+        $error = new GoogleAdsError();
+        $error->setErrorCode($errorCode);
+        $error->setMessage('The click ID is invalid.');
+
+        $failure = new GoogleAdsFailure();
+        $failure->setErrors([$error]);
+
+        $any = new Any();
+        $any->pack($failure);
+
+        $status = new Status();
+        $status->setCode(3);
+        $status->setMessage($message);
+        $status->setDetails([$any]);
+
+        return $status;
     }
 
     /**

@@ -25,16 +25,6 @@ use App\Domain\ValueObjects\PaginatedList;
 interface BrandRepositoryInterface extends RepositoryWriteInterface
 {
     /**
-     * Get all brands, ordered by sort_order.
-     *
-     * @return list<Brand>
-     *
-     * @throws DatabaseOperationFailedException On query failure
-     * @throws ExternalServiceUnavailableException When database temporarily unavailable
-     */
-    public function findAll(): array;
-
-    /**
      * Upsert a brand from webhook data.
      *
      * When $presentEmbeds is non-empty, only persists embed columns that were

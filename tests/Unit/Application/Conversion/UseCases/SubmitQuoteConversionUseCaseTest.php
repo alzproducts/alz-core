@@ -6,18 +6,21 @@ namespace Tests\Unit\Application\Conversion\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
+use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
 use App\Application\Conversion\Commands\QuoteConversionCommand;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Application\Conversion\Enums\AdPlatform;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Application\Conversion\UseCases\SubmitQuoteConversionUseCase;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\Enums\ContactReason;
 use App\Domain\ContactSubmission\ValueObjects\ConsentStatus;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
-use App\Domain\ContactSubmission\ValueObjects\Gclid;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -32,16 +35,19 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /**
- * Covers the four status-code branches of SubmitQuoteConversionUseCase::execute():
+ * Covers SubmitQuoteConversionUseCase::execute() under the adapter seam (COR-207).
+ * Only Google supports quote conversions; Bing does not:
  * - 404 when the submission row is missing
- * - 422 when the submission has no gclid
+ * - 422 when the submission has neither gclid nor msclkid
+ * - graceful skip (zero rows, no dispatch, no throw) when the only click ID is
+ *   msclkid — Bing cannot receive a quote
  * - 422 when there's no completed LeadReceived action
  * - 409 when a quote action already exists for the submission
- * - 202 happy path (command unwrap + dispatch)
+ * - 202 happy path (gclid → one Google dispatch)
+ * - both click IDs → Google dispatched once, Bing skipped
  *
- * These are the branches the project's TestingStrategy flags as worth covering
- * in the Application layer ("business workflow branches, orchestration decisions,
- * error handling paths").
+ * The resolver is a REAL {@see AdPlatformAdapterResolverService} wrapping fake
+ * in-memory adapters; the dispatcher, repositories remain mocks.
  */
 #[CoversNothing]
 final class SubmitQuoteConversionUseCaseTest extends TestCase
@@ -62,6 +68,8 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
 
     private const string GCLID = 'CjwKCAjwTestGclid12345';
 
+    private const string MSCLKID = 'cdd4afcccb1c9a4cad9544dd7e5006d5-1';
+
     private const float VALUE = 149.99;
 
     private const string CONVERTED_AT = '2026-05-18T10:00:00+00:00';
@@ -80,6 +88,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             submissionRepository: $this->submissionRepository,
             actionRepository: $this->actionRepository,
             dispatcher: $this->dispatcher,
+            adapterResolver: $this->buildResolver(),
             logger: $this->logger,
         );
     }
@@ -128,23 +137,25 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function execute_accepts_msclkid_only_submission_and_dispatches_with_google_platform(): void
+    public function execute_skips_msclkid_only_submission_without_dispatch_or_throw(): void
     {
         $this->submissionRepository->expects('findById')
             ->with(self::SUBMISSION_ID)
-            ->andReturn($this->makeSubmission(gclid: null, msclkid: 'cdd4afcccb1c9a4cad9544dd7e5006d5-1'));
+            ->andReturn($this->makeSubmission(gclid: null, msclkid: self::MSCLKID));
 
-        $this->actionRepository->expects('hasCompletedAction')
-            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
-            ->andReturn(true);
+        $errorLogged = false;
+        $this->logger->expects('error')->once()
+            ->andReturnUsing(static function () use (&$errorLogged): void {
+                $errorLogged = true;
+            });
 
-        $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
-            ->andReturn(self::ACTION_ID);
-
-        $this->dispatcher->expects('dispatchQuoteConversion');
+        $this->actionRepository->shouldNotReceive('hasCompletedAction');
+        $this->actionRepository->shouldNotReceive('create');
+        $this->dispatcher->shouldNotReceive('dispatchQuoteConversion');
 
         $this->useCase->execute(self::SUBMISSION_ID, self::VALUE, self::CONVERTED_AT);
+
+        self::assertTrue($errorLogged, 'expected a graceful-skip error log when no platform supports the quote');
     }
 
     #[Test]
@@ -224,6 +235,78 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
         self::assertSame(self::ACTION_ID, $captured->actionId->value);
         self::assertSame(self::VALUE, $captured->value->toNet());
         self::assertSame(self::CONVERTED_AT, $captured->convertedAt->format(DateTimeInterface::ATOM));
+        self::assertSame(AdPlatform::Google, $captured->platform);
+    }
+
+    #[Test]
+    public function execute_dispatches_only_google_and_skips_bing_when_both_click_ids_present(): void
+    {
+        $this->submissionRepository->expects('findById')
+            ->with(self::SUBMISSION_ID)
+            ->andReturn($this->makeSubmission(gclid: self::GCLID, msclkid: self::MSCLKID));
+
+        $this->actionRepository->expects('hasCompletedAction')
+            ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
+            ->andReturn(true);
+
+        $this->actionRepository->expects('create')
+            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
+            ->andReturn(self::ACTION_ID);
+
+        $captured = null;
+        $this->dispatcher->expects('dispatchQuoteConversion')
+            ->once()
+            ->andReturnUsing(static function (QuoteConversionCommand $cmd) use (&$captured): void {
+                $captured = $cmd;
+            });
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::VALUE, self::CONVERTED_AT);
+
+        self::assertNotNull($captured);
+        self::assertSame(AdPlatform::Google, $captured->platform);
+    }
+
+    private function buildResolver(): AdPlatformAdapterResolverService
+    {
+        $google = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Google;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return true;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->gclid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        $bing = new class implements AdPlatformConversionAdapterInterface {
+            public function platform(): AdPlatform
+            {
+                return AdPlatform::Bing;
+            }
+
+            public function supports(ConversionType $type): bool
+            {
+                return $type === ConversionType::LeadReceived;
+            }
+
+            public function extractClickId(MarketingAttribution $attribution): ?string
+            {
+                return $attribution->msclkid;
+            }
+
+            public function upload(ConversionType $type, ConversionUploadDTO $data): void {}
+        };
+
+        return new AdPlatformAdapterResolverService([$google, $bing]);
     }
 
     private function makeSubmission(?string $gclid, ?string $msclkid): ContactSubmission

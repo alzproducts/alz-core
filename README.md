@@ -104,7 +104,7 @@ Test writing was the only area of the codebase fully delegated to AI tooling. Ar
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Language | PHP 8.4 | Strict types, readonly properties, enums |
-| Framework | Laravel 12 | Octane (Swoole) for HTTP serving |
+| Framework | Laravel 13 | Octane (Swoole) for HTTP serving |
 | Database | PostgreSQL | Via Supabase; schema-qualified tables enforced by custom PHPStan rule |
 | Queue | Redis + Laravel Horizon | 5 priority tiers, 3 Railway services (web, worker, scheduler) |
 | Static Analysis | PHPStan max + bleeding edge | Larastan, shipmonk-rules, strict-rules, disallowed-calls, cognitive-complexity, type-coverage |

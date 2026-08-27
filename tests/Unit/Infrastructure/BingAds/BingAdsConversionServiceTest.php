@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\BingAds;
 
-use App\Application\Conversion\BingConversionUploadDTO;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -63,8 +63,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -80,8 +80,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -97,8 +97,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 11:30:45+01:00'),
             ),
@@ -114,8 +114,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: '  User.Name+alias@Gmail.COM  ',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -132,8 +132,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: '07911 123456',
@@ -150,8 +150,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: null,
@@ -168,8 +168,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: 'not-a-phone-number',
@@ -186,8 +186,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: null,
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: '07911 123456',
@@ -207,8 +207,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: '',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: '07911 123456',
@@ -221,8 +221,8 @@ final class BingAdsConversionServiceTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new BingConversionUploadDTO(
-            msclkid: 'msclk_abc123',
+        new ConversionUploadDTO(
+            clickId: 'msclk_abc123',
             email: null,
             convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             phone: null,
@@ -238,8 +238,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: null,
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 phone: 'not-a-phone-number',
@@ -254,8 +254,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: Money::exclusive(150.00, 'GBP'),
@@ -273,8 +273,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -294,8 +294,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::QuoteIssued,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -313,8 +313,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -332,8 +332,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),
@@ -351,8 +351,8 @@ final class BingAdsConversionServiceTest extends TestCase
 
         $this->service->uploadOfflineConversion(
             ConversionType::LeadReceived,
-            new BingConversionUploadDTO(
-                msclkid: 'msclk_abc123',
+            new ConversionUploadDTO(
+                clickId: 'msclk_abc123',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             ),

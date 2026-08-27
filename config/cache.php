@@ -2,6 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Domain\CustomerService\ValueObjects\Conversation;
+use App\Domain\CustomerService\ValueObjects\ConversationAssignee;
+use App\Domain\CustomerService\ValueObjects\ConversationCustomer;
+use App\Domain\CustomerService\ValueObjects\ConversationSnooze;
+use App\Domain\CustomerService\ValueObjects\ConversationTag;
+use App\Domain\CustomerService\ValueObjects\EscalationsConfig;
+use App\Domain\CustomerService\ValueObjects\Mailbox;
+use App\Domain\CustomerService\ValueObjects\SupportAgent;
+use App\Infrastructure\BingAds\BingAdsSession;
+use App\Infrastructure\Linnworks\LinnworksSession;
 use Illuminate\Support\Str;
 
 return [
@@ -72,5 +82,35 @@ return [
     */
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')) . '-cache-'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Serializable Classes
+    |--------------------------------------------------------------------------
+    |
+    | Allow-list passed to unserialize(allowed_classes:) by every serializing
+    | store. The list is global — it must cover every class any cache writer
+    | stores, nested ones included. An omitted class is not reported at write
+    | time: it comes back as __PHP_Incomplete_Class and fails only on read.
+    |
+    | Guarded by tests/Feature/Infrastructure/Cache/SerializableClassesRoundTripTest.php
+    |
+    */
+
+    'serializable_classes' => [
+        // Root cached objects
+        BingAdsSession::class,
+        LinnworksSession::class,
+        SupportAgent::class,
+        EscalationsConfig::class,
+        Conversation::class,
+        Mailbox::class,
+        // Nested inside the roots' serialized payloads — the allow-list filters these too
+        DateTimeImmutable::class,
+        ConversationSnooze::class,
+        ConversationTag::class,
+        ConversationCustomer::class,
+        ConversationAssignee::class,
+    ],
 
 ];

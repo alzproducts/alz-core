@@ -1,5 +1,15 @@
+# Codex project config for alz-core.
+# Keep MCP servers in sync with .mcp.json (Claude side) per ~/.agents/GLOBAL.md
+# "Keeping settings synced across agents & harnesses".
+#
+# API_BYPASS_SECRET deliberately does NOT live here (this file is git-tracked and
+# Codex TOML has no untracked-override or ${VAR} layer). The single untracked source
+# for both harnesses is .claude/settings.local.json — resolve it per the Settings
+# Vars convention in ~/.agents/GLOBAL.md.
+
+[mcp_servers.railway]
+command = "railway"
+args = ["mcp"]
+
 [shell_environment_policy]
 inherit = "core"
-
-[shell_environment_policy.set]
-API_BYPASS_SECRET = "d9810b4aa681ea959abc0ae1b0ca1b7a"

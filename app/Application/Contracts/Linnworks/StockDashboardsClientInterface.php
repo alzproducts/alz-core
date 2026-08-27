@@ -29,23 +29,6 @@ use DateTimeImmutable;
 interface StockDashboardsClientInterface
 {
     /**
-     * Find stock items by SKU, including soft-deleted items.
-     *
-     * Unlike GetStockItemIdsBySKU, this query returns ALL matching items
-     * regardless of deletion status. This is critical for detecting SKU
-     * collisions before AddInventoryItem (which silently fails on soft-deleted SKUs).
-     *
-     * @param list<string> $skus SKUs to look up
-     *
-     * @return array<string, Guid> SKU => stockItemId (only SKUs that exist)
-     *
-     * @throws InvalidApiResponseException When query fails or response malformed
-     * @throws AuthenticationExpiredException When credentials invalid
-     * @throws ExternalServiceUnavailableException When API unavailable
-     */
-    public function findStockItemsBySku(array $skus): array;
-
-    /**
      * Fetch all stock levels from Linnworks.
      *
      * @return list<ItemStockLevel>

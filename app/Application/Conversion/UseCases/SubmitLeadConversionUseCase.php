@@ -12,8 +12,10 @@ use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Conversion\Commands\LeadConversionCommand;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\PotentialConversion\Commands\UpsertAnnotationCommand;
+use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Domain\ContactSubmission\Enums\ActionType;
 use App\Domain\ContactSubmission\ValueObjects\MarketingAttribution;
+use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -39,6 +41,7 @@ final readonly class SubmitLeadConversionUseCase
         private PotentialConversionAnnotationRepositoryInterface $annotationRepository,
         private DatabaseGatewayInterface $database,
         private ConversionDispatcherInterface $dispatcher,
+        private AdPlatformAdapterResolverService $adapterResolver,
         private LoggerInterface $logger,
     ) {}
 
@@ -53,19 +56,37 @@ final readonly class SubmitLeadConversionUseCase
     public function execute(Uuid $submissionId, bool $isPotentialQuote): void
     {
         $id = $submissionId->value;
-        $this->logger->info('Submitting lead conversion', [
-            'submission_id' => $id,
-            'is_potential_quote' => $isPotentialQuote,
-        ]);
+        $this->logSubmitting($id, $isPotentialQuote);
 
         $submission = $this->submissionRepository->findById($id);
-        $platforms = self::resolveEligiblePlatforms($submission->attribution);
+
+        $platforms = $this->eligiblePlatformsToDispatch($submission->attribution, ['submission_id' => $id]);
+        if ($platforms === []) {
+            return;
+        }
+
         $actionIds = $this->writeActionsAndAnnotation($id, $isPotentialQuote, $platforms);
 
-        $this->dispatchPerPlatform($submissionId, $actionIds);
+        $this->dispatchPerPlatform($submissionId, $platforms, $actionIds);
 
+        $this->logDispatched($id, $actionIds);
+    }
+
+    private function logSubmitting(string $submissionId, bool $isPotentialQuote): void
+    {
+        $this->logger->info('Submitting lead conversion', [
+            'submission_id' => $submissionId,
+            'is_potential_quote' => $isPotentialQuote,
+        ]);
+    }
+
+    /**
+     * @param array<value-of<AdPlatform>, string> $actionIds
+     */
+    private function logDispatched(string $submissionId, array $actionIds): void
+    {
         $this->logger->info('Lead conversion dispatched', [
-            'submission_id' => $id,
+            'submission_id' => $submissionId,
             'action_ids' => $actionIds,
             'platforms' => \array_keys($actionIds),
         ]);
@@ -103,42 +124,54 @@ final readonly class SubmitLeadConversionUseCase
     }
 
     /**
+     * @param list<AdPlatform>                    $platforms
      * @param array<value-of<AdPlatform>, string> $actionIds
      */
-    private function dispatchPerPlatform(Uuid $submissionId, array $actionIds): void
+    private function dispatchPerPlatform(Uuid $submissionId, array $platforms, array $actionIds): void
     {
-        if (isset($actionIds[AdPlatform::Google->value])) {
-            $this->dispatcher->dispatchLeadConversion(
-                new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Google->value])),
-            );
-        }
+        foreach ($platforms as $platform) {
+            $actionId = $actionIds[$platform->value] ?? null;
+            if ($actionId === null) {
+                continue;
+            }
 
-        if (isset($actionIds[AdPlatform::Bing->value])) {
-            $this->dispatcher->dispatchBingLeadConversion(
-                new LeadConversionCommand($submissionId, Uuid::fromTrusted($actionIds[AdPlatform::Bing->value])),
-            );
+            $this->dispatcher->dispatchLeadConversion(new LeadConversionCommand(
+                $submissionId,
+                Uuid::fromTrusted($actionId),
+                $platform,
+            ));
         }
     }
 
     /**
-     * @return list<AdPlatform>
+     * Platforms an upload can actually be attempted on, resolved through the
+     * adapter seam. Distinguishes a hard data error (no click ID at all) from a
+     * graceful skip (a click ID whose platform cannot receive this conversion).
      *
-     * @throws InsufficientDataException When neither gclid nor msclkid is present
+     * @param array<string, mixed> $logContext
+     *
+     * @return list<AdPlatform> empty means nothing to dispatch (already logged)
+     *
+     * @throws InsufficientDataException When no ad-platform click ID is present at all
      */
-    private static function resolveEligiblePlatforms(MarketingAttribution $attribution): array
+    private function eligiblePlatformsToDispatch(MarketingAttribution $attribution, array $logContext): array
     {
-        $platforms = [];
-        if ($attribution->gclid !== null) {
-            $platforms[] = AdPlatform::Google;
-        }
-        if ($attribution->msclkid !== null) {
-            $platforms[] = AdPlatform::Bing;
-        }
-
-        if ($platforms === []) {
+        $withClickId = $this->adapterResolver->platformsWithClickId($attribution);
+        if ($withClickId === []) {
             throw new InsufficientDataException('ContactSubmission', 'a gclid or msclkid for conversion tracking');
         }
 
-        return $platforms;
+        $eligible = $this->adapterResolver->eligiblePlatforms(ConversionType::LeadReceived, $attribution);
+        if ($eligible === []) {
+            $this->logger->error('No ad platform supports this conversion — skipping upload', $logContext);
+
+            return [];
+        }
+
+        if (\count($eligible) < \count($withClickId)) {
+            $this->logger->info('Some ad platforms with a click ID do not support this conversion — skipping them', $logContext);
+        }
+
+        return $eligible;
     }
 }

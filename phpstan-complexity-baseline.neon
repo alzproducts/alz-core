@@ -644,7 +644,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Method fromRawFilters() is 26 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
+			rawMessage: 'Method fromRawFilters() is 24 lines long — exceeds the 20-line limit. Break it into smaller, focused methods.'
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Factories/ProductFilterFactory.php
@@ -716,7 +716,7 @@ parameters:
 
 
 		-
-			rawMessage: 'Class EloquentProductRepository is 953 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
+			rawMessage: 'Class EloquentProductRepository is 928 lines long — exceeds the 500-line limit. Consider decomposing into smaller, focused classes.'
 			identifier: alz.excessiveClassLength
 			count: 1
 			path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
@@ -843,13 +843,6 @@ parameters:
 			identifier: alz.excessiveMethodLength
 			count: 1
 			path: app/Presentation/Console/Commands/GenerateVariantSkusCommand.php
-
-
-		-
-			message: '#Class ShopwiredAuditOrderSyncCommand is \d+ lines long#'
-			identifier: alz.excessiveClassLength
-			count: 1
-			path: app/Presentation/Console/Commands/Shopwired/ShopwiredAuditOrderSyncCommand.php
 
 
 		-

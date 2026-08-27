@@ -26,9 +26,6 @@ use Webmozart\Assert\Assert;
  * in ShopWired. Active purchasable variants should always have SKUs.
  * See docs/known-issues.md "Product Variations with Missing SKUs".
  *
- * NOTE: Does not implement BasicProductInterface due to nullable price semantics.
- * See docs/known-issues.md "BasicProductInterface and ProductVariation".
- *
  * @see https://shopwired.readme.io/reference/getproduct
  */
 final readonly class ProductVariation

@@ -186,7 +186,7 @@ final readonly class ProductClient implements ProductClientInterface
      * @throws ExternalServiceUnavailableException When API unavailable or connection fails
      * @throws InvalidApiResponseException When response parsing fails (API contract violation)
      */
-    public function getProductCount(): int
+    private function getProductCount(): int
     {
         $response = $this->transport->get(self::ENDPOINT_PRODUCTS . '/count');
 

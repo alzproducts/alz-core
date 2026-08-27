@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\GoogleAds;
 
-use App\Application\Conversion\GoogleConversionUploadDTO;
+use App\Application\Conversion\ConversionUploadDTO;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -16,8 +16,8 @@ use App\Infrastructure\GoogleAds\GoogleAdsConversionService;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
 use App\Infrastructure\Phone\PhoneNormalisationService;
 use DateTimeImmutable;
-use Google\Ads\GoogleAds\V22\Services\ClickConversion;
-use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
+use Google\Ads\GoogleAds\V25\Services\ClickConversion;
+use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsRequest;
 use InvalidArgumentException;
 use Mockery;
 use Mockery\MockInterface;
@@ -64,8 +64,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKCAjw1234567890abcdef',
+            new ConversionUploadDTO(
+                clickId: 'CjwKCAjw1234567890abcdef',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -83,8 +83,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -105,8 +105,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: '  USER@Example.COM  ',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -126,8 +126,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::QuoteIssued,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: Money::exclusive(100.00, 'GBP'),
@@ -146,8 +146,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::QuoteIssued,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: Money::inclusive(120.00, 'GBP'),
@@ -164,8 +164,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -184,8 +184,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:45+01:00'),
                 value: null,
@@ -205,8 +205,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -223,8 +223,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -241,8 +241,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -262,8 +262,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::QuoteIssued,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -285,8 +285,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: '',
+            new ConversionUploadDTO(
+                clickId: '',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -303,8 +303,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: '',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -318,8 +318,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new GoogleConversionUploadDTO(
-            gclid: 'CjwKgclid',
+        new ConversionUploadDTO(
+            clickId: 'CjwKgclid',
             email: null,
             convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
             value: null,
@@ -334,8 +334,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: null,
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -357,8 +357,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: null,
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -378,8 +378,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -398,8 +398,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -418,8 +418,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -434,8 +434,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -456,8 +456,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,
@@ -476,8 +476,8 @@ final class GoogleAdsConversionServiceTest extends TestCase
 
         $this->service->uploadConversion(
             ConversionType::LeadReceived,
-            new GoogleConversionUploadDTO(
-                gclid: 'CjwKgclid',
+            new ConversionUploadDTO(
+                clickId: 'CjwKgclid',
                 email: 'user@example.com',
                 convertedAt: new DateTimeImmutable('2026-05-16 10:30:00+00:00'),
                 value: null,

@@ -1,0 +1,104 @@
+name: Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write   # claude-code-action exchanges a GitHub OIDC token to authenticate
+
+jobs:
+  # Detect what changed — skip the review on docs-only PRs (mirrors ci.yml).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Shared with ci.yml — see .github/filters.yml
+          filters: .github/filters.yml
+
+  review:
+    name: Claude review (informational)
+    needs: changes
+    if: ${{ !github.event.pull_request.draft && needs.changes.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          # Full history: the skill diffs against the base branch, which a
+          # depth-1 checkout does not contain.
+          fetch-depth: 0
+
+      - name: Fetch agents repo (skill source)
+        uses: actions/checkout@v4
+        with:
+          repository: tom-murray-dev/agents
+          # develop is the agents repo's trunk; main is rarely released to.
+          # The fetched SHA is logged in every PR comment for traceability.
+          ref: develop
+          token: ${{ secrets.AGENTS_REPO_TOKEN }}
+          path: agents-src
+
+      - name: Install review-code skill
+        id: skill
+        run: |
+          echo "agents_sha=$(git -C agents-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          mkdir -p "$HOME/.claude/skills" "$HOME/.agents/references"
+          cp -R agents-src/skills/review-code "$HOME/.claude/skills/review-code"
+          # The skill references this absolute path.
+          cp agents-src/references/review-severity.md "$HOME/.agents/references/review-severity.md"
+          # Keep the agents checkout out of the review scope.
+          rm -rf agents-src
+
+      - name: Run review-code --ci
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # --model opus: alias resolves to the latest Opus, so the reviewer
+          # tracks new Opus releases without a version bump here.
+          claude_args: --model opus --allowedTools "Bash,Read,Write,Skill,Task,Grep,Glob,TodoWrite"
+          prompt: |
+            Run the review-code skill in CI gate mode for this pull request.
+
+            Invoke: /review-code --ci ${{ github.event.pull_request.number }}
+            Base branch: ${{ github.event.pull_request.base.ref }}
+            Agents-repo SHA the review-code skill was fetched at: ${{ steps.skill.outputs.agents_sha }} — include it in the PR comment.
+
+            If the review-code skill or the built-in code-review engine is
+            unavailable, post a clearly marked failure comment on the PR
+            (gh pr comment) and stop without writing a verdict file.
+
+      - name: Verdict to job summary
+        if: always()
+        run: |
+          if [ -f tmp/review-gate-verdict.json ]; then
+            {
+              echo "## Review gate verdict"
+              echo '```json'
+              cat tmp/review-gate-verdict.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Review gate: no verdict file — engine abort or skill failure, see the PR comment" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # ─── INFORMATIONAL PHASE: always green ─────────────────────────
+          # To enforce the gate, replace 'exit 0' with:
+          #   jq -e '.verdict == "pass"' tmp/review-gate-verdict.json >/dev/null
+          exit 0

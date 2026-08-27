@@ -73,6 +73,7 @@ install: ## First-time project setup
 		docker run --rm -u "$$(id -u):$$(id -g)" \
 			-v "$$(pwd):/var/www/html" \
 			-w /var/www/html \
+			-e REDIS_CLIENT=predis \
 			"$(COMPOSER_IMAGE)" \
 			composer install --ignore-platform-reqs || exit 1; \
 	fi

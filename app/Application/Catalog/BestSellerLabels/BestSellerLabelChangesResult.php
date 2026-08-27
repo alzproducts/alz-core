@@ -16,9 +16,4 @@ final readonly class BestSellerLabelChangesResult
         public array $toAdd,
         public array $toRemove,
     ) {}
-
-    public function hasChanges(): bool
-    {
-        return $this->toAdd !== [] || $this->toRemove !== [];
-    }
 }

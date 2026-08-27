@@ -879,7 +879,7 @@ RUN pecl install swoole-5.1.4 && docker-php-ext-enable swoole
 
 ### Documentation
 
-- [Laravel Octane Documentation](https://laravel.com/docs/12.x/octane)
+- [Laravel Octane Documentation](https://laravel.com/docs/13.x/octane)
 - [Swoole Documentation](https://www.swoole.co.uk/docs/)
 - [Railway Docker Deployment](https://docs.railway.app/deploy/dockerfiles)
 - [Docker Multi-Stage Builds](https://docs.docker.com/build/building/multi-stage/)

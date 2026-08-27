@@ -89,25 +89,6 @@ final class EloquentCustomFieldRepository extends AbstractEloquentRepository imp
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function findByName(string $name): ?ConfiguredFieldDefinition
-    {
-        return $this->eloquentGateway->query(static function () use ($name): ?ConfiguredFieldDefinition {
-            $model = CustomFieldDefinitionModel::query()
-                ->with(self::SETTINGS_RELATIONS)
-                ->where('name', $name)
-                ->first();
-
-            return $model?->toConfiguredDomain();
-        });
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
     public function findByItemType(CustomFieldItemType $itemType): array
     {
         return $this->eloquentGateway->query(static fn(): array => \array_values(

@@ -70,19 +70,6 @@ interface ProductClientInterface
     public function getProductById(int $id): Product;
 
     /**
-     * Get the total count of products.
-     *
-     * Useful for progress tracking during sync operations.
-     *
-     * @throws InvalidApiRequestException When request parameters are invalid (400)
-     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
-     * @throws ResourceNotAvailableException When resource not found (404)
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiResponseException When response parsing fails (API contract violation)
-     */
-    public function getProductCount(): int;
-
-    /**
      * Get all product external IDs (lightweight).
      *
      * Returns only the ShopWired product IDs without full product data.

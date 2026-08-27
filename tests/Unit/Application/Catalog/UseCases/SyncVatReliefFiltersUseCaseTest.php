@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\Catalog\UseCases;
 
 use App\Application\Catalog\Commands\ProductFilterChangeCommand;
+use App\Application\Catalog\UseCases\AbstractDriftSyncUseCase;
 use App\Application\Catalog\UseCases\SyncVatReliefFiltersUseCase;
 use App\Application\Contracts\Catalog\CatalogSyncDispatcherInterface;
 use App\Application\Contracts\Catalog\VatReliefFilterQueryRepositoryInterface;
@@ -18,6 +19,7 @@ use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(SyncVatReliefFiltersUseCase::class)]
+#[CoversClass(AbstractDriftSyncUseCase::class)]
 final class SyncVatReliefFiltersUseCaseTest extends TestCase
 {
     private VatReliefFilterQueryRepositoryInterface&MockInterface $vatReliefFilterRepo;
@@ -43,14 +45,8 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Empty Changes Branch
-    |--------------------------------------------------------------------------
-    */
-
     #[Test]
-    public function execute_logs_starting_and_no_changes_when_no_products_with_changed_filters(): void
+    public function execute_logs_and_returns_early_when_no_drift_detected(): void
     {
         $this->vatReliefFilterRepo
             ->shouldReceive('getProductsWithChangedVatReliefFilters')
@@ -59,22 +55,16 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: starting');
+            ->with('SyncVatReliefFilters: checking for drift');
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: no products with changed VAT-relief filters');
+            ->with('SyncVatReliefFilters: no drift detected');
 
         $this->dispatcher->shouldNotReceive('dispatchFilterUpdate');
 
         $this->useCase->execute();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Successful Dispatch Branch
-    |--------------------------------------------------------------------------
-    */
 
     #[Test]
     public function execute_dispatches_filter_updates_for_changed_products(): void
@@ -91,7 +81,7 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: starting');
+            ->with('SyncVatReliefFilters: checking for drift');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
@@ -113,16 +103,10 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 2]);
+            ->with('SyncVatReliefFilters: dispatched drift corrections', ['count' => 2]);
 
         $this->useCase->execute();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Filter Removal Branch (empty desired values → null)
-    |--------------------------------------------------------------------------
-    */
 
     #[Test]
     public function execute_dispatches_null_for_products_with_empty_filter_values(): void
@@ -138,7 +122,7 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: starting');
+            ->with('SyncVatReliefFilters: checking for drift');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
@@ -151,16 +135,10 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 1]);
+            ->with('SyncVatReliefFilters: dispatched drift corrections', ['count' => 1]);
 
         $this->useCase->execute();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Mixed Values Branch (add + remove in same batch)
-    |--------------------------------------------------------------------------
-    */
 
     #[Test]
     public function execute_handles_mix_of_add_and_remove_filter_values(): void
@@ -178,7 +156,7 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: starting');
+            ->with('SyncVatReliefFilters: checking for drift');
 
         $this->dispatcher
             ->shouldReceive('dispatchFilterUpdate')
@@ -209,7 +187,7 @@ final class SyncVatReliefFiltersUseCaseTest extends TestCase
 
         $this->logger->shouldReceive('info')
             ->once()
-            ->with('SyncVatReliefFilters: dispatched VAT-relief filter updates', ['count' => 3]);
+            ->with('SyncVatReliefFilters: dispatched drift corrections', ['count' => 3]);
 
         $this->useCase->execute();
     }

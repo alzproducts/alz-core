@@ -39,6 +39,8 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
 {
     use AuthenticatesAsApprovedUser;
 
+    private const string ACTION_SUBMISSION_ID = '11111111-1111-1111-1111-111111111111';
+
     private ListContactSubmissionsByViewUseCase&MockInterface $listByViewUseCase;
 
     private DismissContactSubmissionUseCase&MockInterface $dismissUseCase;
@@ -375,8 +377,6 @@ final class ContactSubmissionDashboardControllerTest extends TestCase
         // and every remaining workflow route on this resource carries a suffix.
         $response->assertStatus(404);
     }
-
-    private const string ACTION_SUBMISSION_ID = '11111111-1111-1111-1111-111111111111';
 
     private static function makeListItem(
         string $id,

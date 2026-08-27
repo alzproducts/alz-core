@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Catalog\UseCases;
 
 use App\Application\Catalog\CustomFieldMergerService;
+use App\Application\Catalog\Services\CustomFieldStalenessRecoveryService;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
 use App\Application\Contracts\Shopwired\BrandRepositoryInterface;
 use App\Domain\Catalog\Brand\Enums\BrandInclude;
@@ -32,6 +33,7 @@ final readonly class GetBrandCustomFieldsUseCase
     public function __construct(
         private BrandRepositoryInterface $brandRepository,
         private CustomFieldRepositoryInterface $customFieldRepository,
+        private CustomFieldStalenessRecoveryService $recovery,
         private LoggerInterface $logger,
     ) {}
 
@@ -48,22 +50,24 @@ final readonly class GetBrandCustomFieldsUseCase
      */
     public function execute(int $brandId, array $fieldNames = []): CustomFieldValueList
     {
-        $this->logStart($brandId, $fieldNames);
+        return $this->recovery->withRecovery(function () use ($brandId, $fieldNames): CustomFieldValueList {
+            $this->logStart($brandId, $fieldNames);
 
-        $brand = $this->brandRepository->findBrandForApi(
-            IntId::from($brandId),
-            [BrandInclude::CustomFields],
-        );
+            $brand = $this->brandRepository->findBrandForApi(
+                IntId::from($brandId),
+                [BrandInclude::CustomFields],
+            );
 
-        $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Brand);
-        $fields = CustomFieldMergerService::mergeWithDefinitions(
-            $brand->customFields ?? CustomFieldValueList::empty(),
-            $definitions,
-        )->withNames($fieldNames);
+            $definitions = $this->customFieldRepository->findByItemType(CustomFieldItemType::Brand);
+            $fields = CustomFieldMergerService::mergeWithDefinitions(
+                $brand->customFields ?? CustomFieldValueList::empty(),
+                $definitions,
+            )->withNames($fieldNames);
 
-        $this->logEnd($brandId, $fields->count());
+            $this->logEnd($brandId, $fields->count());
 
-        return $fields;
+            return $fields;
+        });
     }
 
     /**

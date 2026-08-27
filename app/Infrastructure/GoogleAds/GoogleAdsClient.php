@@ -14,7 +14,7 @@ use App\Domain\ValueObjects\DateRange;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
 use App\Infrastructure\GoogleAds\Transformers\CampaignRowTransformer;
 use App\Infrastructure\GoogleAds\Transformers\GoogleAdsRowTransformer;
-use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
+use Google\Ads\GoogleAds\V25\Services\GoogleAdsRow;
 use Google\ApiCore\PagedListResponse;
 use Google\ApiCore\ValidationException;
 use Illuminate\Support\Facades\Log;

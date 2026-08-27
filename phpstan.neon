@@ -250,6 +250,12 @@ parameters:
                 - app/Infrastructure/Catalog/Product/Models/ProductModel.php
                 - app/Infrastructure/Catalog/Product/Models/ProductVariationModel.php
                 - app/Infrastructure/Shopwired/Models/WebhookEventModel.php
+        # PHPStan can't narrow (string) cast on list iteration keys — infers int|string union
+        # instead of string. The @var on return is correct at runtime.
+        -
+            identifier: varTag.type
+            path: app/Infrastructure/HelpScout/Clients/ConversationsClient.php
+            count: 1
         # Eloquent query builder returns dynamic proxies - static analysis can't track fluent chains.
         # Methods like exists(), whereNotIn() on Builder are instance methods called on static chain.
         # DatabaseManager also proxies to Connection (transaction() call in DatabaseGateway).
@@ -353,7 +359,6 @@ parameters:
                 - app/Infrastructure/Shopwired/Clients/CustomerClient.php
                 - app/Infrastructure/Shopwired/Clients/OrderClient.php
                 - app/Infrastructure/Shopwired/Clients/ProductClient.php
-                - app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
         # Linnworks Query Objects co-locate Row DTOs in same file for cohesion.
         # Each Query contains its internal Row DTO - intentional pattern for self-contained queries.
         -

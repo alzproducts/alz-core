@@ -30,7 +30,7 @@ use Illuminate\Support\Str;
  * Linnworks inventory update operations.
  *
  * Handles SKU updates with flexible identifier resolution:
- * - SKU: Resolved to stockItemId via getStockItemBySku() (extra API call)
+ * - SKU: Resolved to stockItemId via resolveStockItemId() (extra API call)
  * - GUID: Used directly as stockItemId (no resolution, optimal for bulk)
  *
  * @template-pattern Infrastructure API Client

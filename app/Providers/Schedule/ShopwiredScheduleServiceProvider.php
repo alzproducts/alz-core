@@ -12,7 +12,6 @@ use App\Infrastructure\Jobs\Shopwired\ReconcileShopwiredProductsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredBrandsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCategoriesJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomersJob;
-use App\Infrastructure\Jobs\Shopwired\SyncShopwiredCustomFieldsJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredOrdersJob;
 use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductsJob;
 use Carbon\Carbon;
@@ -46,7 +45,6 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
         $this->registerOrderSchedules($skipDuringMonthlySync);
         $this->registerCustomerSchedules($skipDuringMonthlySync);
         $this->registerProductSchedules();
-        $this->registerCustomFieldSchedule();
         $this->registerCategorySchedules();
         $this->registerBrandSchedules();
         $this->registerWebhookHealthSchedule();
@@ -110,23 +108,6 @@ final class ShopwiredScheduleServiceProvider extends ServiceProvider
             ->when(static fn(): bool => Carbon::now('Europe/London')->day <= 7)
             ->onOneServer()
             ->withoutOverlapping(260);
-    }
-
-    /**
-     * ShopWired Custom Field Definitions Sync: hourly sync of schema metadata (~100-150 definitions).
-     *
-     * Custom field definitions describe what custom fields exist for products, categories,
-     * customers, etc. Small, stable dataset that changes infrequently but is upstream
-     * of category/product syncs — hourly ensures definitions are fresh before daily data syncs.
-     */
-    private function registerCustomFieldSchedule(): void
-    {
-        Schedule::job(new SyncShopwiredCustomFieldsJob())
-            ->name('sync-shopwired-custom-fields')
-            ->hourly()
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(5);
     }
 
     /**

@@ -10,6 +10,4 @@ enum MarginTier: string
     case Standard = '2 - Standard margin';
     case High = '3 - High margin';
     case Unknown = '4 - Unknown margin';
-
-    public const string FIELD = 'custom_label_1';
 }

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\Conversion;
 
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\UseCases\HandleLeadConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessLeadConversionUseCase;
+use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
@@ -20,10 +22,10 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Throwable;
 
 /**
- * Uploads a lead conversion to Google Ads asynchronously.
+ * Uploads a lead conversion to the given ad platform asynchronously.
  *
- * Uses ShouldBeUnique by submission ID to prevent duplicate uploads if the job
- * is retried while another instance is still processing.
+ * `ShouldBeUnique` is keyed on `submissionId:platform` so the Google and Bing jobs
+ * for the same submission never dedupe each other while one is still processing.
  *
  * Exception Strategy:
  * - TransientApiFailure: Handled by {@see HandleApiExceptions} middleware (release/rethrow)
@@ -58,21 +60,27 @@ final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUniq
     public function __construct(
         public readonly string $submissionId,
         public readonly string $actionId,
+        public readonly AdPlatform $platform,
     ) {
         $this->onQueue(QueueName::Default->value);
     }
 
     public function uniqueId(): string
     {
-        return $this->submissionId;
+        return $this->submissionId . ':' . $this->platform->value;
     }
 
     /** @return list<object> */
     public function middleware(): array
     {
+        $circuitBreaker = match ($this->platform) {
+            AdPlatform::Google => ServiceCircuitBreaker::googleAds(),
+            AdPlatform::Bing => ServiceCircuitBreaker::bingAdsRest(),
+        };
+
         return [
             ...parent::middleware(),
-            ServiceCircuitBreaker::googleAds(),
+            $circuitBreaker,
             new HandleApiExceptions(),
         ];
     }
@@ -89,8 +97,8 @@ final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUniq
     public function handle(ProcessLeadConversionUseCase $useCase): void
     {
         try {
-            $useCase->execute($this->submissionId, $this->actionId);
-        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException $e) {
+            $useCase->execute($this->submissionId, $this->actionId, $this->platform);
+        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
             $this->fail($e);
         }
     }

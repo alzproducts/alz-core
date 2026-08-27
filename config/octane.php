@@ -188,7 +188,7 @@ return [
 
     'tables' => [
         // Swoole tables for shared data across workers
-        // See: https://laravel.com/docs/12.x/octane#tables
+        // See: https://laravel.com/docs/13.x/octane#tables
     ],
 
     /*

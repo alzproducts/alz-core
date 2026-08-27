@@ -20,7 +20,6 @@ use App\Application\Contracts\Linnworks\PurchaseDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderBackfillDispatcherInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Application\Contracts\Linnworks\PurchaseOrderSyncRepositoryInterface;
-use App\Application\Contracts\Linnworks\PurchaseOrderUpdateClientInterface;
 use App\Application\Contracts\Linnworks\StockDashboardsClientInterface;
 use App\Application\Contracts\Linnworks\StockItemRepositoryInterface;
 use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
@@ -143,10 +142,6 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             static fn(Container $app): PurchaseOrderClientInterface => LinnworksClientFactory::createPurchaseOrderClient($app->make(TransientLogThrottle::class)),
         );
         $this->app->singleton(
-            PurchaseOrderUpdateClientInterface::class,
-            static fn(Container $app): PurchaseOrderUpdateClientInterface => LinnworksClientFactory::createPurchaseOrderUpdateClient($app->make(TransientLogThrottle::class)),
-        );
-        $this->app->singleton(
             PurchaseDashboardsClientInterface::class,
             static fn(Container $app): PurchaseDashboardsClientInterface => LinnworksClientFactory::createPurchaseDashboardsClient($app->make(TransientLogThrottle::class)),
         );
@@ -243,7 +238,6 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
             PurchaseDashboardsClientInterface::class,
             PurchaseOrderClientInterface::class,
             PurchaseOrderSyncRepositoryInterface::class,
-            PurchaseOrderUpdateClientInterface::class,
             StockDashboardsClientInterface::class,
             StockItemRepositoryInterface::class,
             StockItemSupplierRepositoryInterface::class,

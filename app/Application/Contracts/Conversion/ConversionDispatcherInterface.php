@@ -11,7 +11,5 @@ interface ConversionDispatcherInterface
 {
     public function dispatchLeadConversion(LeadConversionCommand $command): void;
 
-    public function dispatchBingLeadConversion(LeadConversionCommand $command): void;
-
     public function dispatchQuoteConversion(QuoteConversionCommand $command): void;
 }
