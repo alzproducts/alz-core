@@ -11,6 +11,9 @@ use App\Domain\Catalog\Product\Enums\VariationSortField;
  */
 final class VariationSortFieldMapper
 {
+    /**
+     * @return literal-string
+     */
     public static function toColumn(VariationSortField $field): string
     {
         return match ($field) {

@@ -24,6 +24,8 @@ trait QueriesJsonbColumnsTrait
      * null JSON values (returns 'null'), and non-array types.
      *
      * @param  Builder<static>  $query
+     * @param  literal-string  $column
+     * @param  literal-string  $key
      */
     public function scopeWhereJsonbIsArray(Builder $query, string $column, string $key): void
     {
@@ -39,6 +41,8 @@ trait QueriesJsonbColumnsTrait
      * Extends whereJsonbIsArray with a length check to filter empty arrays.
      *
      * @param  Builder<static>  $query
+     * @param  literal-string  $column
+     * @param  literal-string  $key
      */
     public function scopeWhereJsonbArrayNotEmpty(Builder $query, string $column, string $key): void
     {
