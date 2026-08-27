@@ -63,7 +63,7 @@ The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise
 ### Offline conversion tracking
 
 **Offline conversion**:
-An event reported back to an ad platform (Google Ads, Bing Ads) indicating that a user who clicked an ad later performed a valuable action (qualified lead, quote issued). Uploaded via platform-specific APIs using the click ID captured at landing time.
+An event reported back to an ad platform (Google Ads, Bing Ads) indicating that a user who clicked an ad later performed a valuable action (qualified lead, quote issued). Uploaded via platform-specific APIs using the click ID captured at landing time. Google's upload API (`ConversionUploadService`) is in transitional mode: closed to new adopters since June 2026 in favour of the Data Manager API, while our developer token remains a grandfathered existing adopter (uploads during the Dec 2025–Jun 2026 qualifying window; confirmed 2026-08) with no announced end date.
 
 **Click ID**:
 A platform-specific identifier appended to the landing URL when a user clicks a paid ad. `gclid` (Google), `msclkid` (Bing/Microsoft), `fbclid` (Facebook). Stored on the contact submission at form-submit time. A submission may carry click IDs from multiple platforms.
