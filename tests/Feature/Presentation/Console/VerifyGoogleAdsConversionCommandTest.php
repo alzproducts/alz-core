@@ -88,7 +88,7 @@ final class VerifyGoogleAdsConversionCommandTest extends TestCase
         $this->artisan('verify:googleads-conversions')
             ->expectsOutputToContain('INCONCLUSIVE:')
             ->expectsOutputToContain('CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE')
-            ->expectsOutputToContain('escalate to Tom')
+            ->expectsOutputToContain('escalate before merging')
             ->doesntExpectOutputToContain('PASS:')
             ->assertExitCode(Command::FAILURE);
     }

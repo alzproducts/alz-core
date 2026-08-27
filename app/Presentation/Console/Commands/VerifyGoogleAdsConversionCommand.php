@@ -117,7 +117,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
     {
         $this->error('INCONCLUSIVE: Google blocked the upload on offline-conversion allowlisting, so the payload was never validated.');
         $this->line('  Detail: ' . $detail);
-        $this->line('  Check: escalate to Tom — an account-access policy block is not evidence about V25');
+        $this->line('  Check: escalate before merging — an account-access policy block is not evidence about V25');
 
         return self::FAILURE;
     }
