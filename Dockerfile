@@ -2,7 +2,7 @@
 # Laravel Octane + Swoole Production Dockerfile
 # ==============================================================================
 # Base Image: serversideup/php:8.4-cli (Debian-based, security-hardened)
-# Target: Railway deployment with Laravel 12 + Octane + Swoole
+# Target: Railway deployment with Laravel 13 + Octane + Swoole
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions required by Laravel 12 and dependencies
+# Install PHP extensions required by Laravel 13 and dependencies
 # - soap: Required by microsoft/bingads SDK (SOAP-based API)
 # - zip: Required for Bing Ads report processing (ZIP archives)
 RUN docker-php-ext-install -j$(nproc) \

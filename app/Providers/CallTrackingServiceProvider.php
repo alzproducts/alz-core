@@ -111,7 +111,7 @@ final class CallTrackingServiceProvider extends ServiceProvider implements Defer
     private function registerUseCaseConfig(): void
     {
         // Container resolves this for ANY PhoneNumberE164 param on the use case —
-        // Laravel 12's `->needs('$param')` only matches primitives, not class types.
+        // Laravel's `->needs('$param')` contextual binding only matches primitives, not class types.
         // If a second PhoneNumberE164 dep is added here, introduce a distinct
         // wrapper type so the two slots can't silently share this default.
         $this->app->when(AssignTrackingNumberUseCase::class)
