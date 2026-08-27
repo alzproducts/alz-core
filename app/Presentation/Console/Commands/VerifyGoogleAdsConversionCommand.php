@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Presentation\Console\Traits\FormatsExceptionContextTrait;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -34,6 +35,8 @@ use Throwable;
  */
 final class VerifyGoogleAdsConversionCommand extends Command
 {
+    use FormatsExceptionContextTrait;
+
     /**
      * Google's gclid-decoding failure codes — the only rejections that prove the
      * round-trip reached payload validation.
@@ -177,21 +180,5 @@ final class VerifyGoogleAdsConversionCommand extends Command
             self::EXPECTED_REJECTION_CODES,
             static fn(string $code): bool => \str_contains($detail, $code),
         );
-    }
-
-    /**
-     * Format an exception message with structured context for operator debugging.
-     */
-    private static function formatError(Throwable $e): string
-    {
-        $message = $e->getMessage();
-        if (\method_exists($e, 'context')) {
-            $ctx = $e->context();
-            if ($ctx !== []) {
-                $message .= ' — ' . \json_encode($ctx);
-            }
-        }
-
-        return $message;
     }
 }

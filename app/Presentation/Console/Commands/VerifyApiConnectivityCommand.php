@@ -12,6 +12,7 @@ use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Presentation\Console\Traits\FormatsExceptionContextTrait;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -26,6 +27,8 @@ use Throwable;
  */
 final class VerifyApiConnectivityCommand extends Command
 {
+    use FormatsExceptionContextTrait;
+
     protected $signature = 'verify:api
         {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, helpscout, all)}';
 
@@ -98,22 +101,6 @@ final class VerifyApiConnectivityCommand extends Command
         $this->error('Some API clients failed: ' . \implode(', ', \array_keys($failed)));
 
         return self::FAILURE;
-    }
-
-    /**
-     * Format an exception message with structured context for operator debugging.
-     */
-    private static function formatError(Throwable $e): string
-    {
-        $message = $e->getMessage();
-        if (\method_exists($e, 'context')) {
-            $ctx = $e->context();
-            if ($ctx !== []) {
-                $message .= ' — ' . \json_encode($ctx);
-            }
-        }
-
-        return $message;
     }
 
     /**

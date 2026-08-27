@@ -23,28 +23,22 @@ final class GoogleAdsClientFactory
     public static function create(TransientLogThrottle $logThrottle): GoogleAdsClientInterface
     {
         $config = self::createConfig();
-        $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
-        return new GoogleAdsClient($transport);
+        return new GoogleAdsClient(self::buildTransport($config, $logThrottle));
     }
 
     public static function createConversionClient(TransientLogThrottle $logThrottle): GoogleAdsConversionClient
     {
         $config = self::createConversionConfig();
-        $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
-        return new GoogleAdsConversionClient($transport, $config);
+        return new GoogleAdsConversionClient(self::buildTransport($config, $logThrottle), $config);
     }
 
     public static function createConversionProbe(TransientLogThrottle $logThrottle): GoogleAdsConversionProbeInterface
     {
         $config = self::createConversionConfig();
-        $sdkClient = self::buildSdkClient($config);
-        $transport = new GoogleAdsTransport($sdkClient, $config, $logThrottle);
 
-        return new GoogleAdsConversionProbe($transport, $config);
+        return new GoogleAdsConversionProbe(self::buildTransport($config, $logThrottle), $config);
     }
 
     /**
@@ -106,6 +100,11 @@ final class GoogleAdsClientFactory
         }
 
         return self::createConfig()->withConversionActionIds($leadId, $quoteId);
+    }
+
+    private static function buildTransport(GoogleAdsConfig $config, TransientLogThrottle $logThrottle): GoogleAdsTransport
+    {
+        return new GoogleAdsTransport(self::buildSdkClient($config), $config, $logThrottle);
     }
 
     /**
