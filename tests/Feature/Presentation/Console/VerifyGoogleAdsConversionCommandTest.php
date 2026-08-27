@@ -75,6 +75,42 @@ final class VerifyGoogleAdsConversionCommandTest extends TestCase
     }
 
     #[Test]
+    public function it_passes_when_every_decoded_code_is_an_expected_gclid_rejection(): void
+    {
+        $this->probe
+            ->shouldReceive('probeUpload')
+            ->once()
+            ->andThrow(new InvalidApiRequestException(
+                'Google Ads',
+                'Errors in mutate operation. [UNPARSEABLE_GCLID, CLICK_NOT_FOUND]',
+            ));
+
+        $this->artisan('verify:googleads-conversions')
+            ->expectsOutputToContain('PASS:')
+            ->expectsOutputToContain('Errors in mutate operation. [UNPARSEABLE_GCLID, CLICK_NOT_FOUND]')
+            ->assertExitCode(Command::SUCCESS);
+    }
+
+    #[Test]
+    public function it_fails_when_an_expected_code_arrives_alongside_an_unexpected_one(): void
+    {
+        $this->probe
+            ->shouldReceive('probeUpload')
+            ->once()
+            ->andThrow(new InvalidApiRequestException(
+                'Google Ads',
+                'Errors in mutate operation. [UNPARSEABLE_GCLID, NO_CONVERSION_ACTION_FOUND]',
+            ));
+
+        $this->artisan('verify:googleads-conversions')
+            ->expectsOutputToContain('FAIL:')
+            ->expectsOutputToContain('NO_CONVERSION_ACTION_FOUND')
+            ->expectsOutputToContain('the upload path has a real defect')
+            ->doesntExpectOutputToContain('PASS:')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    #[Test]
     public function it_reports_inconclusive_when_a_partial_failure_carries_an_allowlist_block(): void
     {
         $this->probe

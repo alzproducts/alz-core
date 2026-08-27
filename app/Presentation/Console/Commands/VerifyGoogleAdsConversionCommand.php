@@ -89,7 +89,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
             return $this->reportAllowlistBlock($detail);
         }
 
-        if (self::containsExpectedRejection($detail)) {
+        if (self::provesExpectedRejection($detail)) {
             $this->info('PASS: Google structurally rejected the fabricated gclid — the V25 upload round-trip works.');
             $this->line('  Detail: ' . $detail);
 
@@ -174,6 +174,43 @@ final class VerifyGoogleAdsConversionCommand extends Command
         $this->line('  Effect: Google validates only — nothing is executed in the Ads account and nothing is written to our database');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A partial failure can carry several codes at once, and one unexpected code among
+     * them proves a real payload defect — so a decoded code group passes only when every
+     * code in it is expected. Details without a code group (the transport's decode failed)
+     * fall back to a substring match on Google's prose.
+     */
+    private static function provesExpectedRejection(string $detail): bool
+    {
+        $codes = self::extractRejectionCodes($detail);
+
+        if ($codes === null) {
+            return self::containsExpectedRejection($detail);
+        }
+
+        return $codes !== [] && \array_all(
+            $codes,
+            static fn(string $code): bool => \in_array($code, self::EXPECTED_REJECTION_CODES, true),
+        );
+    }
+
+    /**
+     * @return list<string>|null Null when the detail carries no trailing code group
+     */
+    private static function extractRejectionCodes(string $detail): ?array
+    {
+        if (\preg_match('/\[([^\[\]]*)\]$/', $detail, $matches) !== 1) {
+            return null;
+        }
+
+        $codes = \array_map(
+            static fn(string $code): string => \mb_trim($code),
+            \explode(',', $matches[1]),
+        );
+
+        return \array_values(\array_filter($codes, static fn(string $code): bool => $code !== ''));
     }
 
     private static function containsExpectedRejection(string $detail): bool
