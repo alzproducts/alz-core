@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\AdSpend\UseCases\SyncAdSpendUseCase;
+use App\Application\Contracts\Conversion\GoogleAdsConversionProbeInterface;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
@@ -48,6 +49,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->registerClient();
         $this->registerConversionClient();
+        $this->registerConversionProbe();
         $this->registerConversionAdapter();
         $this->registerAdSpendBinding();
         $this->registerLookupTableBinding();
@@ -75,6 +77,14 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
                 GoogleAdsClientFactory::createConversionConfig(),
                 new PhoneNormalisationService(),
             ),
+        );
+    }
+
+    private function registerConversionProbe(): void
+    {
+        $this->app->singleton(
+            GoogleAdsConversionProbeInterface::class,
+            static fn(Container $app): GoogleAdsConversionProbeInterface => GoogleAdsClientFactory::createConversionProbe($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -134,6 +144,7 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
             GoogleAdsClientInterface::class,
             GoogleAdsConversionClient::class,
             GoogleAdsConversionService::class,
+            GoogleAdsConversionProbeInterface::class,
             GoogleAdsConversionAdapter::class,
         ];
     }

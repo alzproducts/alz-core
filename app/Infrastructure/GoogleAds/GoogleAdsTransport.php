@@ -10,13 +10,17 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Support\RetryAfterParser;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Google\Ads\GoogleAds\Lib\V25\GoogleAdsClient as SdkGoogleAdsClient;
+use Google\Ads\GoogleAds\Util\V25\GoogleAdsFailures;
+use Google\Ads\GoogleAds\V25\Errors\GoogleAdsError;
 use Google\Ads\GoogleAds\V25\Services\SearchGoogleAdsRequest;
 use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsRequest;
 use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsResponse;
 use Google\ApiCore\ApiException;
 use Google\ApiCore\PagedListResponse;
 use Google\Rpc\Code;
+use Google\Rpc\Status;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Transport layer for Google Ads SDK.
@@ -233,7 +237,80 @@ final readonly class GoogleAdsTransport
             'message' => $error->getMessage(),
         ]);
 
-        throw new InvalidApiRequestException(self::SERVICE_NAME, $error->getMessage());
+        throw new InvalidApiRequestException(self::SERVICE_NAME, self::describePartialFailure($error));
+    }
+
+    /**
+     * Google's partial-failure message is unstructured prose with no stable identifier,
+     * so append the error-code names decoded from the packed GoogleAdsFailure details.
+     */
+    private static function describePartialFailure(Status $error): string
+    {
+        $codeNames = self::decodeErrorCodeNames($error);
+
+        if ($codeNames === []) {
+            return $error->getMessage();
+        }
+
+        return $error->getMessage() . ' [' . \implode(', ', $codeNames) . ']';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function decodeErrorCodeNames(Status $error): array
+    {
+        try {
+            $failures = GoogleAdsFailures::fromStatus($error);
+        } catch (Throwable) { // @ignoreException - decoding is best-effort; the detail degrades to Google's prose message
+            $failures = [];
+        }
+
+        $codeNames = [];
+
+        foreach ($failures as $failure) {
+            foreach ($failure->getErrors() as $failureError) {
+                $codeName = self::extractErrorCodeName($failureError);
+
+                if ($codeName !== null) {
+                    $codeNames[] = $codeName;
+                }
+            }
+        }
+
+        return $codeNames;
+    }
+
+    /**
+     * The ErrorCode oneof spans every Google Ads error family, so its proto3 JSON form
+     * ({"conversionUploadError":"UNPARSEABLE_GCLID"}) is the version-proof way to read the
+     * set case name without branching across ~180 typed accessors.
+     */
+    private static function extractErrorCodeName(GoogleAdsError $failureError): ?string
+    {
+        $errorCode = $failureError->getErrorCode();
+
+        if ($errorCode === null) {
+            return null;
+        }
+
+        try {
+            $json = $errorCode->serializeToJsonString();
+        } catch (Throwable) { // @ignoreException - decoding is best-effort; the detail degrades to Google's prose message
+            $json = '';
+        }
+
+        /** @var mixed $decoded */
+        $decoded = \json_decode($json, true);
+
+        if (! \is_array($decoded)) {
+            return null;
+        }
+
+        /** @var mixed $codeName */
+        $codeName = \reset($decoded);
+
+        return \is_string($codeName) ? $codeName : null;
     }
 
     /**
