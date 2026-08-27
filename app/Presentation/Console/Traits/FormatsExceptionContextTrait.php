@@ -6,14 +6,9 @@ namespace App\Presentation\Console\Traits;
 
 use Throwable;
 
-/**
- * Shared exception rendering for verification commands.
- */
 trait FormatsExceptionContextTrait
 {
-    /**
-     * Format an exception message with structured context for operator debugging.
-     */
+    /** Domain exceptions expose Sentry-grouping data via context(); native Throwables do not — hence the duck-type probe. */
     protected static function formatError(Throwable $e): string
     {
         $message = $e->getMessage();

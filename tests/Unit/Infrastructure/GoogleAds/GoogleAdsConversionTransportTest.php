@@ -11,7 +11,6 @@ use App\Infrastructure\GoogleAds\GoogleAdsConfig;
 use App\Infrastructure\GoogleAds\GoogleAdsTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Google\Ads\GoogleAds\Lib\V25\GoogleAdsClient as SdkGoogleAdsClient;
-use Google\Ads\GoogleAds\Util\V25\GoogleAdsFailures;
 use Google\Ads\GoogleAds\V25\Errors\ConversionUploadErrorEnum\ConversionUploadError;
 use Google\Ads\GoogleAds\V25\Errors\ErrorCode;
 use Google\Ads\GoogleAds\V25\Errors\GoogleAdsError;
@@ -246,8 +245,6 @@ final class GoogleAdsConversionTransportTest extends TestCase
      */
     private static function statusWithPackedFailure(string $message, int $conversionUploadError): Status
     {
-        GoogleAdsFailures::init();
-
         $errorCode = new ErrorCode();
         $errorCode->setConversionUploadError($conversionUploadError);
 

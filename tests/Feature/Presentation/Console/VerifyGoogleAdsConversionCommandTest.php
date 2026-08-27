@@ -75,6 +75,23 @@ final class VerifyGoogleAdsConversionCommandTest extends TestCase
     }
 
     #[Test]
+    public function it_reports_inconclusive_when_a_partial_failure_carries_an_allowlist_block(): void
+    {
+        $this->probe
+            ->shouldReceive('probeUpload')
+            ->once()
+            ->andThrow(new InvalidApiRequestException(
+                'Google Ads',
+                'Errors in mutate operation. [CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE, UNPARSEABLE_GCLID]',
+            ));
+
+        $this->artisan('verify:googleads-conversions')
+            ->expectsOutputToContain('INCONCLUSIVE:')
+            ->doesntExpectOutputToContain('PASS:')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    #[Test]
     public function it_reports_inconclusive_when_the_account_is_not_allowlisted(): void
     {
         $this->probe
@@ -149,6 +166,19 @@ final class VerifyGoogleAdsConversionCommandTest extends TestCase
         $this->artisan('verify:googleads-conversions')
             ->expectsOutputToContain('FAIL: Google Ads configuration is missing or invalid')
             ->expectsOutputToContain('GOOGLE_ADS_LEAD_CONVERSION_ID')
+            ->assertExitCode(Command::FAILURE);
+    }
+
+    #[Test]
+    public function it_fails_and_surfaces_the_message_on_an_unclassified_error(): void
+    {
+        $this->probe
+            ->shouldReceive('probeUpload')
+            ->once()
+            ->andThrow(new RuntimeException('boom'));
+
+        $this->artisan('verify:googleads-conversions')
+            ->expectsOutputToContain('FAIL: boom')
             ->assertExitCode(Command::FAILURE);
     }
 

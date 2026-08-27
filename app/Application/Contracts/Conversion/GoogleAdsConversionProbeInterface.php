@@ -18,8 +18,9 @@ use App\Domain\Exceptions\Api\InvalidApiRequestException;
 interface GoogleAdsConversionProbeInterface
 {
     /**
-     * Fabricated gclid the probe sends. Declared here so `--dry-run` can print it
-     * without resolving the implementation, which would build the whole SDK client chain.
+     * Fabricated gclid the probe sends. Resolving the implementation builds the whole
+     * Google Ads SDK client chain, so the value is declared on the contract for callers
+     * that only need to display it.
      */
     public const string PROBE_GCLID = 'probe-invalid-gclid-cor-224';
 

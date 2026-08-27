@@ -43,7 +43,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
      */
     private const array EXPECTED_REJECTION_CODES = ['UNPARSEABLE_GCLID', 'CLICK_NOT_FOUND'];
 
-    private const string ALLOWLIST_MARKER = 'ALLOWLISTED';
+    private const string ALLOWLIST_MARKER = 'ALLOWLIST';
 
     protected $signature = 'verify:googleads-conversions
         {--dry-run : Build and display the probe payload without calling Google}';
@@ -147,6 +147,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
     {
         $this->error('FAIL: Google validation unexpectedly accepted the probe — inspect.');
         $this->line('  Nothing was executed (validate_only), but the probe proved nothing about the V25 upload path.');
+        $this->line('  Check: Google accepted an unparseable gclid — verify the conversion action in the Ads UI manually before merging');
 
         return self::FAILURE;
     }
@@ -154,6 +155,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
     private function reportUnexpectedError(Throwable $e): int
     {
         $this->error('FAIL: ' . self::formatError($e));
+        $this->line('  Check: an unclassified failure — inspect the message above and storage/logs/laravel.log; the V25 round-trip is unproven');
 
         return self::FAILURE;
     }

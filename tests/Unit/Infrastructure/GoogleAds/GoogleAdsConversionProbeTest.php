@@ -134,9 +134,6 @@ final class GoogleAdsConversionProbeTest extends TestCase
         return $capture;
     }
 
-    /**
-     * Pull the single ClickConversion out of a captured request.
-     */
     private function firstConversion(object $capture): ClickConversion
     {
         $this->assertNotNull($capture->request, 'Transport was not invoked');
