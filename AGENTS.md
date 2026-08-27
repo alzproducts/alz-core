@@ -2,6 +2,12 @@
 
 This file provides guidance to AI coding agents working on this repository.
 
+## Project harness references
+
+- **Anthropic (Claude Code) agents** — imported automatically:
+@harness-anthropic.md
+- **OpenAI (Codex) agents** — READ `./harness-openai.md` (this directory) now, before doing anything else. (The `@` line above is Claude-Code import syntax — ignore it.)
+
 **Architecture guide**: [`docs/architecture-overview.md`](docs/architecture-overview.md) — high-level system context, deployment topology, layer diagrams, and key data flows. Use as orientation only; always verify details against the code.
 
 > **Note**: `${FRONTEND_APP}` placeholders in this codebase resolve via the `FRONTEND_APP` env var in `.claude/settings.local.json`.
