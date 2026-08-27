@@ -14,11 +14,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-/**
- * Router-level coverage for the feeds.show route: the URL constraints, the signed-URL
- * redirect, and the stateless contract (routes/web.php is registered outside the 'web'
- * middleware group, so no session cookie may be issued).
- */
 #[CoversClass(FeedController::class)]
 final class FeedRouteTest extends TestCase
 {
@@ -83,6 +78,8 @@ final class FeedRouteTest extends TestCase
         $response->assertNotFound();
     }
 
+    // bootstrap/app.php registers routes/web.php outside the 'web' middleware group, so these
+    // routes are stateless. A Set-Cookie here means the group was reapplied.
     #[Test]
     public function feed_response_carries_no_cookies(): void
     {

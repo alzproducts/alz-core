@@ -13,11 +13,6 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
-/**
- * Router-level coverage for the ops.queue-health route: the BasicAuth gate applied at the
- * route level, and the stateless contract (routes/web.php is registered outside the 'web'
- * middleware group, so no session cookie may be issued).
- */
 #[CoversClass(QueueHealthController::class)]
 final class QueueHealthRouteTest extends TestCase
 {
@@ -65,6 +60,8 @@ final class QueueHealthRouteTest extends TestCase
         $response->assertJsonStructure(['status', 'queues' => ['high', 'default', 'low'], 'total_depth']);
     }
 
+    // bootstrap/app.php registers routes/web.php outside the 'web' middleware group, so these
+    // routes are stateless. A Set-Cookie here means the group was reapplied.
     #[Test]
     public function queue_health_response_carries_no_cookies(): void
     {
