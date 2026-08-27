@@ -10,8 +10,8 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Infrastructure\Phone\PhoneNormalisationService;
-use Google\Ads\GoogleAds\V22\Common\UserIdentifier;
-use Google\Ads\GoogleAds\V22\Services\ClickConversion;
+use Google\Ads\GoogleAds\V25\Common\UserIdentifier;
+use Google\Ads\GoogleAds\V25\Services\ClickConversion;
 use Webmozart\Assert\Assert;
 
 /**
