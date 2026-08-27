@@ -7,8 +7,8 @@ namespace App\Infrastructure\GoogleAds;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
-use Google\Ads\GoogleAds\V22\Services\ClickConversion;
-use Google\Ads\GoogleAds\V22\Services\UploadClickConversionsRequest;
+use Google\Ads\GoogleAds\V25\Services\ClickConversion;
+use Google\Ads\GoogleAds\V25\Services\UploadClickConversionsRequest;
 
 /**
  * Thin client that wraps a {@see ClickConversion} in an upload request

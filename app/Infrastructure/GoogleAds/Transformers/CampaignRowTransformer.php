@@ -6,8 +6,8 @@ namespace App\Infrastructure\GoogleAds\Transformers;
 
 use App\Domain\AdSpend\ValueObjects\Campaign;
 use App\Infrastructure\GoogleAds\Exceptions\InvalidGoogleAdsResponseException;
-use Google\Ads\GoogleAds\V22\Enums\CampaignStatusEnum\CampaignStatus;
-use Google\Ads\GoogleAds\V22\Services\GoogleAdsRow;
+use Google\Ads\GoogleAds\V25\Enums\CampaignStatusEnum\CampaignStatus;
+use Google\Ads\GoogleAds\V25\Services\GoogleAdsRow;
 
 /**
  * Validates and transforms Google Ads campaign rows into domain value objects.
