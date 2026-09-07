@@ -66,7 +66,7 @@ Violations surface in the editor and in git hooks, not in code review.
 
 ### Invariants
 
-Every rule below fails CI.
+Every rule below is a lint failure.
 
 | Invariant | Enforced by |
 |-----------|-------------|
@@ -141,22 +141,22 @@ See [ADR 0010](docs/adr/0010-conversion-uploads-per-platform-adapters.md).
 
 ## Integrations
 
-Each service has its own authentication model, rate limits, and data-format quirks. Ingestion is wrapped in Domain-typed clients so the quirks stop at the Infrastructure boundary.
+Each service has its own authentication model, rate limits, and data-format quirks. Those quirks stay inside the Infrastructure layer. The rest of the codebase only sees Domain types.
 
-| Service | Role | Protocol | Auth | Sync pattern |
-|---------|------|----------|------|--------------|
-| ShopWired | Storefront platform | REST | HTTP Basic; HMAC-SHA256 webhooks | Webhooks plus polling |
-| Linnworks | Inventory and warehouse | REST | OAuth 2.0 | Cursor-based incremental |
-| Google Ads | Ad spend, conversion uploads | REST | OAuth 2.0 | Scheduled pulls, event-driven uploads |
-| Bing Ads | Ad spend, conversion uploads | SOAP and REST | OAuth 2.0 | Async report downloads, event-driven uploads |
-| Twilio | Call tracking numbers | HTTPS | HMAC-SHA1 signatures | Inbound webhooks |
-| HelpScout | Customer service | REST plus SDK | OAuth 2.0 | On-demand reads, SDK writes |
-| Mixpanel | Product analytics | REST | HTTP Basic | Scheduled pushes |
-| Reviews.io | Product and company reviews | REST | API key | Two-stage fetch, then push |
-| ClickUp | Task management | REST | API key, encrypted at rest | On-demand writes |
-| Supabase | Auth and PostgreSQL | PostgreSQL | JWT | Shared database |
-| AWS S3 | Object storage for product feed files | S3 API | Access key and secret | On-demand uploads |
-| Sentry | Error tracking | HTTPS | DSN | Outbound events |
+| Service | Role | Auth | Sync pattern |
+|---------|------|------|--------------|
+| ShopWired | Storefront platform | HTTP Basic; HMAC-SHA256 webhooks | Webhooks plus polling |
+| Linnworks | Inventory and warehouse | OAuth 2.0 | Cursor-based incremental |
+| Google Ads | Ad spend, conversion uploads | OAuth 2.0 | Scheduled pulls, event-driven uploads |
+| Bing Ads | Ad spend, conversion uploads | OAuth 2.0 | Async report downloads, event-driven uploads |
+| Twilio | Call tracking numbers | HMAC-SHA1 signatures | Inbound webhooks |
+| HelpScout | Customer service | OAuth 2.0 | On-demand reads, SDK writes |
+| Mixpanel | Product analytics | HTTP Basic | Scheduled pushes |
+| Reviews.io | Product and company reviews | API key | Two-stage fetch, then push |
+| ClickUp | Task management | API key, encrypted at rest | On-demand writes |
+| Supabase | Auth and PostgreSQL | JWT | Shared database |
+| AWS S3 | Object storage for product feed files | Access key and secret | On-demand uploads |
+| Sentry | Error tracking | DSN | Outbound events |
 
 ### Sync schedule
 
@@ -187,7 +187,7 @@ See [ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md)
 
 ## Testing Strategy
 
-The philosophy is to test what static analysis cannot catch. Coverage targets are calibrated to where bugs are most costly, and tests concentrate on business logic, state transitions, and integration boundaries.
+The philosophy is to test what static analysis cannot catch. Coverage targets are calibrated to where bugs are most costly. Tests concentrate on business logic, state transitions, and integration boundaries.
 
 | Layer | Targets | Focus |
 |-------|---------|-------|
@@ -202,12 +202,18 @@ Every change gets its own Linear issue, branch, and pull request, and larger wor
 
 ### Division of labour with AI
 
-Claude Code is the main workhorse for implementation, favouring the most capable models available. A human stays heavily involved in every planning and review step, and custom skills drive the planning and implementation stages so each change follows the same path from issue to pull request. AI-written code is gated by the same pre-commit and pre-push hooks as any other, and those hooks are the hard boundary.
+Claude Code is the main workhorse for implementation, favouring the most capable models available.
 
-- **Human-owned:** architecture, design, decisions, and review.
-- **AI-owned:** implementation, inside scoped rule files that encode the conventions for each part of the codebase.
-- **Tests:** implementation is fully delegated, with the mutation score rather than coverage as the quality floor. The trade-off is velocity over hand-crafted test design, and quality is less even outside the core Domain logic.
-- **Review gate:** CI runs an AI review on every code pull request. It is informational and does not gate a merge.
+- **Human in the loop:** a human stays heavily involved in every planning and review step.
+- **Custom skills:** drive planning and implementation so each change follows the same path from issue to pull request.
+- **Hard boundary:** AI-written code passes the same pre-commit and pre-push hooks as any other code.
+
+| Area | Owner | Notes |
+|------|-------|-------|
+| Architecture, design, decisions, review | Human | |
+| Implementation | AI | Guided by scoped rule files that encode the conventions for each part of the codebase |
+| Tests | AI | Fully delegated, with mutation score rather than coverage as the quality floor. Trades hand-crafted test design for velocity, so quality is less even outside core Domain logic |
+| Pull request review | CI | Informational AI review on every code pull request; it does not gate a merge |
 
 ### Documentation
 
