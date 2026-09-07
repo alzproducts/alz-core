@@ -17,7 +17,7 @@ Behind that sit 12 third-party integrations, 70+ queued jobs, and 60+ scheduled 
 ### Documentation
 
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) for system topology, deployment, and end-to-end data flows.
-- [`docs/adr/`](docs/adr/) for the architectural decision records.
+- [`docs/adr/`](docs/adr/) for the eleven architectural decision records.
 - [`tests/TestingStrategy.md`](tests/TestingStrategy.md) for what is tested at each layer, and what is deliberately not.
 
 ### Code
@@ -56,16 +56,13 @@ graph TD
     style P fill:#3a1a5c,stroke:#6a2d9f,color:#fff
 ```
 
-> System topology, container deployment, and end-to-end data flows: see [`docs/architecture-overview.md`](docs/architecture-overview.md).
-
 ### Linting and tooling
 
 Violations surface in the editor and in git hooks, not in code review.
 
 - **PHPArkitect** validates the layer dependency rules on every commit.
 - **Deptrac** validates layer dependencies again on every push.
-- **PHPStan** runs at max level with bleeding edge. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming.
-- **Disallowed calls** block facades in Domain and Application, `DB::` everywhere, and `Artisan::call`.
+- **PHPStan** runs at max level with bleeding edge and disallowed calls. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming.
 - **Type coverage** targets 99%, and cognitive complexity limits are enforced per function.
 
 ### Invariants
@@ -74,16 +71,14 @@ Every rule below fails CI.
 
 | Invariant | Enforced by |
 |-----------|-------------|
-| Domain depends only on PHP built-ins and `webmozart/assert` | PHPArkitect + Deptrac |
-| Application never imports Infrastructure | PHPArkitect + Deptrac |
-| Presentation never imports Infrastructure | PHPArkitect + Deptrac |
-| No `DB::` facade anywhere; use `DatabaseGateway` | Custom PHPStan rule `NoDbFacadeRule` |
-| No `config()` or `Config::` in Domain or Application | `spaze/phpstan-disallowed-calls` |
-| No static properties, because Octane persists state across requests | Custom PHPStan rule `NoStaticPropertiesRule` |
-| Checked-exception semantics: every thrown exception is declared in `@throws` and propagated or caught by every caller, which PHP itself does not enforce | PHPStan `exceptions.check` (`missingCheckedExceptionInThrows`) |
-| SDK exception types never appear in `@throws`; they are translated to Domain exceptions at the Infrastructure boundary | Custom rule `NoSdkExceptionsInThrowsRule` |
-| Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | Custom rules under `DevTools/PHPStan/Rules/Jobs/` |
-| Every table reference is schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom rule `SchemaQualifiedTableNameRule` |
+| Domain depends only on PHP built-ins and `webmozart/assert`; Application and Presentation never import Infrastructure | PHPArkitect + Deptrac |
+| No `DB::` facade anywhere; use `DatabaseGateway` | Custom PHPStan rule |
+| No `config()` or `Config::` in Domain or Application | PHPStan |
+| No static properties, because Octane persists state across requests | Custom PHPStan rule |
+| Every thrown exception is declared in `@throws` and handled by every caller, which PHP itself does not enforce | PHPStan |
+| SDK exception types never appear in `@throws`; they are translated to Domain exceptions at the Infrastructure boundary | Custom PHPStan rule |
+| Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | Custom PHPStan rules |
+| Every table reference is schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom PHPStan rule |
 
 ## Key Engineering Decisions
 
@@ -113,13 +108,13 @@ ShopWired webhook payloads are partial, so the full entity has to be re-fetched 
 3. Dispatch a re-fetch job.
 4. The job pulls the full entity from the API and reconciles the stored record.
 
-This cut polling frequency substantially while keeping data accurate inside tight external rate limits.
+Polling therefore runs far less often, and data stays accurate inside tight external rate limits.
 
 Would revisit if ShopWired shipped complete payloads with guaranteed ordering.
 
 ### HelpScout SDK for writes, direct HTTP for reads
 
-The SDK's entity hydration silently drops response fields on reads. The `snooze` field needed by the dashboard widgets was being discarded.
+The SDK's entity hydration silently drops response fields on reads. It drops the `snooze` field the Admin Dashboard widgets need.
 
 Writes work correctly through the SDK, so each path is used where it is reliable rather than replacing the SDK or working around its hydration.
 
@@ -133,10 +128,10 @@ The Admin Dashboard and the public endpoints share a codebase but not an access 
 |---------|----------------|------------|
 | Admin Dashboard | Supabase JWT with MFA enforced and an approval gate | Per user |
 | Public endpoints | Anonymous; the contact form carries a honeypot | Per IP, at a much lower rate |
-| ShopWired webhooks | HMAC-SHA256 signature | None |
-| Twilio webhooks | HMAC-SHA1 signature | None |
+| ShopWired webhooks | HMAC-SHA256 signature | Per IP, high ceiling |
+| Twilio webhooks | HMAC-SHA1 signature | Per IP, high ceiling |
 | Horizon | HTTP basic auth, inside the web middleware group | None |
-| Operational routes such as queue health | None; registered outside the web middleware group so no session or CSRF state is created | None |
+| Operational routes such as queue health | HTTP basic auth; registered outside the web middleware group so no session or CSRF state is created | None |
 
 Keeping one application means one domain model, one queue, and one deployment. The cost is that every route must declare which surface it belongs to, which is why auth and rate limiting are configured centrally rather than per controller.
 
@@ -148,23 +143,6 @@ The pipeline resolves the eligible adapters per conversion instead of branching 
 
 See [ADR 0010](docs/adr/0010-conversion-uploads-per-platform-adapters.md).
 
-## Tech Stack
-
-| Concern | Technology | Notes |
-|---------|-----------|-------|
-| Language | PHP 8.4 | Strict types, readonly properties, enums |
-| Framework | Laravel 13 | Octane (Swoole) for HTTP serving |
-| Database | PostgreSQL | Via Supabase; schema-qualified tables enforced by a custom rule |
-| Queue | Redis + Laravel Horizon | 5 priority tiers |
-| Cache | Database store by default, Redis store available | Targeted use only; see the caching decision above |
-| Static Analysis | PHPStan max + bleeding edge | Larastan, shipmonk-rules, strict-rules, disallowed-calls, cognitive-complexity, type-coverage |
-| Architecture | PHPArkitect + Deptrac | Layer dependency validation at commit and push |
-| Testing | Pest 4 + mutation testing | Layer-specific targets, Pest Mutate (180+ mutators) |
-| Deployment | Docker to Railway | Multi-stage build; 3 services (web, worker, scheduler) plus a Railway-hosted Redis |
-| Error Tracking | Sentry | Filtered by expected and unexpected; user context capture |
-| Domain Invariants | webmozart/assert | Constructor-enforced value objects throughout the Domain layer |
-| DTOs | Spatie Laravel Data | Presentation and Application boundary DTOs; Domain uses value objects |
-
 ## Integrations
 
 Each service has its own authentication model, rate limits, and data-format quirks. Ingestion is wrapped in Domain-typed clients so the quirks stop at the Infrastructure boundary.
@@ -175,12 +153,12 @@ Each service has its own authentication model, rate limits, and data-format quir
 | Linnworks | Inventory and warehouse | REST | OAuth 2.0 | Cursor-based incremental |
 | Google Ads | Ad spend, conversion uploads | REST | OAuth 2.0 | Scheduled pulls, event-driven uploads |
 | Bing Ads | Ad spend, conversion uploads | SOAP and REST | OAuth 2.0 | Async report downloads, event-driven uploads |
-| Twilio | Call tracking numbers | Inbound HTTPS webhooks | HMAC-SHA1 signatures | Inbound webhooks |
+| Twilio | Call tracking numbers | HTTPS | HMAC-SHA1 signatures | Inbound webhooks |
 | HelpScout | Customer service | REST plus SDK | OAuth 2.0 | On-demand reads, SDK writes |
 | Mixpanel | Product analytics | REST | HTTP Basic | Scheduled pushes |
 | Reviews.io | Product and company reviews | REST | API key | Two-stage fetch, then push |
 | ClickUp | Task management | REST | API key, encrypted at rest | On-demand writes |
-| Supabase | Auth and PostgreSQL | PostgreSQL wire, JWT | JWT | Shared database |
+| Supabase | Auth and PostgreSQL | PostgreSQL | JWT | Shared database |
 | AWS S3 | Object storage for product feed files | S3 API | Access key and secret | On-demand uploads |
 | Sentry | Error tracking | HTTPS | DSN | Outbound events |
 
@@ -194,9 +172,22 @@ Sync runs on a tiered schedule, spread across roughly a dozen dedicated schedule
 
 ### Call tracking
 
-Call tracking is the newest integration. Twilio numbers are rotated from a pool, shown to eligible visitors, and attributed to the ad click that brought them in. A phone call can then be uploaded as an offline conversion the same way a form submission is.
+Twilio numbers are rotated from a pool, shown to eligible visitors, and attributed to the ad click that brought them in. A phone call can then be uploaded as an offline conversion the same way a form submission is.
 
 See [ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md).
+
+## Tech Stack
+
+| Concern | Technology | Notes |
+|---------|-----------|-------|
+| Language | PHP 8.4 | Strict types, readonly properties, enums |
+| Framework | Laravel 13 | Octane (Swoole) for HTTP serving |
+| Database | PostgreSQL | Via Supabase, shared with the Admin Dashboard |
+| Queue | Redis + Laravel Horizon | 5 priority tiers |
+| Cache | Database store by default, Redis store available | Targeted use only |
+| Testing | Pest 4 | Mutation testing via Pest Mutate |
+| Deployment | Docker to Railway | 3 services (web, worker, scheduler) plus a Railway-hosted Redis |
+| Error Tracking | Sentry | Expected and unexpected errors filtered separately |
 
 ## Testing Strategy
 
@@ -236,9 +227,7 @@ Every change, regardless of size, gets its own Linear issue, branch, and pull re
 
 ### Documentation
 
-Around 200 technical plan documents and around 180 implementation logs record decision context across the project's lifetime. They live in a local AI workspace outside this public repository.
-
-That is why the ADRs in `docs/adr/` carry the decisions that outlive a single change.
+Implementation plans and logs live in a local AI workspace outside this public repository. The ADRs in `docs/adr/` carry the decisions that outlive a single change.
 
 ## CI/CD Pipeline
 
@@ -249,15 +238,13 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 | Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
 | Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
-| AI review gate | Pull request | `.github/workflows/review-gate.yml`, informational, skipped on docs-only changes |
+| AI review gate | Pull request | Informational AI review, skipped on docs-only changes |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 
 ## Known Limitations
 
 - **No distributed tracing.** Sentry captures errors well, but request-level tracing across queue jobs and outbound API calls is not instrumented. Error volume at this scale does not justify the cost.
 - **Integration tests run locally, not in CI.** Several assert against rows synced from production systems, which CI cannot provide. The unit and feature suites do run in CI against containerised PostgreSQL and Redis, so the gap is data availability rather than infrastructure.
-
-Decision records are not a gap. Eleven ADRs in [`docs/adr/`](docs/adr/) record the reasoning behind the calls above, including the ones this README summarises.
 
 ## What's next
 
