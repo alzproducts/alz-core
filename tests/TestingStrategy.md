@@ -59,7 +59,7 @@ Clean Architecture gives us natural boundaries. Each layer has different charact
 | Aspect | Policy |
 |--------|--------|
 | Coverage Target | 90%+ |
-| Mutation Testing | Yes, strict (MSI 85%+) |
+| Mutation Testing | Yes, strict (MSI 90%+) |
 | Test Type | Unit tests |
 | Mocking | None—these are pure functions |
 | Test Location | `tests/Unit/Domain/` |
@@ -207,7 +207,7 @@ Mutation testing verifies test *quality*, not just quantity. A test that doesn't
 
 | Layer | MSI Target | Covered MSI Target |
 |-------|------------|-------------------|
-| Domain | 85%+ | 90%+ |
+| Domain | 90%+ | 90%+ |
 | Application Services | 70%+ | 80%+ |
 
 ---
@@ -284,7 +284,7 @@ This strategy defines test **depth** per layer — not whether to write tests fi
 
 | Layer | Coverage | Mutation | Approach |
 |-------|----------|----------|----------|
-| Domain | 90%+ | Yes (85%+) | Thorough unit tests |
+| Domain | 90%+ | Yes (90%+) | Thorough unit tests |
 | Application | 70%+ | Services only | Business logic focus |
 | Infrastructure | — | No | Integration tests only |
 | Presentation | — | No | Smoke/feature tests |

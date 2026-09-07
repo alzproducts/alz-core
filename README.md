@@ -25,7 +25,7 @@ Code, in the order that explains the most:
 
 ## Architecture
 
-Layer boundaries are enforced by tooling, not discipline. PHPArkitect and Deptrac validate dependency rules on every commit, and 27 custom PHPStan rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming. Violations surface in the editor, not in code review.
+Layer boundaries are enforced by tooling, not discipline. PHPArkitect validates dependency rules on every commit and Deptrac on every push, and 27 custom PHPStan rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming. Violations surface in the editor, not in code review.
 
 **Enforced invariants.** Every rule below fails CI:
 
@@ -75,7 +75,7 @@ graph TD
 
 Redis caching was started, then stopped to ask what it would actually gain. Most tables have their source of truth in a third-party system, and regular syncs plus webhooks mean PostgreSQL already holds a local copy of that remote data. A general read-through cache in front of synced tables would buy slightly faster reads in exchange for invalidation complexity, consistency bugs, and maintenance burden, on a system whose Octane workers already answer quickly and which is nowhere near its database limits.
 
-Caching exists where an external contract makes it necessary rather than convenient: OAuth session tokens for Bing Ads and Linnworks, whose providers issue short-lived tokens that must be shared across workers; HelpScout read responses, behind short and long TTLs; and transient alert throttling, which suppresses repeat error notifications. See [ADR 0005](docs/adr/0005-two-tier-cache-abstractions.md) for the cache abstractions and [ADR 0011](docs/adr/0011-no-general-cache-in-front-of-synced-data.md) for why nothing sits in front of synced data.
+Caching is targeted, applied where an external contract makes it necessary rather than convenient: OAuth session tokens for Bing Ads and Linnworks, whose providers issue short-lived tokens that must be shared across workers; HelpScout read responses, behind short and long TTLs; transient alert throttling, which suppresses repeat error notifications; and a small performance cache for ClickUp user identity lookups. See [ADR 0005](docs/adr/0005-two-tier-cache-abstractions.md) for the cache abstractions and [ADR 0011](docs/adr/0011-no-general-cache-in-front-of-synced-data.md) for why nothing sits in front of synced data.
 
 Would revisit if read latency on synced tables became a measurable constraint.
 
@@ -93,7 +93,7 @@ Rather than replacing the SDK or working around its hydration, each path is used
 
 ### One application, two audiences
 
-The Admin Dashboard and the public endpoints share a codebase but not an access model. Dashboard routes sit behind a Supabase JWT with MFA enforced and an approval gate, throttled per user. The public endpoints are anonymous, throttled per IP at a much lower rate, and the contact form carries a honeypot. Two inbound webhook channels verify signatures instead of credentials, ShopWired with HMAC-SHA256 and Twilio with its own HMAC-SHA1 scheme. Operational routes, including Horizon, sit behind HTTP basic auth and are registered outside the web middleware group so no session or CSRF state is created for them.
+The Admin Dashboard and the public endpoints share a codebase but not an access model. Dashboard routes sit behind a Supabase JWT with MFA enforced and an approval gate, throttled per user. The public endpoints are anonymous, throttled per IP at a much lower rate, and the contact form carries a honeypot. Two inbound webhook channels verify signatures instead of credentials, ShopWired with HMAC-SHA256 and Twilio with its own HMAC-SHA1 scheme. Horizon sits behind HTTP basic auth inside the web middleware group. Other operational routes, such as queue health, are registered outside the web middleware group so no session or CSRF state is created for them.
 
 Keeping one application means one domain model, one queue, and one deployment. The cost is that every route must declare which surface it belongs to, which is why auth and rate limiting are configured centrally rather than per controller.
 
@@ -111,7 +111,7 @@ Offline conversion uploads to Google Ads and Bing Ads go through a single adapte
 | Queue | Redis + Laravel Horizon | 5 priority tiers |
 | Cache | Database store by default, Redis store available | Targeted use only; see the caching decision above |
 | Static Analysis | PHPStan max + bleeding edge | Larastan, shipmonk-rules, strict-rules, disallowed-calls, cognitive-complexity, type-coverage |
-| Architecture | PHPArkitect + Deptrac | Layer dependency validation on every commit |
+| Architecture | PHPArkitect + Deptrac | Layer dependency validation at commit and push |
 | Testing | Pest 4 + mutation testing | Layer-specific targets, Pest Mutate (180+ mutators) |
 | Deployment | Docker to Railway | Multi-stage build; 3 services (web, worker, scheduler) plus a Railway-hosted Redis |
 | Error Tracking | Sentry | Filtered by expected and unexpected; user context capture |
@@ -128,7 +128,7 @@ Each service has its own authentication model, rate limits, and data-format quir
 | Linnworks | Inventory and warehouse | REST | OAuth 2.0 | Cursor-based incremental |
 | Google Ads | Ad spend, conversion uploads | REST | OAuth 2.0 | Scheduled pulls, event-driven uploads |
 | Bing Ads | Ad spend, conversion uploads | SOAP and REST | OAuth 2.0 | Async report downloads, event-driven uploads |
-| Twilio | Call tracking numbers | REST plus inbound webhooks | HMAC-SHA1 signatures | Inbound webhooks |
+| Twilio | Call tracking numbers | Inbound HTTPS webhooks | HMAC-SHA1 signatures | Inbound webhooks |
 | HelpScout | Customer service | REST plus SDK | OAuth 2.0 | On-demand reads, SDK writes |
 | Mixpanel | Product analytics | REST | HTTP Basic | Scheduled pushes |
 | Reviews.io | Product and company reviews | REST | API key | Two-stage fetch, then push |
