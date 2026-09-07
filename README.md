@@ -4,7 +4,7 @@
 ![CI](https://github.com/alzproducts/alz-core/actions/workflows/ci.yml/badge.svg?branch=main&event=push)
 ![PHP 8.4](https://img.shields.io/badge/PHP-8.4-blue)
 
-Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. One Laravel application serves two audiences: the Admin Dashboard that staff work in, and the public endpoints the storefront calls for contact, checkout, and call-tracking data.
+Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. One Laravel application serves two audiences: the Admin Dashboard that staff work in, and the public endpoints the storefront calls for contact submissions, basket snapshots, and call-tracking numbers.
 
 Architectural rules are enforced by tooling rather than convention. Layer violations, undeclared exceptions, and unsafe job definitions fail the build instead of relying on review to catch them.
 
@@ -60,8 +60,7 @@ graph TD
 
 Violations surface in the editor and in git hooks, not in code review.
 
-- **PHPArkitect** validates the layer dependency rules on every commit.
-- **Deptrac** validates layer dependencies again on every push.
+- **PHPArkitect and Deptrac** validate layer dependencies on every commit and push.
 - **PHPStan** runs at max level with bleeding edge and disallowed calls. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming.
 - **Type coverage** targets 99%, and cognitive complexity limits are enforced per function.
 
@@ -71,14 +70,30 @@ Every rule below fails CI.
 
 | Invariant | Enforced by |
 |-----------|-------------|
-| Domain depends only on PHP built-ins and `webmozart/assert`; Application and Presentation never import Infrastructure | PHPArkitect + Deptrac |
+| Domain depends only on PHP built-ins and `webmozart/assert` | PHPArkitect + Deptrac |
+| Application and Presentation never import Infrastructure | PHPArkitect + Deptrac |
 | No `DB::` facade anywhere; use `DatabaseGateway` | Custom PHPStan rule |
 | No `config()` or `Config::` in Domain or Application | PHPStan |
 | No static properties, because Octane persists state across requests | Custom PHPStan rule |
-| Every thrown exception is declared in `@throws` and handled by every caller, which PHP itself does not enforce | PHPStan |
+| Every thrown exception is declared in `@throws` and handled by every caller | PHPStan |
 | SDK exception types never appear in `@throws`; they are translated to Domain exceptions at the Infrastructure boundary | Custom PHPStan rule |
 | Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | Custom PHPStan rules |
 | Every table reference is schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom PHPStan rule |
+
+### HTTP surfaces
+
+The Admin Dashboard and the public endpoints share a codebase but not an access model.
+
+| Surface | Authentication | Throttling |
+|---------|----------------|------------|
+| Admin Dashboard | Supabase JWT with MFA enforced and an approval gate | Per user |
+| Public endpoints | Anonymous; the contact form carries a honeypot | Per IP, at a much lower rate |
+| ShopWired webhooks | HMAC-SHA256 signature | Per IP, high ceiling |
+| Twilio webhooks | HMAC-SHA1 signature | Per IP, high ceiling |
+| Horizon | HTTP basic auth, inside the web middleware group | None |
+| Operational routes such as queue health | HTTP basic auth; registered outside the web middleware group so no session or CSRF state is created | None |
+
+Keeping one application means one domain model, one queue, and one deployment. The cost is that every route must declare which surface it belongs to, which is why auth and rate limiting are configured centrally rather than per controller.
 
 ## Key Engineering Decisions
 
@@ -114,26 +129,11 @@ Would revisit if ShopWired shipped complete payloads with guaranteed ordering.
 
 ### HelpScout SDK for writes, direct HTTP for reads
 
-The SDK's entity hydration silently drops response fields on reads. It drops the `snooze` field the Admin Dashboard widgets need.
+The SDK's entity hydration silently drops required response fields on reads.
 
 Writes work correctly through the SDK, so each path is used where it is reliable rather than replacing the SDK or working around its hydration.
 
 Would revisit if HelpScout shipped an SDK version that preserves all response fields.
-
-### One application, two audiences
-
-The Admin Dashboard and the public endpoints share a codebase but not an access model.
-
-| Surface | Authentication | Throttling |
-|---------|----------------|------------|
-| Admin Dashboard | Supabase JWT with MFA enforced and an approval gate | Per user |
-| Public endpoints | Anonymous; the contact form carries a honeypot | Per IP, at a much lower rate |
-| ShopWired webhooks | HMAC-SHA256 signature | Per IP, high ceiling |
-| Twilio webhooks | HMAC-SHA1 signature | Per IP, high ceiling |
-| Horizon | HTTP basic auth, inside the web middleware group | None |
-| Operational routes such as queue health | HTTP basic auth; registered outside the web middleware group so no session or CSRF state is created | None |
-
-Keeping one application means one domain model, one queue, and one deployment. The cost is that every route must declare which surface it belongs to, which is why auth and rate limiting are configured centrally rather than per controller.
 
 ### Conversion uploads behind a per-platform adapter seam
 
@@ -191,32 +191,18 @@ See [ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md)
 
 ## Testing Strategy
 
-The philosophy is to test what static analysis cannot catch. With PHPStan at max level, the type-coverage target, and the custom rules, the type system already handles a class of bugs that other codebases rely on tests to find.
-
-Tests concentrate on business logic, state transitions, and integration boundaries.
+The philosophy is to test what static analysis cannot catch. Tests concentrate on business logic, state transitions, and integration boundaries.
 
 | Layer | Targets | Focus |
 |-------|---------|-------|
-| Domain | 90%+ coverage and MSI | Pure business logic. Mutation testing catches tests that pass without verifying behaviour. Value object invariants, validators, and transformers are the priority. |
-| Application | 70%+ coverage and MSI | UseCase orchestration, service logic, command handling. Tests verify branching and error paths. Pure-delegation UseCases are excluded from coverage. |
-| Infrastructure | Integration tests only | Live service tests where mocking would hide real failures. No mutation testing. |
-| Presentation | Smoke and feature tests | HTTP endpoints, webhook signature verification, auth middleware, rate limiting, request validation. |
+| Domain | 90%+ coverage and MSI | Value object invariants, validators, and transformers. Mutation testing catches tests that pass without verifying behaviour. |
+| Application | 70%+ coverage and MSI | UseCase orchestration, branching, and error paths. Pure-delegation UseCases are excluded from coverage. |
+| Infrastructure | Integration tests only | Live service tests where mocking would hide real failures. |
+| Presentation | Smoke and feature tests | Endpoints, webhook signatures, auth middleware, rate limiting, request validation. |
 
 ## Development Workflow
 
-### Branching
-
-Feature branches merge into `develop`, and `develop` into `main`. Linear history is enforced by squash and rebase merges, with GitHub rulesets preventing direct pushes.
-
-### Feature development
-
-The process scales with scope:
-
-- **Small:** scoped in conversation, implemented autonomously, reviewed manually.
-- **Medium:** design session, then an implementation plan, then a Linear issue, then autonomous implementation in fresh context, then human review and iteration.
-- **Large:** organised as Linear projects with blocking dependencies and milestones.
-
-Every change, regardless of size, gets its own Linear issue, branch, and pull request.
+Every change gets its own Linear issue, branch, and pull request, and larger work starts with a design session and an implementation plan.
 
 ### Division of labour with AI
 
