@@ -13,13 +13,14 @@ C4Context
     title System Context — alz-core
 
     Person(staff, "Staff User", "Customer service, operations")
+    Person(visitor, "Storefront Visitor", "Anonymous shopper")
 
     System(alzCore, "alz-core", "Laravel backend: order processing, inventory sync, analytics, customer service APIs")
     System(alzAdmin, "Admin Dashboard", "Next.js dashboard: staff-facing UI")
 
     System_Ext(shopwired, "ShopWired", "eCommerce platform: orders, products, customers")
     System_Ext(linnworks, "Linnworks", "Inventory management: stock items, suppliers")
-    System_Ext(googleAds, "Google Ads", "Campaign metrics via gRPC/GAQL")
+    System_Ext(googleAds, "Google Ads", "Campaign metrics via REST/GAQL")
     System_Ext(bingAds, "Bing Ads", "Campaign metrics via SOAP/CSV")
     System_Ext(mixpanel, "Mixpanel", "Analytics: events, lookup tables")
     System_Ext(helpscout, "HelpScout", "Customer service: conversations, mailboxes")
@@ -29,16 +30,19 @@ C4Context
     SystemDb(supabase, "Supabase PostgreSQL", "Shared database with Admin Dashboard")
     System_Ext(redis, "Redis", "Cache, queues, sessions, distributed locks")
     System_Ext(sentry, "Sentry", "Error tracking")
-    System_Ext(cloudflare, "Cloudflare R2", "Object storage — S3-compatible")
+    System_Ext(cloudflare, "AWS S3", "Object storage")
 
     Rel(staff, alzAdmin, "Uses", "Browser")
     Rel(alzAdmin, alzCore, "Consumes APIs", "REST/JWT")
     Rel(alzAdmin, supabase, "Auth & reads", "Supabase SDK")
 
+    Rel(visitor, shopwired, "Browses", "Browser")
+    Rel(visitor, alzCore, "Calls public endpoints (contact, checkout snapshot, display number)", "REST, cross-origin, per-IP throttled")
+
     Rel(shopwired, alzCore, "Sends webhooks", "HMAC-signed POST")
     Rel(alzCore, shopwired, "Reads/writes", "REST API")
     Rel(alzCore, linnworks, "Reads/writes", "REST API")
-    Rel(alzCore, googleAds, "Reads metrics", "gRPC")
+    Rel(alzCore, googleAds, "Reads metrics", "REST")
     Rel(alzCore, bingAds, "Reads metrics", "SOAP + HTTP/CSV")
     Rel(alzCore, mixpanel, "Writes events", "REST API")
     Rel(alzCore, helpscout, "Reads/writes", "REST API + OAuth2")
@@ -181,7 +185,7 @@ flowchart LR
     JOB -->|"Forward to\ndownstream"| DEST[Destination API]
 ```
 
-Ten schedule providers orchestrate background work across domains: ShopWired entity syncs (orders, customers, products, brands, categories, sales), Linnworks stock and order sync, inventory push back to ShopWired, ad-spend ingestion (Google/Bing) and forwarding to Mixpanel, product feeds, Reviews.io ratings, catalog-derived filter syncs (rating, VAT relief, offers, shipping) and popularity-ranking snapshots, contact-form maintenance, and queue maintenance.
+Roughly a dozen dedicated schedule providers orchestrate background work across domains: ShopWired entity syncs (orders, customers, products, brands, categories, sales), Linnworks stock and order sync, inventory push back to ShopWired, ad-spend ingestion (Google/Bing) and forwarding to Mixpanel, product feeds, Reviews.io ratings, catalog-derived filter syncs (rating, VAT relief, offers, shipping) and popularity-ranking snapshots, contact-form maintenance, and queue maintenance.
 
 ### Customer Service (request-driven)
 
@@ -194,7 +198,7 @@ flowchart LR
     UC -->|Response| ADMIN
 ```
 
-HelpScout is the one targeted exception to the project's "no caching layer" stance — its read path is wrapped in `CachingHelpScoutService` because dashboard widgets call the same conversation/mailbox endpoints repeatedly per page load. See `app/Application/HelpScout/Services/CachingHelpScoutService.php`.
+No general-purpose cache sits in front of synced data. Caching is applied only where an external contract demands it: OAuth session tokens (Bing Ads, Linnworks), HelpScout read responses (`CachingHelpScoutService`, shown above), and transient alert throttling. See [ADR 0011](adr/0011-no-general-cache-in-front-of-synced-data.md) for the full rationale.
 
 ---
 
