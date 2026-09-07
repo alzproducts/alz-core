@@ -8,7 +8,7 @@ Production backend for a UK e-commerce business selling disability aids to indiv
 
 Architectural rules are enforced by tooling rather than convention. Layer violations, undeclared exceptions, and unsafe job definitions fail the build instead of relying on review to catch them.
 
-Behind that sit 12 third-party integrations, 70+ queued jobs, and 60+ scheduled tasks covering inventory, order processing, ad spend, and customer service. The system is built for correctness and maintainability in a small team, not horizontal scale.
+Behind that sit 12 third-party integrations, 80+ queued jobs, and 60+ scheduled tasks covering inventory, order processing, ad spend, and customer service. The system is built for correctness and maintainability in a small team, not horizontal scale.
 
 > **Status:** Published for reference. Not accepting external contributions or issues.
 
@@ -28,6 +28,42 @@ The directories that best show how the system is put together:
 - `app/Infrastructure/Shopwired/` for the largest integration: clients, webhook handling, mappers, and repositories.
 - `app/Application/Conversion/` for offline conversion uploads fanning out to per-platform adapters.
 - `app/Providers/Schedule/` for the tiered sync schedule, split one provider per area.
+
+## Key Features
+
+### Data sync engine
+
+Centralises data from a dozen external platforms, each with its own data model, API, and reliability, into one PostgreSQL database, and pushes selected data back out.
+
+- **Three tiers of sync.** ShopWired webhooks trigger a re-fetch of the full entity. Cursor-based incremental syncs run every one to five minutes for orders and stock. Hourly through monthly catch-up jobs use overlapping lookback windows.
+- **Freshness under finite rate limits.** 60+ scheduled tasks compete for the same API budgets. Per-service rate limiters tuned to each API, five priority queues across four Horizon supervisor tiers, and skip closures that hold quick syncs back during full-sync windows keep the fast paths fast.
+- **Self-healing by design.** A missed webhook is caught by the next incremental sync rather than the next scheduled sweep. Drift syncs compare SQL views against the catalog and correct any divergence ([ADR 0007](docs/adr/0007-drift-syncs-share-template-method-base.md)).
+- **Failure handling.** Transient API failures retry with backoff and honour Retry-After; permanent failures fail immediately. A per-service circuit breaker pauses that service's jobs after repeated transient failures. Three quarters of jobs are `ShouldBeUnique`.
+- **Scale.** A Linnworks backfill of 115k+ orders ran for 12+ hours. The bottleneck was database latency, not API limits.
+
+### Webhook ingestion
+
+Webhooks are treated as notifications, not data sources. Defence in depth, outermost first:
+
+- Per-IP rate limit before any cryptography or database work.
+- HMAC signature verification with timing-safe comparison. A missing secret fails closed.
+- Staleness guard discards events older than 24 hours.
+- Idempotency and ordering in one indexed query: a monotonic webhook ID per subject and topic collapses duplicate and out-of-order events.
+- Optimistic partial save and an immediate `200 OK`, then a queued re-fetch overwrites with authoritative API state. See [Key Engineering Decisions](#webhook-partial-save-then-re-fetch-and-reconcile).
+- A daily health check alerts when the platform silently disables a webhook. Event records are kept for 90 days.
+
+### Call tracking
+
+Phone leads from paid ads were invisible to Google and Bing attribution; only form fills counted.
+
+1. A visitor arriving from an ad click is shown a number from a Twilio pool, rotated round-robin, instead of the main business line.
+2. The number-to-click mapping is stored as a visit.
+3. An inbound call is matched to the most recent visit for that number within a six-hour window.
+4. The call becomes a lead and is uploaded to Google or Bing as an offline conversion through the same pipeline as a form submission.
+
+- **Consent first.** Visitors who decline marketing consent, or an empty pool, get the default business number.
+- **No silent mis-attribution.** A call matching more than one visit is flagged as a collision and surfaced to operators.
+- **Independent but unified.** Own domain model and tables, one dashboard view over both conversion sources ([ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md)).
 
 ## Architecture
 
@@ -157,20 +193,6 @@ Each service has its own authentication model, rate limits, and data-format quir
 | Supabase | Auth and PostgreSQL | JWT | Shared database |
 | AWS S3 | Object storage for product feed files | Access key and secret | On-demand uploads |
 | Sentry | Error tracking | DSN | Outbound events |
-
-### Sync schedule
-
-Sync runs on a tiered schedule, spread across roughly a dozen dedicated schedule providers:
-
-- Cursor-based incremental polling every few minutes.
-- Hourly and daily catch-up sweeps.
-- Weekly or monthly full reconciliation.
-
-### Call tracking
-
-Twilio numbers are rotated from a pool, shown to eligible visitors, and attributed to the ad click that brought them in. A phone call can then be uploaded as an offline conversion the same way a form submission is.
-
-See [ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md).
 
 ## Tech Stack
 
