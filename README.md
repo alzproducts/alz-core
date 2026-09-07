@@ -35,7 +35,7 @@ The codebase follows Clean Architecture, with strict and custom linting rules th
 
 ### Layers
 
-Dependencies point inward. Infrastructure implements the interfaces the inner layers define.
+Dependencies point inward. Infrastructure implements the interfaces the inner layers define. Domain value objects validate their invariants in the constructor, and Spatie Laravel Data DTOs stay outside the Domain.
 
 ```mermaid
 graph TD
@@ -61,7 +61,7 @@ graph TD
 Violations surface in the editor and in git hooks, not in code review.
 
 - **PHPArkitect and Deptrac** validate layer dependencies on every commit and push.
-- **PHPStan** runs at max level with bleeding edge and disallowed calls. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming.
+- **PHPStan** runs at max level with bleeding edge and disallowed calls. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming. Methods cap at four parameters, class length is tiered by layer, and cognitive complexity is limited to 10 per function.
 - **Type coverage** targets 99%, and cognitive complexity limits are enforced per function.
 
 ### Invariants
@@ -88,12 +88,8 @@ The Admin Dashboard and the public endpoints share a codebase but not an access 
 |---------|----------------|------------|
 | Admin Dashboard | Supabase JWT with MFA enforced and an approval gate | Per user |
 | Public endpoints | Anonymous; the contact form carries a honeypot | Per IP, at a much lower rate |
-| ShopWired webhooks | HMAC-SHA256 signature | Per IP, high ceiling |
-| Twilio webhooks | HMAC-SHA1 signature | Per IP, high ceiling |
-| Horizon | HTTP basic auth, inside the web middleware group | None |
-| Operational routes such as queue health | HTTP basic auth; registered outside the web middleware group so no session or CSRF state is created | None |
-
-Keeping one application means one domain model, one queue, and one deployment. The cost is that every route must declare which surface it belongs to, which is why auth and rate limiting are configured centrally rather than per controller.
+| Inbound webhooks (ShopWired, Twilio) | HMAC signatures | Per IP |
+| Horizon and operational routes | HTTP basic auth | None |
 
 ## Key Engineering Decisions
 
@@ -191,7 +187,7 @@ See [ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md)
 
 ## Testing Strategy
 
-The philosophy is to test what static analysis cannot catch. Tests concentrate on business logic, state transitions, and integration boundaries.
+The philosophy is to test what static analysis cannot catch. Coverage targets are calibrated to where bugs are most costly, and tests concentrate on business logic, state transitions, and integration boundaries.
 
 | Layer | Targets | Focus |
 |-------|---------|-------|
@@ -206,9 +202,11 @@ Every change gets its own Linear issue, branch, and pull request, and larger wor
 
 ### Division of labour with AI
 
+Claude Code is the main workhorse for implementation, favouring the most capable models available. A human stays heavily involved in every planning and review step, and custom skills drive the planning and implementation stages so each change follows the same path from issue to pull request. AI-written code is gated by the same pre-commit and pre-push hooks as any other, and those hooks are the hard boundary.
+
 - **Human-owned:** architecture, design, decisions, and review.
-- **AI-owned:** implementation, working inside around 30 scoped rule files that encode layer constraints, naming conventions, and per-file patterns. The linters are the hard boundary.
-- **Tests:** implementation is fully delegated. The mutation score, rather than coverage, acts as the quality floor.
+- **AI-owned:** implementation, inside scoped rule files that encode the conventions for each part of the codebase.
+- **Tests:** implementation is fully delegated, with the mutation score rather than coverage as the quality floor. The trade-off is velocity over hand-crafted test design, and quality is less even outside the core Domain logic.
 - **Review gate:** CI runs an AI review on every code pull request. It is informational and does not gate a merge.
 
 ### Documentation
