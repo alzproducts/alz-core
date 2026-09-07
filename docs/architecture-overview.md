@@ -13,6 +13,7 @@ C4Context
     title System Context — alz-core
 
     Person(staff, "Staff User", "Customer service, operations")
+    Person(visitor, "Storefront Visitor", "Anonymous shopper")
 
     System(alzCore, "alz-core", "Laravel backend: order processing, inventory sync, analytics, customer service APIs")
     System(alzAdmin, "Admin Dashboard", "Next.js dashboard: staff-facing UI")
@@ -34,6 +35,9 @@ C4Context
     Rel(staff, alzAdmin, "Uses", "Browser")
     Rel(alzAdmin, alzCore, "Consumes APIs", "REST/JWT")
     Rel(alzAdmin, supabase, "Auth & reads", "Supabase SDK")
+
+    Rel(visitor, shopwired, "Browses", "Browser")
+    Rel(visitor, alzCore, "Calls public endpoints (contact, checkout snapshot, display number)", "REST, cross-origin, per-IP throttled")
 
     Rel(shopwired, alzCore, "Sends webhooks", "HMAC-signed POST")
     Rel(alzCore, shopwired, "Reads/writes", "REST API")
@@ -194,7 +198,7 @@ flowchart LR
     UC -->|Response| ADMIN
 ```
 
-HelpScout is the one targeted exception to the project's "no caching layer" stance — its read path is wrapped in `CachingHelpScoutService` because dashboard widgets call the same conversation/mailbox endpoints repeatedly per page load. See `app/Application/HelpScout/Services/CachingHelpScoutService.php`.
+No general-purpose cache sits in front of synced data. Caching is applied only where an external contract demands it: OAuth session tokens (Bing Ads, Linnworks), HelpScout read responses (`CachingHelpScoutService`, shown above), and transient alert throttling. See [ADR 0011](adr/0011-no-general-cache-in-front-of-synced-data.md) for the full rationale.
 
 ---
 
