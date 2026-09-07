@@ -4,26 +4,74 @@
 ![CI](https://github.com/alzproducts/alz-core/actions/workflows/ci.yml/badge.svg?branch=main&event=push)
 ![PHP 8.4](https://img.shields.io/badge/PHP-8.4-blue)
 
-Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. The system orchestrates 11 third-party integrations, 73 queued jobs, and 57 scheduled tasks across inventory management, order processing, ad spend tracking, and customer service. All behind a mechanically enforced Clean Architecture. Built for correctness and maintainability in a small team, not horizontal scale.
+Production backend for a UK e-commerce business selling disability aids to individuals, businesses, and the public sector. One Laravel application serves two audiences: the Admin Dashboard that staff work in, and the public endpoints the storefront calls for contact submissions, basket snapshots, and call-tracking numbers.
 
-> **Status:** Portfolio showcase. This repository is published for reference and is not accepting external contributions or issues.
+Architectural rules are enforced by tooling rather than convention. Layer violations, undeclared exceptions, and unsafe job definitions fail the build instead of relying on review to catch them.
 
-## Table of Contents
+Behind that sit 12 third-party integrations, 80+ queued jobs, and 60+ scheduled tasks covering inventory, order processing, ad spend, and customer service. The system is built for correctness and maintainability in a small team, not horizontal scale.
 
-- [Architecture](#architecture)
-- [Key Engineering Decisions](#key-engineering-decisions)
-- [Tech Stack](#tech-stack)
-- [Integrations](#integrations)
-- [Testing Strategy](#testing-strategy)
-- [Development Workflow](#development-workflow)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Known Limitations & What's Next](#known-limitations--whats-next)
+> **Status:** Published for reference. Not accepting external contributions or issues.
+
+## Where to start
+
+### Documentation
+
+- [`docs/architecture-overview.md`](docs/architecture-overview.md) for system topology, deployment, and end-to-end data flows.
+- [`docs/adr/`](docs/adr/) for the eleven architectural decision records.
+- [`tests/TestingStrategy.md`](tests/TestingStrategy.md) for what is tested at each layer, and what is deliberately not.
+
+### Code
+
+The directories that best show how the system is put together:
+
+- `app/DevTools/PHPStan/Rules/` for the custom static-analysis rules that enforce the invariants below.
+- `app/Infrastructure/Shopwired/` for the largest integration: clients, webhook handling, mappers, and repositories.
+- `app/Application/Conversion/` for offline conversion uploads fanning out to per-platform adapters.
+- `app/Providers/Schedule/` for the tiered sync schedule, split one provider per area.
+
+## Key Features
+
+### Data sync engine
+
+Centralises data from a dozen external platforms, each with its own data model, API, and reliability, into one PostgreSQL database, and pushes selected data back out.
+
+- **Three tiers of sync.** ShopWired webhooks trigger a re-fetch of the full entity. Cursor-based incremental syncs run every one to five minutes for orders and stock. Hourly through monthly catch-up jobs use overlapping lookback windows.
+- **Freshness under finite rate limits.** 60+ scheduled tasks compete for the same API budgets. Per-service rate limiters tuned to each API, five priority queues across four Horizon supervisor tiers, and skip closures that hold quick syncs back during full-sync windows keep the fast paths fast.
+- **Self-healing by design.** A missed webhook is caught by the next incremental sync rather than the next scheduled sweep. Drift syncs compare SQL views against the catalog and correct any divergence ([ADR 0007](docs/adr/0007-drift-syncs-share-template-method-base.md)).
+- **Failure handling.** Transient API failures retry with backoff and honour Retry-After; permanent failures fail immediately. A per-service circuit breaker pauses that service's jobs after repeated transient failures. Three quarters of jobs are `ShouldBeUnique`.
+- **Scale.** A Linnworks backfill of 115k+ orders ran for 12+ hours. The bottleneck was database latency, not API limits.
+
+### Webhook ingestion
+
+Webhooks are treated as notifications, not data sources. Defence in depth, outermost first:
+
+- Per-IP rate limit before any cryptography or database work.
+- HMAC signature verification with timing-safe comparison. A missing secret fails closed.
+- Staleness guard discards events older than 24 hours.
+- Idempotency and ordering in one indexed query: a monotonic webhook ID per subject and topic collapses duplicate and out-of-order events.
+- Optimistic partial save and an immediate `200 OK`, then a queued re-fetch overwrites with authoritative API state. See [Key Engineering Decisions](#webhook-partial-save-then-re-fetch-and-reconcile).
+- A daily health check alerts when the platform silently disables a webhook. Event records are kept for 90 days.
+
+### Call tracking
+
+Phone leads from paid ads were invisible to Google and Bing attribution; only form fills counted.
+
+1. A visitor arriving from an ad click is shown a number from a Twilio pool, rotated round-robin, instead of the main business line.
+2. The number-to-click mapping is stored as a visit.
+3. An inbound call is matched to the most recent visit for that number within a six-hour window.
+4. The call becomes a lead and is uploaded to Google or Bing as an offline conversion through the same pipeline as a form submission.
+
+- **Consent first.** Visitors who decline marketing consent, or an empty pool, get the default business number.
+- **No silent mis-attribution.** A call matching more than one visit is flagged as a collision and surfaced to operators.
+- **Independent but unified.** Own domain model and tables, one dashboard view over both conversion sources ([ADR 0004](docs/adr/0004-call-tracking-independent-of-contact-submission.md)).
 
 ## Architecture
 
-Layer boundaries are enforced by tooling, not discipline. PHPArkitect validates dependency rules across four layers on every commit, and 27 custom PHPStan rules enforce conventions beyond what built-in type checking can catch.
+The codebase follows Clean Architecture, with strict and custom linting rules that enforce the layer boundaries before code reaches review.
 
-The result is a codebase where architectural violations are caught in the editor, not in code review.
+### Layers
+
+Dependencies point inward. Infrastructure implements the interfaces the inner layers define. Domain value objects validate their invariants in the constructor, and Spatie Laravel Data DTOs stay outside the Domain.
 
 ```mermaid
 graph TD
@@ -44,204 +92,175 @@ graph TD
     style P fill:#3a1a5c,stroke:#6a2d9f,color:#fff
 ```
 
-> System topology, container deployment, and end-to-end data flows: see [`docs/architecture-overview.md`](docs/architecture-overview.md).
+### Linting and tooling
 
-**Enforcement tools:** PHPArkitect (layer dependencies) · PHPStan max level with bleeding edge · 99% type coverage target · Cognitive complexity limits · Disallowed calls (no facades in domain/application, no `DB::`, no `Artisan::call`)
+Violations surface in the editor and in git hooks, not in code review.
 
-**27 custom PHPStan rules** cover job resilience (`$tries`, `$timeout`, `backoff()`, `failed()` required on every job), exception taxonomy (domain exceptions must extend the base, infrastructure `@throws` must not reference vendor exceptions), complexity limits (20-line methods, 4-parameter cap, tiered class length by layer), and naming conventions enforced per layer.
+- **PHPArkitect and Deptrac** validate layer dependencies on every commit and push.
+- **PHPStan** runs at max level with bleeding edge and disallowed calls. 27 custom rules cover job resilience, exception taxonomy, complexity limits, and per-layer naming. Methods cap at four parameters, class length is tiered by layer, and cognitive complexity is limited to 10 per function.
+- **Type coverage** targets 99%, and cognitive complexity limits are enforced per function.
 
-**Enforced invariants** — every rule below fails CI, not code review:
+### Invariants
+
+Every rule below is a lint failure.
 
 | Invariant | Enforced by |
 |-----------|-------------|
-| Domain depends only on PHP built-ins + `webmozart/assert` | PHPArkitect + Deptrac |
-| Application never imports Infrastructure | PHPArkitect + Deptrac |
-| Presentation never imports Infrastructure | PHPArkitect + Deptrac |
-| No `DB::` facade anywhere — use `DatabaseGateway` | Custom PHPStan rule `NoDbFacadeRule` |
-| No `config()` / `Config::` in Domain or Application | `spaze/phpstan-disallowed-calls` |
-| No static properties (Octane persists state across requests) | Custom PHPStan rule `NoStaticPropertiesRule` |
-| Checked-exception semantics enforced via PHPStan — every thrown exception must be declared in `@throws` and propagated or caught by every caller (PHP itself does not enforce this) | PHPStan `exceptions.check` (`missingCheckedExceptionInThrows`) |
-| SDK exception types never appear in `@throws` — translated to Domain exceptions at the Infrastructure boundary | Custom rule `NoSdkExceptionsInThrowsRule` |
-| Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | 6 custom rules under `DevTools/PHPStan/Rules/Jobs/` |
-| Every table reference must be schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom rule `SchemaQualifiedTableNameRule` |
+| Domain depends only on PHP built-ins and `webmozart/assert` | PHPArkitect + Deptrac |
+| Application and Presentation never import Infrastructure | PHPArkitect + Deptrac |
+| No `DB::` facade anywhere; use `DatabaseGateway` | Custom PHPStan rule |
+| No `config()` or `Config::` in Domain or Application | PHPStan |
+| No static properties, because Octane persists state across requests | Custom PHPStan rule |
+| Every thrown exception is declared in `@throws` and handled by every caller | PHPStan |
+| SDK exception types never appear in `@throws`; they are translated to Domain exceptions at the Infrastructure boundary | Custom PHPStan rule |
+| Every queue job declares `$tries`, `$timeout`, `backoff()`, `failed()`, implements `ShouldQueue`, and sets `onQueue()` | Custom PHPStan rules |
+| Every table reference is schema-qualified (`auth.*`, `shopwired.*`, `public.*`) | Custom PHPStan rule |
+
+### HTTP surfaces
+
+The Admin Dashboard and the public endpoints share a codebase but not an access model.
+
+| Surface | Authentication | Throttling |
+|---------|----------------|------------|
+| Admin Dashboard | Supabase JWT with MFA enforced and an approval gate | Per user |
+| Public endpoints | Anonymous; the contact form carries a honeypot | Per IP, at a much lower rate |
+| Inbound webhooks (ShopWired, Twilio) | HMAC signatures | Per IP |
+| Horizon and operational routes | HTTP basic auth | None |
 
 ## Key Engineering Decisions
 
-### No caching layer — the database already is one
+### No general cache in front of synced data
 
-Started implementing Redis caching, then stopped to ask what it would actually gain. Most tables have their source of truth in a third-party system; regular syncs and webhooks mean PostgreSQL already provides the core benefit of a cache: fast local reads of remote data.
+There is no general read-through cache. Most tables have their source of truth in a third-party system, and scheduled syncs plus webhooks keep a local copy in PostgreSQL. Reads are already local.
 
-Evaluated the standard justifications and none applied to a small internal tool operating well within its resource limits, especially with Octane's persistent workers already providing fast response times and a high throughput ceiling:
+A cache in front of those tables would buy slightly faster reads in exchange for invalidation complexity and consistency bugs. The Octane workers already answer quickly, and the database is nowhere near its limits.
 
-- High throughput? Internal tool with 3-4 users.
-- Ultra-fast customer-facing responses? Not customer-facing.
-- Reducing database load? Nowhere near capacity.
+Caching is used only where an external contract requires it:
 
-The downsides (invalidation complexity, consistency bugs, solo-developer maintenance burden) far outweighed the only real benefit: slightly faster loads. Would add targeted caching when query performance degrades or when customer-facing features (e.g. delivery lead times) demand it.
+- **OAuth session tokens** for Bing Ads and Linnworks, whose providers issue short-lived tokens that must be shared across workers.
+- **HelpScout read responses**, behind short and long TTLs.
+- **Alert throttling**, which suppresses repeat error notifications.
+- **ClickUp user identity lookups**, a small performance cache.
 
-### Webhook partial-save → re-fetch → reconcile
+See [ADR 0005](docs/adr/0005-two-tier-cache-abstractions.md) for the cache abstractions and [ADR 0011](docs/adr/0011-no-general-cache-in-front-of-synced-data.md) for why nothing sits in front of synced data.
 
-ShopWired webhook payloads are partial; the full entity must be re-fetched from the API regardless. Webhooks save the partial payload, return `200 OK` immediately to avoid timeouts, and dispatch a re-fetch job. Webhooks allowed us to significantly reduce polling frequency while keeping data accurate within tight external API rate limits.
+Would revisit if read latency on synced tables became a measurable constraint.
 
-Would revisit if ShopWired added complete payloads with guaranteed ordering.
+### Webhook partial-save, then re-fetch and reconcile
+
+ShopWired webhook payloads are partial, so the full entity has to be re-fetched from the API regardless. The webhook handler therefore does the minimum work inline:
+
+1. Persist the partial payload.
+2. Return `200 OK` immediately, so the provider never times out.
+3. Dispatch a re-fetch job.
+4. The job pulls the full entity from the API and reconciles the stored record.
+
+Polling therefore runs far less often, and data stays accurate inside tight external rate limits.
+
+Would revisit if ShopWired shipped complete payloads with guaranteed ordering.
 
 ### HelpScout SDK for writes, direct HTTP for reads
 
-The SDK's entity hydration silently drops response fields on reads. The `snooze` field needed by all four dashboard widget types was being discarded. Writes work correctly through the SDK.
+The SDK's entity hydration silently drops required response fields on reads.
 
-Rather than replacing the SDK entirely or working around it, the hybrid approach uses each path where it's reliable. Would revisit if HelpScout shipped an SDK version that preserves all response fields.
+Writes work correctly through the SDK, so each path is used where it is reliable rather than replacing the SDK or working around its hydration.
 
-### Test implementation delegated to AI; mutation testing as the quality floor
+Would revisit if HelpScout shipped an SDK version that preserves all response fields.
 
-Test writing was the only area of the codebase fully delegated to AI tooling. Architecture, design, and production code were collaborative. Critical business logic tests were developed together; the rest were AI-generated within testing guides and validated by Mutation Score Indicator (85%+ MSI domain, 70%+ MSI application).
+### Conversion uploads behind a per-platform adapter seam
 
-- The trade-off is velocity over hand-crafted test design
-- The realistic consequence is that test quality is uneven outside of core domain logic
-- The mutation score, not coverage percentage, is the real quality gate
+Offline conversion uploads to Google Ads and Bing Ads go through a single adapter interface. Each adapter declares the conversion types it supports and reads its own click ID out of the shared attribution.
 
-## Tech Stack
+The pipeline resolves the eligible adapters per conversion instead of branching on platform name. Adding a platform is one new adapter rather than edits across every use case and job.
 
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| Language | PHP 8.4 | Strict types, readonly properties, enums |
-| Framework | Laravel 13 | Octane (Swoole) for HTTP serving |
-| Database | PostgreSQL | Via Supabase; schema-qualified tables enforced by custom PHPStan rule |
-| Queue | Redis + Laravel Horizon | 5 priority tiers, 3 Railway services (web, worker, scheduler) |
-| Static Analysis | PHPStan max + bleeding edge | Larastan, shipmonk-rules, strict-rules, disallowed-calls, cognitive-complexity, type-coverage |
-| Architecture | PHPArkitect | Layer dependency validation on every commit |
-| Testing | Pest 4 + mutation testing | Layer-specific coverage targets, Pest Mutate (190+ mutators) |
-| Deployment | Docker → Railway | Multi-stage build, Swoole runtime |
-| Error Tracking | Sentry | Filtered by expected/unexpected; user context capture |
-| Domain Invariants | webmozart/assert | Constructor-enforced value objects throughout domain layer |
-| DTOs | Spatie Laravel Data | Presentation and application boundary DTOs; domain uses value objects |
+See [ADR 0010](docs/adr/0010-conversion-uploads-per-platform-adapters.md).
 
 ## Integrations
 
-The system connects to 11 external services, each with its own authentication model, rate limits, and data format quirks.
+Each service has its own authentication model, rate limits, and data-format quirks. Those quirks stay inside the Infrastructure layer. The rest of the codebase only sees Domain types.
 
-```mermaid
-graph LR
-    ALC["alz-core\nLaravel · PostgreSQL"]
+| Service | Role | Auth | Sync pattern |
+|---------|------|------|--------------|
+| ShopWired | Storefront platform | HTTP Basic; HMAC-SHA256 webhooks | Webhooks plus polling |
+| Linnworks | Inventory and warehouse | OAuth 2.0 | Cursor-based incremental |
+| Google Ads | Ad spend, conversion uploads | OAuth 2.0 | Scheduled pulls, event-driven uploads |
+| Bing Ads | Ad spend, conversion uploads | OAuth 2.0 | Async report downloads, event-driven uploads |
+| Twilio | Call tracking numbers | HMAC-SHA1 signatures | Inbound webhooks |
+| HelpScout | Customer service | OAuth 2.0 | On-demand reads, SDK writes |
+| Mixpanel | Product analytics | HTTP Basic | Scheduled pushes |
+| Reviews.io | Product and company reviews | API key | Two-stage fetch, then push |
+| ClickUp | Task management | API key, encrypted at rest | On-demand writes |
+| Supabase | Auth and PostgreSQL | JWT | Shared database |
+| AWS S3 | Object storage for product feed files | Access key and secret | On-demand uploads |
+| Sentry | Error tracking | DSN | Outbound events |
 
-    subgraph Ecommerce["E-commerce"]
-        SW["ShopWired\n14 clients · webhooks + polling"]
-    end
+## Tech Stack
 
-    subgraph Inventory["Inventory & Orders"]
-        LW["Linnworks\n10 clients · cursor sync"]
-    end
-
-    subgraph Ads["Ad Spend"]
-        GA["Google Ads\ngRPC · conversion tracking"]
-        BA["Bing Ads\nSOAP · async reports"]
-    end
-
-    subgraph Analytics
-        MP["Mixpanel\nlookup tables · order sync"]
-    end
-
-    subgraph Support["Customer Service"]
-        HS["HelpScout\n5 clients · OAuth 2.0"]
-        RV["Reviews.io\ntwo-stage fetch + push"]
-    end
-
-    subgraph Infra["Infrastructure"]
-        CF["Cloudflare\nR2 · Workers · CDN"]
-        SE["Sentry\nerror tracking"]
-        SB["Supabase\nauth · PostgreSQL"]
-    end
-
-    subgraph Tasks["Task Management"]
-        CU["ClickUp\nencrypted API keys"]
-    end
-
-    SW <-->|"HTTP Basic · HMAC webhooks"| ALC
-    LW <-->|"OAuth 2.0 · cursor + tiered"| ALC
-    GA <-->|"OAuth 2.0 · GAQL + conversions"| ALC
-    BA -->|"OAuth 2.0 · SOAP + ZIP"| ALC
-    MP <-->|"Basic Auth"| ALC
-    HS <-->|"OAuth 2.0"| ALC
-    RV -->|"API key"| ALC
-    CF <-->|"S3-compat"| ALC
-    ALC -->|"DSN"| SE
-    SB <-->|"JWT"| ALC
-    CU <-->|"API key"| ALC
-```
-
-Sync runs on a tiered schedule: cursor-based incremental polling (every 1–5 minutes), hourly/daily catch-up sweeps, and weekly/monthly full reconciliation. 57 scheduled tasks across 10 dedicated schedule providers.
+| Concern | Technology | Notes |
+|---------|-----------|-------|
+| Language | PHP 8.4 | Strict types, readonly properties, enums |
+| Framework | Laravel 13 | Octane (Swoole) for HTTP serving |
+| Database | PostgreSQL | Via Supabase, shared with the Admin Dashboard |
+| Queue | Redis + Laravel Horizon | 5 priority tiers |
+| Cache | Database store by default, Redis store available | Targeted use only |
+| Testing | Pest 4 | Mutation testing via Pest Mutate |
+| Deployment | Docker to Railway | 3 services (web, worker, scheduler) plus a Railway-hosted Redis |
+| Error Tracking | Sentry | Expected and unexpected errors filtered separately |
 
 ## Testing Strategy
 
-Testing is organised by architectural layer, with coverage targets calibrated to where bugs are most costly.
+The philosophy is to test what static analysis cannot catch. Coverage targets are calibrated to where bugs are most costly. Tests concentrate on business logic, state transitions, and integration boundaries.
 
 | Layer | Targets | Focus |
 |-------|---------|-------|
-| Domain | 90%+ coverage, 85%+ MSI | Pure business logic. Mutation testing catches tests that pass without verifying behaviour. Value object invariants, validators, and transformers are the priority. |
-| Application | 70%+ coverage, 70%+ MSI | UseCase orchestration, service logic, command handling. Tests verify branching logic and error paths. Pure-delegation UseCases excluded from coverage. |
-| Infrastructure | Integration tests only | Live service tests where mocking would hide real failures. No mutation testing. |
-| Presentation | Smoke + feature tests | HTTP endpoints, webhook signature verification, auth middleware, rate limiting, request validation. |
-
-The philosophy: test what static analysis can't catch. With PHPStan at max level, 99% type coverage, and 27 custom rules, the type system handles a large class of bugs that other codebases rely on tests to find. Tests focus on business logic, state transitions, and integration boundaries.
+| Domain | 90%+ coverage and MSI | Value object invariants, validators, and transformers. Mutation testing catches tests that pass without verifying behaviour. |
+| Application | 70%+ coverage and MSI | UseCase orchestration, branching, and error paths. Pure-delegation UseCases are excluded from coverage. |
+| Infrastructure | Integration tests only | Live service tests where mocking would hide real failures. |
+| Presentation | Smoke and feature tests | Endpoints, webhook signatures, auth middleware, rate limiting, request validation. |
 
 ## Development Workflow
 
-**Branching:** Feature branches → `develop` → `main`, with linear history enforced via squash/rebase merges and GitHub branch protection rulesets preventing direct pushes.
+Every change gets its own Linear issue, branch, and pull request, and larger work starts with a design session and an implementation plan.
 
-**Feature development** scales with scope:
+### Division of labour with AI
 
-- **Small:** Scoped in conversation, implemented autonomously, manually reviewed.
-- **Medium:** Interactive design session → implementation plan (checked against planning decisions) → Linear issue updated → autonomous implementation in fresh context → human review and iteration.
-- **Large:** Organised as Linear projects with blocking dependencies and milestones.
+Claude Code is the main workhorse for implementation, favouring the most capable models available.
 
-Every change, regardless of size, gets its own Linear issue, branch, and PR.
+- **Human in the loop:** a human stays heavily involved in every planning and review step.
+- **Custom skills:** drive planning and implementation so each change follows the same path from issue to pull request.
+- **Hard boundary:** AI-written code passes the same pre-commit and pre-push hooks as any other code.
 
-**AI-assisted development:** Claude Code is the primary implementation tool, operating within 28 scoped rule files that encode architectural constraints, naming conventions, and layer-specific patterns. The architecture, design decisions, and code review remain human-driven; AI handles implementation velocity within guardrails.
+| Area | Owner | Notes |
+|------|-------|-------|
+| Architecture, design, decisions, review | Human | |
+| Implementation | AI | Guided by scoped rule files that encode the conventions for each part of the codebase |
+| Tests | AI | Fully delegated, with mutation score rather than coverage as the quality floor. Trades hand-crafted test design for velocity, so quality is less even outside core Domain logic |
+| Pull request review | CI | Informational AI review on every code pull request; it does not gate a merge |
 
-**Documentation:** 162 technical plan documents and 132 implementation logs in the project's development history capture decision context across its lifetime.
+### Documentation
+
+Implementation plans and logs live in a local AI workspace outside this public repository. The ADRs in `docs/adr/` carry the decisions that outlive a single change.
 
 ## CI/CD Pipeline
 
-Pull requests trigger a 7-job pipeline with change detection (docs-only PRs skip expensive jobs):
+Pull requests trigger a change-detected pipeline. Docs-only pull requests skip the expensive jobs.
 
 | Stage | Trigger | Checks |
 |-------|---------|--------|
-| Pre-commit | Every commit | Pint (style) → PHPStan (analysis) → PHPArkitect (architecture) |
-| Pre-push | Every push | Pest (tests) → Deptrac (layer deps) → TLint |
-| CI (all PRs) | Pull request | Code style · Pest parallel (PostgreSQL 17 + Redis 7) · Security audit · Taint analysis (Psalm) |
-| CI (main only) | PR to main | Mutation testing: Domain 90%+ MSI, Application 70%+ MSI (informational, not blocking) |
+| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
+| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
+| CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
+| AI review gate | Pull request | Informational AI review, skipped on docs-only changes |
+| Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 
-## Known Limitations & What's Next
+## Known Limitations
 
-- No distributed tracing. Sentry captures errors effectively, but request-level tracing across queue jobs and API calls isn't instrumented. Error volume at current scale doesn't justify the implementation cost.
-- Integration tests require a live Supabase database and can't run in CI. Containerised PostgreSQL for CI is a known improvement.
-- Architectural decision records are underway (`docs/adr/`) but only one has been formalised so far. The 162 plan documents in the project's development history contain the reasoning but aren't in ADR format yet.
+- **No distributed tracing.** Sentry captures errors well, but request-level tracing across queue jobs and outbound API calls is not instrumented. Error volume at this scale does not justify the cost.
+- **Integration tests run locally, not in CI.** Several assert against rows synced from production systems, which CI cannot provide. The unit and feature suites do run in CI against containerised PostgreSQL and Redis, so the gap is data availability rather than infrastructure.
 
-**What's next:**
+## What's next
 
-### Product Image Optimisation Pipeline
-
-Two-tier Cloudflare R2 storage (lossless master + web-optimised derivative), event-driven processing via Intervention Image v3 + libvips + Spatie Image Optimizer. Includes automated ShopWired sync, quality reporting, and backfill of ~12,000 existing product images. Planned across 3 milestones in Linear.
-
-### QuickBooks Online Integration
-
-Replace the current Zapier-based invoice/sales receipt sync from ShopWired with a native integration in alz-core. The business requires conditional branching logic to determine whether each transaction becomes an invoice or a sales receipt, and off-the-shelf integrations can't handle this.
-
-### Server-Side Estimated Delivery Dates
-
-Move delivery date calculations off Twig templates and onto alz-core:
-
-1. Staff configure closed days, excluded dispatch dates, and per-delivery-method lead time thresholds via the admin UI
-2. Lead times are synced to Cloudflare KV on a schedule
-3. Served as first-party cookies via Cloudflare Workers to every visitor
-4. Rendered immediately on page load via inline scripts, matching server-side speed without a server round-trip
-
-### B2B Customer Identification & Marketing Pipeline
-
-Heuristic algorithm to identify likely B2B cash buyers from order data (business name, order value, product volume), exposed via API for staff to confirm and label customer type.
-
-Feeds two automated outputs:
-
-- A continuously updated B2B best-sellers product list
-- A matched audience segment for targeted digital marketing campaigns
-
-The combination targets the right products at the right customers, and refines itself through regular staff feedback.
+- Product image optimisation pipeline: two-tier Cloudflare R2 storage with derivative generation and ShopWired sync.
+- QuickBooks Online integration, replacing the current Zapier-based invoice and sales-receipt sync.
+- Server-side estimated delivery dates, calculated in alz-core and served to the storefront at the edge.
+- B2B customer identification from order data, feeding a best-sellers list and a matched marketing audience.

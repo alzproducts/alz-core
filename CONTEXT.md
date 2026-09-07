@@ -6,6 +6,16 @@ This file is a project glossary, not a how-to. Definitions describe what somethi
 
 ## Language
 
+### System surfaces
+
+**Admin Dashboard**:
+The Next.js staff application that consumes alz-core's JWT-protected API.
+_Avoid_: staff dashboard, frontend application, internal dashboard
+
+**Public endpoints**:
+The unauthenticated, per-IP rate-limited API routes called cross-origin from the storefront (contact form, checkout snapshot, display number).
+_Avoid_: storefront endpoints, public API
+
 ### Catalog & ShopWired sync
 
 **Margin tier**:
@@ -118,3 +128,4 @@ _Avoid_: treating a match as deterministic — multiple orders from the same IP/
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
+- "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
