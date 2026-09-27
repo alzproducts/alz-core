@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full db-reset-full-pii pint pint-test test test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install up down shell migrate db-reset-full db-reset-full-pii pint pint-test test test-integration test-quick test-coveragecoverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -239,9 +239,13 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run full Pest test suite (all layers, excludes tests that send real Slack messages)
+test: ## Run Pest test suite (all layers, excludes integration and real-Slack tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=slack
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=slack
+
+test-integration: ## Run integration tests only (needs local Supabase DB with synced data; excludes real-Slack tests)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack
 
 test-quick: ## Run Domain tests only (fast, no external deps)
 	@echo "$(MODE)"

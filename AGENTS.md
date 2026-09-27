@@ -149,7 +149,8 @@ make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload
 make test-quick                   # Run unit tests (~5s, no external deps)
-make test                         # Run all tests (unit + integration)
+make test                         # Run all tests except integration (matches CI)
+make test-integration             # Integration tests (needs local Supabase with synced data)
 make lint                         # Run linters
 ```
 
