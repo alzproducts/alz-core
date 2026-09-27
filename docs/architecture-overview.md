@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Visual guide to alz-core's system structure. For implementation details, see [CLAUDE.md](../../CLAUDE.md) and layer-specific CLAUDE.md files.
+Visual guide to alz-core's system structure. For conventions and the invariants enforced by tooling, see the [README](../README.md).
 
 ---
 
@@ -223,8 +223,7 @@ Infrastructure catches SDK exceptions, logs technical details, and translates to
 
 ## Further Reading
 
-- [CLAUDE.md](../../CLAUDE.md) — Project conventions, layer rules, development setup
-- [tests/TestingStrategy.md](../../tests/TestingStrategy.md) — What to test per layer
+- [README](../README.md) — Project overview, conventions, enforced invariants
+- [tests/TestingStrategy.md](../tests/TestingStrategy.md) — What to test per layer
 - [docs/guides/critical-pitfalls.md](guides/critical-pitfalls.md) — Date range and sync pitfalls
 - [docs/deployment/railway-octane-setup.md](deployment/railway-octane-setup.md) — Railway deployment details
-- Layer-specific CLAUDE.md files in `app/Domain/`, `app/Application/`, `app/Infrastructure/`, `app/Presentation/`
