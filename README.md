@@ -250,7 +250,7 @@ docker build -f Dockerfile.dev -t alz-core-dev .
 docker run --rm --network none alz-core-dev make test
 ```
 
-Swap `make test` for `make lint`, or `bash` for a shell.
+Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`.
 
 - **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions plus the `pcov` coverage driver, a `.env`, and PostgreSQL 17 already migrated as the `testing` database, started automatically by the container entrypoint.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.

@@ -23,7 +23,10 @@ code:
 dev_image:
   - 'Dockerfile.dev'
   - 'Dockerfile.dev.dockerignore'
+  - 'composer.json'
   - 'composer.lock'
   - 'database/**'
   - '.env.example'
   - '.github/workflows/ci.yml'
+  - 'Makefile'
+  - '.github/filters.yml'
