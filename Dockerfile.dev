@@ -14,9 +14,7 @@ FROM serversideup/php:8.4-cli
 USER root
 
 # CI's extension list (.github/workflows/ci.yml); the base already ships the rest.
-# pcov is beyond CI's list: phpunit.xml configures a coverage report and sets
-# failOnWarning, so `make test` (no --no-coverage, unlike CI) fails without a driver.
-RUN install-php-extensions pgsql bcmath soap intl gd exif pcov
+RUN install-php-extensions pgsql bcmath soap intl gd exif
 
 RUN { \
       echo "memory_limit=512M"; \
