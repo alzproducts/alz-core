@@ -252,7 +252,7 @@ docker run --rm --network none alz-core-dev make test
 
 Swap `make test` for `make lint`, or `bash` for a shell.
 
-- **Baked in:** `vendor/` with dev dependencies, a `.env`, and PostgreSQL 17 already migrated as the `testing` database, started automatically by the container entrypoint.
+- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions plus the `pcov` coverage driver, a `.env`, and PostgreSQL 17 already migrated as the `testing` database, started automatically by the container entrypoint.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.
 - **Snapshot of the source:** the image holds the source as it was at build time, so rebuild after changes. Bind-mounting the source is not supported, because it would hide the image's baked `vendor/`.
 - **BuildKit required:** it is the default since Docker 23, and it is what honours `Dockerfile.dev.dockerignore`.
