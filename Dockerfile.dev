@@ -1,0 +1,93 @@
+# ==============================================================================
+# Offline self-contained dev image (tests + linters, no network at runtime)
+# ==============================================================================
+# Build: docker build -f Dockerfile.dev -t alz-core-dev .
+# Run:   docker run --rm --network none alz-core-dev make test
+# Bakes vendor (with dev deps), .env and a migrated Postgres 17 `testing` DB.
+# Not included: Redis, Swoole/Octane, integration tests.
+# Uses Dockerfile.dev.dockerignore (BuildKit), not the production .dockerignore.
+# ==============================================================================
+
+FROM serversideup/php:8.4-cli
+
+# intentional: stays root — throwaway sandbox, avoids storage/lint-cache permission friction
+USER root
+
+# CI's extension list (.github/workflows/ci.yml); the base already ships the rest.
+# pcov is beyond CI's list: phpunit.xml configures a coverage report and sets
+# failOnWarning, so `make test` (no --no-coverage, unlike CI) fails without a driver.
+RUN install-php-extensions pgsql bcmath soap intl gd exif pcov
+
+RUN { \
+      echo "memory_limit=512M"; \
+      echo "zend.assertions=1"; \
+      echo "opcache.enable_cli=1"; \
+    } > /usr/local/etc/php/conf.d/zzzz-dev.ini
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-17 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-interaction \
+    --prefer-dist \
+    --no-progress \
+    --no-scripts \
+    --no-autoloader \
+    --ignore-platform-req=ext-swoole
+
+COPY . .
+
+# .env precedes package discovery: without it APP_ENV defaults to production and
+# AppServiceProvider's production config guard aborts the boot.
+RUN cp .env.example .env \
+    && set_env() { \
+         if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi; \
+       } \
+    && set_env DB_HOST 127.0.0.1 \
+    && set_env DB_PORT 5432 \
+    && set_env DB_DATABASE testing \
+    && set_env DB_USERNAME postgres \
+    && set_env DB_PASSWORD password \
+    && set_env DB_SSLMODE disable \
+    && set_env CACHE_STORE array \
+    && set_env SESSION_DRIVER array \
+    && set_env QUEUE_CONNECTION sync \
+    && set_env TELESCOPE_ENABLED false
+
+RUN mkdir -p \
+      storage/framework/cache/data \
+      storage/framework/sessions \
+      storage/framework/views \
+      storage/framework/testing \
+      storage/logs \
+      bootstrap/cache \
+    && composer dump-autoload --optimize \
+    && composer run-script post-autoload-dump \
+    && php artisan key:generate
+
+# Single RUN so the layer holds a cleanly stopped cluster.
+# Superuser required: adopt migrations run CREATE ROLE and create the auth schema.
+# intentional: artisan, not `make migrate` — /.dockerenv is absent during docker build.
+RUN pg_ctlcluster 17 main start \
+    && runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "ALTER USER postgres PASSWORD 'password'" \
+    && runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE testing" \
+    && php artisan migrate --force \
+    && pg_ctlcluster 17 main stop
+
+COPY --chmod=755 <<'EOF' /usr/local/bin/dev-entrypoint
+#!/bin/bash
+set -euo pipefail
+pg_ctlcluster 17 main start
+until pg_isready -h 127.0.0.1 -p 5432 -q; do sleep 0.2; done
+exec "$@"
+EOF
+
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint"]
+CMD ["bash"]

@@ -28,6 +28,7 @@ jobs:
       pull-requests: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      dev_image: ${{ steps.filter.outputs.dev_image }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -213,6 +214,33 @@ jobs:
 
       - name: Run Composer audit
         run: composer audit --format=json
+
+  # Offline dev image (Dockerfile.dev) — builds the image and runs its test suite with no network
+  dev-image:
+    name: Offline Dev Image Build & Test
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.dev_image == 'true'
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          file: Dockerfile.dev
+          load: true
+          tags: alz-core-dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run test suite offline
+        run: docker run --rm --network none alz-core-dev make test
 
   # Psalm Taint Analysis (60-90 seconds)
   taint-analysis:
