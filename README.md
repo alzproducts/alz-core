@@ -233,7 +233,7 @@ Claude Code is the main workhorse for implementation, favouring the most capable
 | Area | Owner | Notes |
 |------|-------|-------|
 | Architecture, design, decisions, review | Human | |
-| Implementation | AI | Guided by scoped rule files that encode the conventions for each part of the codebase |
+| Implementation | AI | |
 | Tests | AI | Fully delegated, with mutation score rather than coverage as the quality floor. Trades hand-crafted test design for velocity, so quality is less even outside core Domain logic |
 | Pull request review | CI | Informational AI review on every code pull request; it does not gate a merge |
 
