@@ -68,7 +68,8 @@ When Pest Mutate reports escaped mutants:
 ```bash
 # Run tests
 make test-quick        # Domain tests only (~5s, no external deps)
-make test              # All tests (unit + integration)
+make test              # All tests except integration (matches CI)
+make test-integration  # Integration tests (needs local Supabase with synced data)
 
 # Quick validation
 make test-ai           # Tests + Pest Mutate (85% threshold)
