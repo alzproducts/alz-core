@@ -235,7 +235,6 @@ Claude Code is the main workhorse for implementation, favouring the most capable
 | Architecture, design, decisions, review | Human | |
 | Implementation | AI | |
 | Tests | AI | Fully delegated, with mutation score rather than coverage as the quality floor. Trades hand-crafted test design for velocity, so quality is less even outside core Domain logic |
-| Pull request review | CI | Informational AI review on every code pull request; it does not gate a merge |
 
 ### Documentation
 
@@ -268,7 +267,6 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 | Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
 | Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
-| AI review gate | Pull request | Informational AI review, skipped on docs-only changes |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 
 ## Known Limitations
