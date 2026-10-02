@@ -34,7 +34,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # Shared with review-gate.yml — see .github/filters.yml
+          # see .github/filters.yml
           filters: .github/filters.yml
 
   # Fast feedback: Code style + static analysis (runs PHPStan, Pint, PHPArkitect, Deptrac, TLint)
