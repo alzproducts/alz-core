@@ -1,7 +1,7 @@
 # Shared dorny/paths-filter definitions.
-# Referenced by ci.yml and review-gate.yml so the "is there reviewable code
-# here?" decision stays identical across every gate — change a path once, both
-# workflows follow. Docs-only PRs (no match below) skip lint, tests, and review.
+# Referenced by ci.yml only, so the "is there reviewable code here?" decision
+# lives in one place — change a path once, ci.yml follows. Docs-only PRs (no
+# match below) skip lint and tests.
 code:
   - 'app/**'
   - 'config/**'
