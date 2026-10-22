@@ -37,5 +37,4 @@ $to = Carbon::now()->startOfMonth()->subMonths($monthsAgo);
 
 When you discover a silent bug pattern:
 1. Add it here with Never/Why/Instead format
-2. Add brief reference to CLAUDE.md "Common Pitfalls" section
-3. Consider if existing code needs auditing
+2. Consider if existing code needs auditing

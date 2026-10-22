@@ -9,8 +9,7 @@ use Spatie\LaravelData\Optional;
 
 /**
  * Folds a list of `[field-enum case, Optional|T|null]` pairs into the two-map
- * shape consumed by partial-update Application commands (see
- * `.claude/rules/application-commands.md`).
+ * shape consumed by partial-update Application commands.
  *
  * Three states map onto three structural positions:
  * - `Optional`     → property absent from request body → ignore

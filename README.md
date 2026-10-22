@@ -233,13 +233,30 @@ Claude Code is the main workhorse for implementation, favouring the most capable
 | Area | Owner | Notes |
 |------|-------|-------|
 | Architecture, design, decisions, review | Human | |
-| Implementation | AI | Guided by scoped rule files that encode the conventions for each part of the codebase |
+| Implementation | AI | |
 | Tests | AI | Fully delegated, with mutation score rather than coverage as the quality floor. Trades hand-crafted test design for velocity, so quality is less even outside core Domain logic |
-| Pull request review | CI | Informational AI review on every code pull request; it does not gate a merge |
 
 ### Documentation
 
 Implementation plans and logs live in a local AI workspace outside this public repository. The ADRs in `docs/adr/` carry the decisions that outlive a single change.
+
+## Offline dev container
+
+`Dockerfile.dev` builds a self-contained image for running tests and linters with no network access, for example inside a sandboxed agent harness. Build it once, then run it offline.
+
+```bash
+docker build -f Dockerfile.dev -t alz-core-dev .
+docker run --rm --network none alz-core-dev make test
+```
+
+Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`.
+
+- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and PostgreSQL 17 already migrated as the `testing` database, started automatically by the container entrypoint.
+- **Not included:** Redis, Swoole/Octane, and the integration test group.
+- **Snapshot of the source:** the image holds the source as it was at build time, so rebuild after changes. Bind-mounting the source is not supported, because it would hide the image's baked `vendor/`.
+- **BuildKit required:** it is the default since Docker 23, and it is what honours `Dockerfile.dev.dockerignore`.
+
+The production `Dockerfile` is separate and unaffected.
 
 ## CI/CD Pipeline
 
@@ -250,7 +267,6 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 | Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
 | Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
-| AI review gate | Pull request | Informational AI review, skipped on docs-only changes |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 
 ## Known Limitations

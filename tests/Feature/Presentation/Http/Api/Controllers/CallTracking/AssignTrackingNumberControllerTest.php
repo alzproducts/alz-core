@@ -10,13 +10,11 @@ use App\Presentation\Http\Api\Controllers\CallTracking\AssignTrackingNumberContr
 use Illuminate\Support\Facades\DB;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 #[CoversClass(AssignTrackingNumberController::class)]
-#[Group('integration')]
 final class AssignTrackingNumberControllerTest extends TestCase
 {
     private const string DEFAULT_NUMBER = '+441234567000';

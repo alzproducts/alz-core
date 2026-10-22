@@ -18,7 +18,7 @@ use Tests\TestCase;
 
 /**
  * Captures the request the probe hands to the transport; the transport seam is
- * mocked, the protobufs are real (per tests/CLAUDE.md).
+ * mocked, the protobufs are real (mocking protobufs causes segfaults).
  */
 #[CoversClass(GoogleAdsConversionProbe::class)]
 final class GoogleAdsConversionProbeTest extends TestCase

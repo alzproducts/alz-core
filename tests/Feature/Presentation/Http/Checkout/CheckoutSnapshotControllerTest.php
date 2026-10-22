@@ -8,7 +8,6 @@ use App\Infrastructure\Ingest\Checkout\Models\BasketSnapshotModel;
 use App\Presentation\Http\Checkout\Controllers\CheckoutSnapshotController;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
@@ -17,10 +16,9 @@ use Tests\TestCase;
  * Feature tests for POST /api/checkout/snapshot.
  *
  * Verifies the full HTTP boundary — DTO validation, IP/UA capture, persistence,
- * and rate limiting. Shares the Supabase DB so cleanup is explicit in tearDown.
+ * and rate limiting. Shares the database so cleanup is explicit in tearDown.
  */
 #[CoversClass(CheckoutSnapshotController::class)]
-#[Group('integration')]
 final class CheckoutSnapshotControllerTest extends TestCase
 {
     /** @var list<string> Snapshot IDs to clean up */

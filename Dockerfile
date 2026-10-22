@@ -1,14 +1,15 @@
 # ==============================================================================
 # Laravel Octane + Swoole Production Dockerfile
 # ==============================================================================
-# Base Image: serversideup/php:8.4-cli (Debian-based, security-hardened)
+# Base Image: serversideup/php:8.4.27-cli (Debian-based, security-hardened)
+# intentional: PHP patch pinned as the floor for CVE-2026-109618 / CVE-2026-109619 — bump on each PHP security release
 # Target: Railway deployment with Laravel 13 + Octane + Swoole
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
 # Stage 1: Builder - Install dependencies and compile extensions
 # ------------------------------------------------------------------------------
-FROM serversideup/php:8.4-cli AS builder
+FROM serversideup/php:8.4.27-cli AS builder
 
 # Switch to root for installation
 USER root
@@ -70,7 +71,7 @@ RUN composer install \
 # ------------------------------------------------------------------------------
 # Stage 2: Runtime - Slim production image
 # ------------------------------------------------------------------------------
-FROM serversideup/php:8.4-cli AS runtime
+FROM serversideup/php:8.4.27-cli AS runtime
 
 # Switch to root for system configuration
 USER root

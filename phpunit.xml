@@ -26,7 +26,7 @@
             <directory>tests/Unit/Presentation</directory>
         </testsuite>
         <!-- Integration tests — require live DB (Supabase); fail = sync local + prod -->
-        <!-- CI skips this suite via the `exclude-group=integration` Pest flag; local make test runs it -->
+        <!-- CI skips this suite via the `exclude-group=integration` Pest flag; locally run it with make test-integration -->
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>

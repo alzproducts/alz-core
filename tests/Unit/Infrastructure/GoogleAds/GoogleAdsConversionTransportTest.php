@@ -35,7 +35,7 @@ use Tests\TestCase;
  * GoogleAdsTransport — uploadClickConversion() unit tests.
  *
  * Mocks the Google Ads SDK client/service client; uses real protobuf response
- * + Status objects (per tests/CLAUDE.md — mocking protobufs causes segfaults).
+ * + Status objects (mocking protobufs causes segfaults).
  * ApiException metadata is injected via Reflection (the protected field has no setter).
  */
 #[CoversClass(GoogleAdsTransport::class)]
