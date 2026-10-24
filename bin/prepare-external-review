@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# Strips agent instruction files, architecture lint enforcement and rulebook docs
+# from a separate copy of this repo, then removes itself from that copy.
+#
+# Usage: bin/prepare-external-review <target-dir>
+#   <target-dir> is a fresh copy of the repo (never this checkout).
+#
+# Every removal and line cut must find its target; a miss aborts the run so
+# drift in the source tree surfaces instead of silently leaving content behind.
+set -euo pipefail
+
+die() { echo "prepare-external-review: $*" >&2; exit 1; }
+
+[ $# -eq 1 ] || { echo "usage: $0 <target-dir>" >&2; exit 2; }
+
+src_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+[ -d "$1" ] || die "target is not a directory: $1"
+target="$(cd "$1" && pwd -P)"
+
+[ "$target" != "$src_root" ] || die "target is this checkout; pass a separate copy"
+[ -f "$target/artisan" ] && [ -f "$target/composer.json" ] || die "target is not an alz-core tree: $target"
+
+remove() {
+    local p
+    for p in "$@"; do
+        [ -e "$target/$p" ] || die "missing: $p"
+        rm -rf "${target:?}/$p"
+    done
+}
+
+# cut_lines <file> <perl-regex> — delete every matching line
+cut_lines() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    PATTERN="$2" perl -i -ne 'BEGIN { $n = 0 } if (/$ENV{PATTERN}/) { $n++; next } print; END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "no line matches in $1: $2"
+}
+
+# cut_block <file> <start-regex> <end-regex> — delete the first start..end range, inclusive
+cut_block() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    START_RE="$2" END_RE="$3" perl -i -ne '
+        BEGIN { $in = 0; $done = 0 }
+        if (!$done && !$in && /$ENV{START_RE}/) { $in = 1 }
+        if ($in) { if (/$ENV{END_RE}/) { $in = 0; $done = 1 } next }
+        print;
+        END { exit($done ? 0 : 3) }' "$target/$1" \
+        || die "block not found in $1: $2 .. $3"
+}
+
+# subst <file> <perl-s///-expression> — apply a substitution to the whole file
+subst() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    EXPR="$2" perl -0777 -i -pe '$n += eval $ENV{EXPR}; die $@ if $@; END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "substitution matched nothing in $1: $2"
+}
+
+# drop_phpstan_ignores <file> <perl-regex> — remove ignoreErrors entries whose body matches,
+# together with the comment lines directly above them
+drop_phpstan_ignores() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    PATTERN="$2" perl -0777 -i -pe '
+        my $n = 0;
+        s{^(    ignoreErrors:\n)(.*?)(?=^    \S|^\S|\z)}{
+            my ($head, $body) = ($1, $2);
+            my (@items, @pending);
+            for my $line (split /(?<=\n)/, $body) {
+                if ($line =~ /^        #/) { push @pending, $line; next }
+                if ($line =~ /^        -/) { push @items, join("", @pending, $line); @pending = (); next }
+                if (@items) { $items[-1] .= join("", @pending) . $line } else { $head .= join("", @pending) . $line }
+                @pending = ();
+            }
+            my @kept = grep { /$ENV{PATTERN}/ ? do { $n++; 0 } : 1 } @items;
+            $head . join("", @kept, @pending);
+        }mse;
+        END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "no ignoreErrors entry matches in $1: $2"
+}
+
+echo "Preparing $target"
+
+# ── Agent instruction files and agent tooling ────────────────────────
+agent_files="$(find "$target" \( -path "$target/vendor" -o -path "$target/node_modules" -o -path "$target/.git" \) -prune \
+    -o \( -name AGENTS.md -o -name CLAUDE.md \) -print)"
+[ -n "$agent_files" ] || die "no AGENTS.md / CLAUDE.md files found"
+printf '%s\n' "$agent_files" | while IFS= read -r f; do rm -f "$f"; done
+
+remove harness-anthropic.md harness-openai.md .claude .agents .codex .mcp.json
+
+# ── Rulebook and lint docs ────────────────────────────────────────────
+remove \
+    tests/TestingStrategy.md \
+    docs/guides/validation.md \
+    docs/guides/common-linting-errors.md \
+    docs/guides/assertion-validation-reference.md \
+    docs/reports/phpstan-static-analysis-research-2025.md
+
+# ── Answer-key and rule lines in kept docs ────────────────────────────
+cut_block README.md '^### Linting and tooling$' 'schema-qualified.*Custom PHPStan rule'
+subst README.md 's/\n\n\n+(### HTTP surfaces)/\n\n$1/'
+cut_block docs/architecture-overview.md '^\*\*Rules:\*\* Domain depends on nothing\.' '^$'
+subst docs/adr/0008-product-search-whole-word-tsquery.md 's{\n\nConsequence: the GIN index lives on the materialized view[^\n]*\n}{\n}'
+subst database/migrations/2026_07_05_100000_add_title_search_gin_index_to_catalog_products_view.php \
+    's{ \*\n \* Future DROP/CREATE MATERIALIZED VIEW catalog\.products_view migrations must recreate\n \* both idx_catalog_products_view_id and this index\.\n}{}'
+subst database/migrations/2026_06_21_100000_convert_catalog_products_view_to_materialized.php \
+    's{ \*\n \* NOTE: catalog\.products_view is now a materialized view\. Future modifications must use\n[^\n]*\n \* and recreate the unique index each time\.\n}{}'
+
+# ── PHPArkitect and Deptrac ───────────────────────────────────────────
+remove deptrac.yaml phparkitect.php \
+    app/DevTools/GitHooks/PHPArkitectPreCommitHook.php \
+    app/DevTools/GitHooks/DeptracPrePushHook.php
+
+cut_lines config/git-hooks.php 'PHPArkitect|Deptrac'
+cut_lines Makefile 'vendor/bin/(phparkitect|deptrac)|=== (PHPArkitect|Deptrac) ===|\$\(MAKE\) (phparkitect|deptrac)$'
+subst Makefile 's/ wait \$\$P3 \|\| E3=\$\$\?; wait \$\$P4 \|\| E4=\$\$\?;//'
+subst Makefile 's/ \[ \$\$E3 -eq 0 \] && \[ \$\$E4 -eq 0 \] &&//'
+subst Makefile 's/ E3=0; E4=0;//'
+subst Makefile 's/ \+ PHPArkitect \+ Deptrac//g'
+subst Makefile 's/ phparkitect deptrac / /'
+cut_block Makefile '^phparkitect:' '^$'
+cut_block Makefile '^deptrac:' '^$'
+cut_lines composer.json '"phparkitect": "make phparkitect",'
+cut_lines .github/filters.yml "^  - '(deptrac\.yaml|phparkitect\.php)'$"
+subst .github/workflows/ci.yml 's/, PHPArkitect, Deptrac//'
+
+# ── Custom PHPStan rules and architecture tests ───────────────────────
+remove app/DevTools/PHPStan tests/Unit/DevTools tests/ArchitectureTest.php \
+    phpstan-custom-rules.neon phpstan-complexity-baseline.neon
+
+cut_lines phpstan.neon '^    - phpstan-(custom-rules|complexity-baseline)\.neon$|^    # (Complexity baseline|Project-specific custom rules)'
+drop_phpstan_ignores phpstan.neon 'identifier: alz\.'
+cut_block phpunit.xml '<!-- Temporarily disabled: Google Ads SDK' '^        -->$'
+cut_block phpunit.xml '<testsuite name="DevTools">' '</testsuite>'
+
+# ── This script ──────────────────────────────────────────────────────
+remove bin/prepare-external-review
+
+echo "Done. Remaining leak check:"
+if grep -rIl -E 'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac' "$target" \
+    --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git --exclude=composer.json --exclude=composer.lock; then
+    echo "^ files above still mention removed tooling or answer keys — review before handing off" >&2
+else
+    echo "clean"
+fi
