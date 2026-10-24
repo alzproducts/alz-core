@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Strips agent instruction files, architecture lint enforcement and rulebook docs
-# from a separate copy of this repo, then removes itself from that copy.
+# from a separate copy of this repo, then removes itself and the copy's .git
+# (history would expose everything stripped).
 #
 # Usage: bin/prepare-external-review <target-dir>
 #   <target-dir> is a fresh copy of the repo (never this checkout).
@@ -134,13 +135,16 @@ drop_phpstan_ignores phpstan.neon 'identifier: alz\.'
 cut_block phpunit.xml '<!-- Temporarily disabled: Google Ads SDK' '^        -->$'
 cut_block phpunit.xml '<testsuite name="DevTools">' '</testsuite>'
 
-# ── This script ──────────────────────────────────────────────────────
+# ── This script and git history ──────────────────────────────────────
 remove bin/prepare-external-review
+rm -rf "${target:?}/.git"
 
 echo "Done. Remaining leak check:"
-if grep -rIil -E'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac' "$target" \
-    --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git --exclude=composer.json --exclude=composer.lock; then
-    echo "^ files above still mention removed tooling or answer keys — review before handing off" >&2
-else
-    echo "clean"
-fi
+rc=0
+grep -rIil -E 'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac' "$target" \
+    --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git --exclude=composer.json --exclude=composer.lock || rc=$?
+case $rc in
+    0) echo "^ files above still mention removed tooling or answer keys — review before handing off" >&2 ;;
+    1) echo "clean" ;;
+    *) die "leak check failed (grep exit $rc)" ;;
+esac
