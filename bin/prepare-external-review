@@ -18,6 +18,9 @@ src_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 target="$(cd "$1" && pwd -P)"
 
 [ "$target" != "$src_root" ] || die "target is this checkout; pass a separate copy"
+src_git="$(git -C "$src_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+tgt_git="$(git -C "$target" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+[ -z "$src_git" ] || [ "$src_git" != "$tgt_git" ] || die "target shares this repo's git dir (a worktree of it, or inside it); pass a separate clone"
 [ -f "$target/artisan" ] && [ -f "$target/composer.json" ] || die "target is not an alz-core tree: $target"
 
 remove() {
@@ -135,7 +138,7 @@ cut_block phpunit.xml '<testsuite name="DevTools">' '</testsuite>'
 remove bin/prepare-external-review
 
 echo "Done. Remaining leak check:"
-if grep -rIl -E 'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac' "$target" \
+if grep -rIil -E'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac' "$target" \
     --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git --exclude=composer.json --exclude=composer.lock; then
     echo "^ files above still mention removed tooling or answer keys — review before handing off" >&2
 else
