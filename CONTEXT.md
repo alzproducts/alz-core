@@ -52,11 +52,19 @@ Worst-case gross margin % when a single unit of a product absorbs the full free-
 **Effective price**:
 The price a customer actually pays — `sale_price` when `is_on_sale`, otherwise `price`. Its VAT-stripped sibling `effective_price_net` is what the view uses for margin computations.
 
+**On sale**:
+A single SKU whose sale price is above zero and below its price, where a variation with no price or sale price of its own inherits its product's.
+_Avoid_: reading the product-level `is_on_sale` as "anything on sale" — it covers the master SKU only.
+
+**Has any sale**:
+A product whose master SKU or any of its variation SKUs is **on sale** (`has_any_sale`).
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
 - The design intent is for each **ShopWired custom_label_N** to be written by exactly one sync feature; multi-writer co-ownership creates clobbering risk because these are single-select string fields, not value-lists
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
+- A product belongs in the ShopWired sale category exactly when it **has any sale**
 - A **tracking number** belongs to exactly one **number pool**
 - A **tracking number** is shown to at most one visitor within the **attribution window**
 - A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission
