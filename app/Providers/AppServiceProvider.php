@@ -76,7 +76,7 @@ final class AppServiceProvider extends ServiceProvider
         'database.redis.default.password' => 'Redis password (REDIS_PASSWORD)',
         'horizon.auth.username' => 'Horizon dashboard username (HORIZON_USER)',
         'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
-        'services.supabase.jwt_secret' => 'Supabase JWT secret (SUPABASE_JWT_SECRET)',
+        'services.supabase.url' => 'Supabase project URL (SUPABASE_URL)',
         'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
     ];
 

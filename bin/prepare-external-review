@@ -1,0 +1,307 @@
+#!/usr/bin/env bash
+# Strips agent instruction files, architecture lint enforcement and rulebook docs
+# from a separate copy of this repo, then removes itself and the copy's .git
+# (history would expose everything stripped).
+#
+# Usage: bin/prepare-external-review <target-dir>
+#   <target-dir> is a fresh copy of the repo (never this checkout).
+#
+# Every removal and line cut must find its target; a miss aborts the run so
+# drift in the source tree surfaces instead of silently leaving content behind.
+set -euo pipefail
+
+die() { echo "prepare-external-review: $*" >&2; exit 1; }
+
+[ $# -eq 1 ] || { echo "usage: $0 <target-dir>" >&2; exit 2; }
+
+src_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+[ -d "$1" ] || die "target is not a directory: $1"
+target="$(cd "$1" && pwd -P)"
+
+[ "$target" != "$src_root" ] || die "target is this checkout; pass a separate copy"
+src_git="$(git -C "$src_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+tgt_git="$(git -C "$target" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+[ -z "$src_git" ] || [ "$src_git" != "$tgt_git" ] || die "target shares this repo's git dir (a worktree of it, or inside it); pass a separate clone"
+[ -f "$target/artisan" ] && [ -f "$target/composer.json" ] || die "target is not an alz-core tree: $target"
+
+remove() {
+    local p
+    for p in "$@"; do
+        [ -e "$target/$p" ] || die "missing: $p"
+        rm -rf "${target:?}/$p"
+    done
+}
+
+# cut_lines <file> <perl-regex> — delete every matching line
+cut_lines() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    PATTERN="$2" perl -i -ne 'BEGIN { $n = 0 } if (/$ENV{PATTERN}/) { $n++; next } print; END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "no line matches in $1: $2"
+}
+
+# cut_block <file> <start-regex> <end-regex> — delete the first start..end range, inclusive
+cut_block() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    START_RE="$2" END_RE="$3" perl -i -ne '
+        BEGIN { $in = 0; $done = 0 }
+        if (!$done && !$in && /$ENV{START_RE}/) { $in = 1 }
+        if ($in) { if (/$ENV{END_RE}/) { $in = 0; $done = 1 } next }
+        print;
+        END { exit($done ? 0 : 3) }' "$target/$1" \
+        || die "block not found in $1: $2 .. $3"
+}
+
+# subst <file> <perl-s///-expression> — apply a substitution to the whole file
+subst() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    EXPR="$2" perl -0777 -i -pe '$n += eval $ENV{EXPR}; die $@ if $@; END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "substitution matched nothing in $1: $2"
+}
+
+# drop_phpstan_ignores <file> <perl-regex> — remove ignoreErrors entries whose body matches,
+# together with the comment lines directly above them
+drop_phpstan_ignores() {
+    [ -f "$target/$1" ] || die "missing: $1"
+    PATTERN="$2" perl -0777 -i -pe '
+        my $n = 0;
+        s{^(    ignoreErrors:\n)(.*?)(?=^    \S|^\S|\z)}{
+            my ($head, $body) = ($1, $2);
+            my (@items, @pending);
+            for my $line (split /(?<=\n)/, $body) {
+                if ($line =~ /^        #/) { push @pending, $line; next }
+                if ($line =~ /^        -/) { push @items, join("", @pending, $line); @pending = (); next }
+                if (@items) { $items[-1] .= join("", @pending) . $line } else { $head .= join("", @pending) . $line }
+                @pending = ();
+            }
+            my @kept = grep { /$ENV{PATTERN}/ ? do { $n++; 0 } : 1 } @items;
+            $head . join("", @kept, @pending);
+        }mse;
+        END { exit($n ? 0 : 3) }' "$target/$1" \
+        || die "no ignoreErrors entry matches in $1: $2"
+}
+
+echo "Preparing $target"
+
+# ── Agent instruction files and agent tooling ────────────────────────
+agent_files="$(find "$target" \( -path "$target/vendor" -o -path "$target/node_modules" -o -path "$target/.git" \) -prune \
+    -o \( -name AGENTS.md -o -name CLAUDE.md \) -print)"
+[ -n "$agent_files" ] || die "no AGENTS.md / CLAUDE.md files found"
+printf '%s\n' "$agent_files" | while IFS= read -r f; do rm -f "$f"; done
+
+remove harness-anthropic.md harness-openai.md .claude .agents .codex .mcp.json
+
+# ── Rulebook and lint docs ────────────────────────────────────────────
+remove \
+    tests/TestingStrategy.md \
+    docs/guides/validation.md \
+    docs/guides/common-linting-errors.md \
+    docs/guides/assertion-validation-reference.md \
+    docs/reports/phpstan-static-analysis-research-2025.md
+rmdir "$target/docs/reports" || die "docs/reports is not empty"
+
+# ── Answer-key and rule lines in kept docs ────────────────────────────
+cut_block README.md '^### Linting and tooling$' 'schema-qualified.*Custom PHPStan rule'
+subst README.md 's/\n\n\n+(### HTTP surfaces)/\n\n$1/'
+cut_block docs/architecture-overview.md '^\*\*Rules:\*\* Domain depends on nothing\.' '^$'
+subst docs/adr/0008-product-search-whole-word-tsquery.md 's{\n\nConsequence: the GIN index lives on the materialized view[^\n]*\n}{\n}'
+subst database/migrations/2026_07_05_100000_add_title_search_gin_index_to_catalog_products_view.php \
+    's{ \*\n \* Future DROP/CREATE MATERIALIZED VIEW catalog\.products_view migrations must recreate\n \* both idx_catalog_products_view_id and this index\.\n}{}'
+subst database/migrations/2026_06_21_100000_convert_catalog_products_view_to_materialized.php \
+    's{ \*\n \* NOTE: catalog\.products_view is now a materialized view\. Future modifications must use\n[^\n]*\n \* and recreate the unique index each time\.\n}{}'
+subst README.md 's/ Layer violations, undeclared exceptions, and unsafe job definitions fail the build instead of relying on review to catch them\.//'
+subst README.md 's/, and Spatie Laravel Data DTOs stay outside the Domain\./\./'
+subst README.md 's/## Development Workflow\n.*?(?=## Offline dev container\n)//s'
+subst README.md 's/, for example inside a sandboxed agent harness//'
+subst README.md 's/Architectural rules are enforced by tooling rather than convention\.\n\n//'
+subst README.md 's/^\| Infrastructure \| Integration tests only \|/| Infrastructure | None |/m'
+subst README.md 's{Redis, Swoole/Octane, and the integration test group\.}{Redis and Swoole/Octane.}'
+cut_lines README.md '^- \*\*Integration tests run locally, not in CI\.\*\*'
+subst README.md 's/^(\| Infrastructure \| None \|) Live service tests where mocking would hide real failures\. \|/$1 None |/m'
+subst docs/architecture-overview.md 's/ For conventions and the invariants enforced by tooling, see the \[README\]\(\.\.\/README\.md\)\.//'
+subst docs/architecture-overview.md 's/ — Infrastructure implements; Application depends on the abstraction"/"/'
+subst docs/architecture-overview.md 's/"Async delivery mechanisms"/"Background processing"/'
+cut_lines docs/architecture-overview.md 'Rel\(contracts, jobs, "Implemented by"\)'
+subst docs/architecture-overview.md 's/"Dispatch via\\ninterface"/"Dispatch"/'
+
+# ── PHPArkitect and Deptrac ───────────────────────────────────────────
+remove deptrac.yaml phparkitect.php \
+    app/DevTools/GitHooks/PHPArkitectPreCommitHook.php \
+    app/DevTools/GitHooks/DeptracPrePushHook.php
+
+cut_lines config/git-hooks.php 'PHPArkitect|Deptrac'
+cut_lines Makefile 'vendor/bin/(phparkitect|deptrac)|=== (PHPArkitect|Deptrac) ===|\$\(MAKE\) (phparkitect|deptrac)$'
+subst Makefile 's/ wait \$\$P3 \|\| E3=\$\$\?; wait \$\$P4 \|\| E4=\$\$\?;//'
+subst Makefile 's/ \[ \$\$E3 -eq 0 \] && \[ \$\$E4 -eq 0 \] &&//'
+subst Makefile 's/ E3=0; E4=0;//'
+subst Makefile 's/ \+ PHPArkitect \+ Deptrac//g'
+subst Makefile 's/ phparkitect deptrac / /'
+cut_block Makefile '^phparkitect:' '^$'
+cut_block Makefile '^deptrac:' '^$'
+cut_lines composer.json '"phparkitect": "make phparkitect",'
+cut_lines .github/filters.yml "^  - '(deptrac\.yaml|phparkitect\.php)'$"
+subst .github/workflows/ci.yml 's/, PHPArkitect, Deptrac//'
+
+# ── Custom PHPStan rules and architecture tests ───────────────────────
+remove app/DevTools/PHPStan tests/Unit/DevTools tests/ArchitectureTest.php \
+    phpstan-custom-rules.neon phpstan-complexity-baseline.neon
+
+cut_lines phpstan.neon '^    - phpstan-(custom-rules|complexity-baseline)\.neon$|^    # (Complexity baseline|Project-specific custom rules)'
+drop_phpstan_ignores phpstan.neon 'identifier: alz\.'
+cut_block phpunit.xml '<!-- Temporarily disabled: Google Ads SDK' '^        -->$'
+cut_block phpunit.xml '<testsuite name="DevTools">' '</testsuite>'
+
+# ── Integration tests ────────────────────────────────────────────────
+remove tests/Integration
+cut_block phpunit.xml '<!-- Integration tests ' '</testsuite>'
+subst Makefile 's/ test-integration / /'
+cut_block Makefile '^test-integration:' '^$'
+subst Makefile 's/ --exclude-group=integration --exclude-group=slack//'
+subst Makefile 's/ \(all layers, excludes integration and real-Slack tests; matches CI\)/ (all layers; matches CI)/'
+subst .github/workflows/ci.yml 's/ --exclude-group=integration//'
+
+# ── Rule comments in kept config ─────────────────────────────────────
+subst phpstan.neon 's{        # Job handle\(\) methods delegate API exception handling[^\n]*\n(?:        #[^\n]*\n){3}}{}'
+subst phpstan.neon 's/# Stage 4: Symplify clean architecture and naming rules/# Stage 4: Symplify static and naming rules/'
+subst phpstan.neon 's{# LogicException family - programming errors, fix the code not catch it\n(?:            # [^\n]*\n){3}}{# LogicException family\n}'
+cut_lines phpstan.neon '# This is intentional: domain exceptions for business logic'
+cut_lines phpstan.neon '# (Layer base exceptions follow PHP convention|Examples: Symfony.s HttpException)'
+subst phpstan.neon 's/# \@throws docblocks document this with "During iteration" prefix\. See common-linting-errors\.md\./# See common-linting-errors.md./'
+cut_lines phpstan.neon '# Each Query contains its internal Row DTO - intentional pattern'
+cut_lines phpunit.xml '^\s*<!-- (Domain Events are data carriers|SOAP transport|Orchestration UseCases|Simple result value objects|Pure delegation UseCases)'
+subst phpunit.xml 's/<!-- Layer-based test suites \(Clean Architecture\) -->/<!-- Layer-based test suites -->/'
+cut_lines phpunit-app.xml '^\s*<!-- (Pure delegation UseCases|Simple result value objects)'
+cut_lines phpunit-domain.xml '^\s*<!-- Domain Events are data carriers'
+subst codecov.yml 's{# Strategy aligned with tests/TestingStrategy\.md:\n(?:# - [^\n]*\n){3}}{# Strategy aligned with tests/TestingStrategy.md\n}'
+cut_lines codecov.yml '^  # (Domain Events are data carriers|Pure delegation UseCases|Simple result value objects)'
+cut_lines .env.example '^# Used for: product feeds, image optimization, exports$'
+subst config/database.php 's/ \(Octane safety\)//'
+cut_lines config/database.php '// Note: Tables in non-public schemas still need explicit schema prefix'
+cut_block config/sentry.php '// Only genuinely expected flows belong here' 'deliberately NOT ignored\.'
+subst Makefile 's/^(\S+: ## [^\n]*?) \((?:90|70)%\+ (?:coverage target|min score)\)$/$1/mg'
+subst Makefile 's/^(\S+: ## [^\n]*?) with (?:90|70)% coverage \(/$1 with coverage (/mg'
+subst Makefile 's/^(test-coverage: ## Run Domain) \(90%\) \+ Application \(70%\) /$1 + Application /m'
+
+# ── Rule comments in code ────────────────────────────────────────────
+files="$(grep -rlE 'delivery mechanism \(queue, inline, etc\.\)' "$target/app")" || die "no dispatcher interfaces found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's{ \*\n \* Application (?:layer uses|fans)[^\n]*\n \*[^\n]*delivery mechanism \(queue, inline, etc\.\)\.\n}{}'
+done <<< "$files"
+files="$(grep -rl 'Translates Application-layer dispatch intents into concrete' "$target/app")" || die "no queued dispatchers found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's{ \*\n \* Translates Application-layer dispatch intents into concrete Laravel job dispatches\.\n}{}'
+done <<< "$files"
+subst app/Infrastructure/Linnworks/Dispatchers/QueuedCostPriceUpdateDispatcher.php \
+    's/Translates an Application-layer dispatch intent into one queued job per/Dispatches one queued job per/'
+subst app/Infrastructure/Shopwired/Dispatchers/QueuedSellingPriceUpdateDispatcher.php \
+    's/Translates an Application-layer dispatch intent into one queued job per/Dispatches one queued job per/'
+files="$(grep -rl 'This interface defines the boundary between Application and Infrastructure' "$target/app")" || die "no boundary contracts found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's{ \* This interface defines the boundary between Application and Infrastructure\n \* for }{ * Covers }'
+done <<< "$files"
+files="$(grep -rl 'Implementations live in Infrastructure, keeping the Application layer' "$target/app")" || die "no webhook resolvers found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's{ \*\n \* Implementations live in Infrastructure, keeping the Application layer\n \* decoupled from platform-specific topic naming\.\n}{}'
+done <<< "$files"
+files="$(grep -rlE '@internal (For use within Infrastructure layer only|Infrastructure-only interface)' "$target/app")" || die "no infrastructure-internal contracts found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's{ \*\n \* \@internal (?:For use within Infrastructure layer only|Infrastructure-only interface for decorator pattern)\n}{}'
+done <<< "$files"
+files="$(grep -rl 'never exposed to Domain layer' "$target/app")" || die "no models with domain-exposure notes found"
+while IFS= read -r f; do
+    subst "${f#"$target"/}" 's/ \(never exposed to Domain layer\)//'
+done <<< "$files"
+
+subst app/Infrastructure/Operations/Listeners/RecordPricePeriodListener.php \
+    's{ \*\n \* Thin listener \(like a controller\)[^\n]*\n \* the job for async processing[^\n]*\n \* via HandleDatabaseExceptions middleware\.\n}{}'
+cut_lines app/Domain/Notifications/Events/AdminAlertEvent.php 'Infrastructure listeners handle delivery'
+subst app/Application/Linnworks/Enums/OrderSyncTier.php 's{     \*\n     \* IMPORTANT: Call in handle\(\), not constructor \(Octane safety\)\.\n}{}'
+subst app/Infrastructure/Jobs/Linnworks/SyncLinnworksOrdersJob.php \
+    's{     \*\n     \* IMPORTANT: fromDate\(\) called here in handle\(\), not in constructor \(Octane safety\)\.\n}{}'
+cut_lines app/Infrastructure/Jobs/Linnworks/SyncFastPurchaseOrdersJob.php 'IMPORTANT: createdSince calculated here in handle\(\), not constructor \(Octane safety\)'
+subst app/Providers/RlsDatabaseServiceProvider.php 's/ \(Octane safety\)//'
+subst app/Providers/ShopwiredServiceProvider.php 's/ \(Octane isolation\)//g'
+subst app/Providers/Schedule/AdsScheduleServiceProvider.php 's/ \(Octane-safe\)//'
+subst app/Infrastructure/BingAds/BingAdsSession.php 's/ \(Octane-safe - no stale values\)//'
+subst app/Infrastructure/Linnworks/LinnworksSession.php 's/ \(Octane-safe - no stale values\)//'
+cut_lines app/Infrastructure/GoogleAds/GoogleAdsConversionProbe.php 'Built at send time, never in the constructor'
+subst app/Infrastructure/Marketing/Queries/ContactSubmissionDashboardQuery.php \
+    's{// CarbonImmutable::now\(\) is resolved at query time[^\n]*\n        // required on Octane workers[^\n]*\n        // timestamps\. startOfMonth\(\)}{// startOfMonth()}'
+subst app/Application/Contracts/DatabaseGatewayInterface.php \
+    's{ \* This interface is framework-agnostic\. Callers capture their database connection\n \* in the closure \(injected separately in Infrastructure layer\)\.}{ * Callers capture their database connection in the closure.}'
+subst app/Application/Checkout/DTOs/VatReliefDeclarationDTO.php \
+    's{ Plain DTO \(no\n \* framework dependency\) so it can live in the Application layer\.}{}'
+subst app/Application/Operations/UseCases/RecordPricePeriodUseCase.php \
+    's{,\n \* keeping the persistence boundary clean of domain types\.}{.}'
+subst app/Infrastructure/BingAds/BingAdsSessionManager.php \
+    's{     \*\n     \* OAuth response parsing and TTL policy belong here \(at the boundary\),\n     \* not in the BingAdsSession value object which stays pure\.\n}{}'
+subst app/Infrastructure/GoogleAds/Transformers/CampaignRowTransformer.php \
+    's{ \* 2\. Data validation is production-safe \(uses exceptions, not assertions\)\n \* 3\. }{ * 2. }'
+subst app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php \
+    's{ \* 2\. Data validation is production-safe \(uses exceptions, not assertions\)\n \* 3\. }{ * 2. }'
+subst app/Infrastructure/GoogleAds/Transformers/GoogleAdsRowTransformer.php 's{ \*\n \* Exception Strategy:\n(?: \* - [^\n]*\n){3}}{}'
+subst app/Infrastructure/Database/DatabaseGateway.php 's{ \* ## Injection Patterns\n.*?framework-agnostic\.\n \*\n}{}s'
+subst app/Infrastructure/Database/DatabaseGateway.php \
+    's{     \* Repositories needing query-builder access should inject DatabaseGateway directly\n     \* rather than DatabaseGatewayInterface\.\n     \*\n     \* \@see DatabaseGateway class docblock for injection pattern guidance\n}{}'
+subst app/Infrastructure/Database/DatabaseGateway.php 's/ — same injection pattern as connection\(\)\./\./'
+subst app/Infrastructure/Persistence/Repositories/EscalationsConfigRepository.php \
+    's{ See DatabaseGateway\n \* class docblock for injection pattern guidance\.}{}'
+cut_lines app/Infrastructure/ReviewsIo/ReviewsIoHttpTransport.php 'This catch-all ensures nothing escapes the Infrastructure layer\.'
+cut_lines app/Infrastructure/ReviewsIo/ReviewsIoClient.php '- No caching \(implement in Application layer'
+cut_lines app/Infrastructure/Shopwired/ShopwiredClient.php '- No caching \(implement in Application layer'
+subst app/Infrastructure/ReviewsIo/ReviewsIoClient.php \
+    's{ Implement caching in the\n     \* Application layer \(e\.g\., CachedRatingService\) to avoid unnecessary\n     \* API calls for frequently accessed product ratings\.}{}'
+subst app/Infrastructure/Exceptions/InfrastructureException.php \
+    's{ \*\n \* Infrastructure exceptions should be caught at layer boundaries[^\n]*\n(?: \* [^\n]*\n){2}}{}'
+subst app/Infrastructure/Exceptions/ApiException.php 's{ \*\n \* API exceptions should capture[^\n]*\n(?: \* [^\n]*\n){2}}{}'
+subst app/Infrastructure/Exceptions/InfrastructureException.php \
+    's{ \(IDs, names, etc\.\)\n     \* that should NOT be in the message string \(to enable Sentry grouping\)\.}{ (IDs, names, etc.).}'
+subst app/Domain/Exceptions/DomainException.php \
+    's{ \(IDs, names, etc\.\)\n     \* that should NOT be in the message string \(to enable Sentry grouping\)\.}{ (IDs, names, etc.).}'
+subst app/Infrastructure/Storage/S3StorageClient.php \
+    's{ with proper exception translation\n \* for Clean Architecture compliance\. The disk is configured at}{ with exception translation.\n * The disk is configured at}'
+subst app/Infrastructure/Persistence/EloquentGateway.php \
+    's{ \*\n \* This is an Infrastructure-internal service\. Application layer should\n \* use repository interfaces, not this gateway directly\.\n}{}'
+subst app/Infrastructure/Jobs/Linnworks/UpdateCostPriceBatchJob.php 's/A thin delivery wrapper around/A queued wrapper around/'
+subst app/Infrastructure/Jobs/Shopwired/UpdateSellingPriceBatchJob.php 's/A thin delivery wrapper around/A queued wrapper around/'
+subst app/Infrastructure/Jobs/Shopwired/UpdateProductCustomFieldsJob.php 's/Reusable delivery mechanism for/Reusable job for/'
+subst app/Infrastructure/Jobs/Shopwired/UpdateProductCategoryMembershipJob.php 's/Delivery mechanism for a single-product/Queued job for a single-product/'
+subst app/Domain/Shared/Validation/Contracts/DescribableValidationResultInterface.php \
+    's{ trait\n     \* and enforced by convention — do not implement manually\.}{ trait.}'
+subst app/Domain/ContactSubmission/Exceptions/OperationNotSupportedForSourceException.php \
+    's{ The enum now lives in the Domain layer, so importing it would be legal —\n \* staying on `string` is a deliberate choice, not a layering constraint\.}{}'
+cut_lines app/Domain/ValueObjects/PaginatedList.php '\(Deptrac boundary\)'
+subst app/Presentation/Http/Api/Resources/CustomFieldValueResource.php \
+    's{stringification\)\n \* so the Domain layer stays framework-agnostic\.}{stringification).}'
+
+for f in \
+    tests/Unit/Application/Mixpanel/UseCases/SyncOrdersToMixpanelUseCaseTest.php \
+    tests/Unit/Application/Inventory/UseCases/UpdateSkuUseCaseTest.php \
+    tests/Unit/Application/Inventory/UseCases/SyncFullStockToShopwiredUseCaseTest.php \
+    tests/Unit/Application/Inventory/UseCases/SyncDeltaStockToShopwiredUseCaseTest.php \
+    tests/Unit/Application/Inventory/UseCases/GenerateVariantSkusUseCaseTest.php \
+    tests/Unit/Application/Shopwired/UseCases/SyncFilterGroupsUseCaseTest.php \
+    tests/Unit/Application/Shopwired/PricingUpdate/UseCases/UpdateProductSellingPricesUseCaseTest.php \
+    tests/Unit/Infrastructure/Mixpanel/LoggingMixpanelTransportTest.php
+do
+    subst "$f" 's{ \*\n \* Per TestingStrategy\.md:[^\n]*\n(?: \* [^\n]+\n)*}{}'
+done
+cut_lines tests/Unit/Infrastructure/Mixpanel/LookupTables/OrderLookupTableProviderTest.php 'Per TestingStrategy\.md: mock dependencies'
+cut_lines tests/Unit/Application/Inventory/Services/StockItemParamsBuilderServiceTest.php 'Per TestingStrategy\.md: Application Service'
+subst tests/Unit/Application/Inventory/Services/LinnworksStockItemCreatorServiceTest.php 's/Per TestingStrategy\.md: //'
+subst tests/Unit/Application/Inventory/Services/GenerateStockItemFromVariationServiceTest.php 's/Per TestingStrategy\.md: //'
+subst tests/Unit/Application/Feeds/ProcessProductSearchFeedUseCaseTest.php 's/ \(Application layer doesn.t catch\)//g'
+subst tests/Feature/Presentation/Console/VerifyApiConnectivityCommandTest.php 's/ \(that.s Infrastructure layer concern\)//'
+
+# ── This script and git history ──────────────────────────────────────
+remove bin/prepare-external-review
+rm -rf "${target:?}/.git"
+
+echo "Done. Remaining leak check:"
+rc=0
+grep -rIil -E 'AbstractJob\.php|must recreate|\.claude/rules|phparkitect|deptrac|Cloudflare R2|Thin listener|delivery mechanism|data carriers|Octane safety|dispatch intents|test-integration|tests/Integration|coverage target|min score|enforced by tooling' "$target" \
+    --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git --exclude=composer.json --exclude=composer.lock || rc=$?
+case $rc in
+    0) echo "^ files above still mention removed tooling or answer keys — review before handing off" >&2 ;;
+    1) echo "clean" ;;
+    *) die "leak check failed (grep exit $rc)" ;;
+esac

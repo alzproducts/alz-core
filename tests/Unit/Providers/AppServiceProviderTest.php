@@ -62,7 +62,7 @@ final class AppServiceProviderTest extends TestCase
             'database.redis.default.password' => 'password',
             'horizon.auth.username' => 'user',
             'horizon.auth.password' => 'password',
-            'services.supabase.jwt_secret' => 'secret',
+            'services.supabase.url' => 'https://test.supabase.co',
             'sentry.dsn' => 'https://test@sentry.io/123',
             'reviewsio.api_key' => 'test-api-key',
             'reviewsio.store_id' => 'test-store',
@@ -171,7 +171,7 @@ final class AppServiceProviderTest extends TestCase
             'missing redis password' => ['database.redis.default.password', 'Redis password (REDIS_PASSWORD)'],
             'missing horizon user' => ['horizon.auth.username', 'Horizon dashboard username (HORIZON_USER)'],
             'missing horizon password' => ['horizon.auth.password', 'Horizon dashboard password (HORIZON_PASSWORD)'],
-            'missing supabase secret' => ['services.supabase.jwt_secret', 'Supabase JWT secret (SUPABASE_JWT_SECRET)'],
+            'missing supabase url' => ['services.supabase.url', 'Supabase project URL (SUPABASE_URL)'],
             'missing sentry dsn' => ['sentry.dsn', 'Sentry DSN (SENTRY_LARAVEL_DSN)'],
         ];
     }
@@ -241,7 +241,7 @@ final class AppServiceProviderTest extends TestCase
         $this->setupProductionEnvironment([
             'app.key' => null,
             'database.connections.pgsql.host' => '',
-            'services.supabase.jwt_secret' => false,
+            'services.supabase.url' => false,
         ]);
 
         // Act & Assert
@@ -252,7 +252,7 @@ final class AppServiceProviderTest extends TestCase
             $this->assertSame('Required configuration is missing or invalid', $e->getMessage());
             $this->assertStringContainsString('Application encryption key (APP_KEY)', $e->detail);
             $this->assertStringContainsString('Database host (DB_HOST)', $e->detail);
-            $this->assertStringContainsString('Supabase JWT secret (SUPABASE_JWT_SECRET)', $e->detail);
+            $this->assertStringContainsString('Supabase project URL (SUPABASE_URL)', $e->detail);
         }
     }
 
