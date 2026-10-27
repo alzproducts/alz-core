@@ -277,7 +277,6 @@ return static function (Config $config): void {
                                'Throwable',
                                'Override',
                                'Closure',
-                               'stdClass',
                                'BackedEnum',
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
