@@ -230,6 +230,8 @@ return static function (Config $config): void {
                                'Random\RandomException',
                                'Reflection*',
                                'BackedEnum',
+                               'Firebase\JWT',
+                               'stdClass',
                            ],
                        ),
                    )

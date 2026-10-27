@@ -177,7 +177,7 @@ deptrac:
       - IlluminateContractsEvents
       - AssertionLibrary
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, Horizon, TheIconic, libphonenumber
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, Horizon, TheIconic, libphonenumber, Firebase JWT
     Infrastructure:
       - Application
       - Domain
@@ -198,6 +198,7 @@ deptrac:
       - MonologLogging
       - TheIconicNameParser
       - LibPhoneNumber
+      - FirebaseJwt
 
     # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon, Spatie (for request DTOs)
     Presentation:
