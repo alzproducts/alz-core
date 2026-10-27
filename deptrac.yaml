@@ -200,7 +200,7 @@ deptrac:
       - LibPhoneNumber
       - FirebaseJwt
 
-    # Presentation: Internal + Laravel, Symfony, Firebase, Sentry, Carbon, Spatie (for request DTOs)
+    # Presentation: Internal + Laravel, Symfony, Sentry, Carbon, Spatie (for request DTOs)
     Presentation:
       - Application
       - Domain
@@ -208,7 +208,6 @@ deptrac:
       - SpatieData
       - SymfonyHttp
       - SymfonyHttpKernel
-      - FirebaseJwt
       - SentrySdk
       - CarbonDateTime
 

@@ -281,7 +281,6 @@ return static function (Config $config): void {
                                'BackedEnum',
                                'Symfony\Component\HttpFoundation',
                                'Symfony\Component\HttpKernel',
-                               'Firebase\JWT',
                                'Spatie\LaravelData',
                            ],
                        ),
