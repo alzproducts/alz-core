@@ -507,7 +507,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Always load product-level extra data (RRP for API response)
         $relations[] = 'extraData';
 
-        // Always load variation relations for parent-level derivation (defaultSupplier, hasAnySale, ProductViewMeta)
+        // Always load variation relations for parent-level derivation (defaultSupplier, ProductViewMeta)
         // API exposure is gated separately in the assembler via the includes check
         $relations[] = 'variations';
         $relations[] = 'variations.extraData';
@@ -731,12 +731,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return $this->eloquentGateway->query(function () use ($includes): array {
             $query = self::VIEW_MODEL_CLASS::query()
                 ->with(self::relationsForIncludes($includes))
-                ->where(static function (Builder $q): void {
-                    $q->where('is_on_sale', true)
-                        ->orWhereHas('variations', static function (Builder $sub): void {
-                            $sub->where('is_on_sale', true);
-                        });
-                });
+                ->where('has_any_sale', true);
 
             /** @var list<ProductView> */
             return $query->get()

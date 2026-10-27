@@ -21,6 +21,7 @@ use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use App\Domain\ValueObjects\Uuid;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -30,85 +31,25 @@ final class ProductViewTest extends TestCase
 {
     /*
     |--------------------------------------------------------------------------
-    | hasAnySale (derived from isOnSale + pre-computed hasAnyVariationOnSale)
+    | hasAnySale
     |--------------------------------------------------------------------------
     */
 
     #[Test]
-    public function has_any_sale_true_when_product_is_on_sale(): void
+    public function has_any_sale_carries_passed_value_when_only_a_variation_is_on_sale(): void
     {
-        $view = $this->createView(isOnSale: true, variations: []);
-
-        self::assertTrue($view->hasAnySale);
-    }
-
-    #[Test]
-    public function has_any_sale_true_when_only_variation_is_on_sale(): void
-    {
-        $variation = new ProductVariationView(
-            externalId: 10,
-            sku: null,
-            gtin: null,
-            price: 50.00,
-            costPrice: null,
-            salePrice: 30.00,
-            rrp: null,
-            effectivePrice: 30.00,
-            isOnSale: true,
-            profitMargin: null,
-            availableStock: 5,
-            physicalStock: 5,
-            weight: null,
-            vatExclusive: false,
-            mpn: null,
-            imageIndex: null,
-            options: [],
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
-        );
-
-        $view = $this->createView(isOnSale: false, variations: [$variation]);
+        $view = $this->createView(isOnSale: false, hasAnySale: true);
 
         self::assertFalse($view->isOnSale);
         self::assertTrue($view->hasAnySale);
     }
 
     #[Test]
-    public function has_any_sale_false_when_nothing_is_on_sale(): void
+    public function rejects_master_on_sale_without_has_any_sale(): void
     {
-        $variation = new ProductVariationView(
-            externalId: 10,
-            sku: null,
-            gtin: null,
-            price: 50.00,
-            costPrice: null,
-            salePrice: null,
-            rrp: null,
-            effectivePrice: 50.00,
-            isOnSale: false,
-            profitMargin: null,
-            availableStock: 5,
-            physicalStock: 5,
-            weight: null,
-            vatExclusive: false,
-            mpn: null,
-            imageIndex: null,
-            options: [],
-            createdAt: new DateTimeImmutable('2024-01-01'),
-            updatedAt: new DateTimeImmutable('2024-01-01'),
-        );
+        $this->expectException(InvalidArgumentException::class);
 
-        $view = $this->createView(isOnSale: false, variations: [$variation]);
-
-        self::assertFalse($view->hasAnySale);
-    }
-
-    #[Test]
-    public function has_any_sale_false_when_variations_null(): void
-    {
-        $view = $this->createView(isOnSale: false, variations: null);
-
-        self::assertFalse($view->hasAnySale);
+        $this->createView(isOnSale: true, hasAnySale: false);
     }
 
     /*
@@ -1021,6 +962,7 @@ final class ProductViewTest extends TestCase
         ?array $variations = null,
         ?array $allVariations = null,
         bool $isOnSale = false,
+        ?bool $hasAnySale = null,
         ?float $profitMargin = null,
         ?string $sku = null,
         array $categoryIds = [],
@@ -1068,7 +1010,7 @@ final class ProductViewTest extends TestCase
             createdAt: $createdAt ?? new DateTimeImmutable('2024-01-01'),
             updatedAt: $updatedAt ?? new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta($effectiveAllVariations, null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale($effectiveAllVariations),
+            hasAnySale: $hasAnySale ?? $isOnSale,
             parentAvailableStock: $parentAvailableStock,
             parentPhysicalStock: $parentPhysicalStock,
             allVariations: $effectiveAllVariations,

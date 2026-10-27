@@ -12,7 +12,6 @@ use App\Domain\Catalog\CustomFields\ValueObjects\CustomFieldValueList;
 use App\Domain\Catalog\Product\Events\ProductPricingUpdatedEvent;
 use App\Domain\Catalog\Product\ValueObjects\ProductLinks;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
-use App\Domain\Catalog\Product\ValueObjects\ProductVariationView;
 use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -180,7 +179,7 @@ final class ProductPricingUpdatedSlackListenerTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([], null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
+            hasAnySale: false,
             parentAvailableStock: 100,
             parentPhysicalStock: 100,
             allVariations: [],
