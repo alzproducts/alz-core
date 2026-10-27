@@ -41,7 +41,7 @@ return [
     ],
 
     'supabase' => [
-        'jwt_secret' => env('SUPABASE_JWT_SECRET'),
+        'url' => env('SUPABASE_URL'),
 
         // Local Development Auth Bypass Configuration
         // Allows testing protected endpoints without a real Supabase JWT

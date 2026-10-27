@@ -425,8 +425,8 @@ SESSION_DRIVER=database
 HORIZON_USER=YOUR_ADMIN_USERNAME
 HORIZON_PASSWORD=YOUR_STRONG_PASSWORD
 
-# Supabase JWT
-SUPABASE_JWT_SECRET=YOUR_SUPABASE_JWT_SECRET
+# Supabase project URL (access tokens are verified against its JWKS)
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 
 # Entrypoint controls
 AUTO_MIGRATE=false
@@ -497,7 +497,7 @@ https://your-app.up.railway.app/horizon
 | `DB_PASSWORD` | Supabase database password | `your-supabase-password` |
 | `REDIS_HOST` | Railway Redis host | Auto-injected by Railway |
 | `REDIS_PASSWORD` | Railway Redis password | Auto-injected by Railway |
-| `SUPABASE_JWT_SECRET` | Supabase JWT secret | From Supabase dashboard |
+| `SUPABASE_URL` | Supabase project URL (bare origin, https) | `https://<ref>.supabase.co` |
 
 ### Railway Auto-Injected
 
