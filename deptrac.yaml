@@ -220,7 +220,6 @@ deptrac:
       - SpatieData
       - SymfonyHttp
       - SymfonyHttpKernel
-      - FirebaseJwt
       - SentrySdk
       - CarbonDateTime
 
