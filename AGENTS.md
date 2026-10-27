@@ -141,7 +141,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
-**Booting local services is pre-authorized** — when a task needs a local service that is down, start it yourself without asking: `make supabase-start`, `make redis`. EXCEPTION: resets and seeding (`make db-reset-full`, `make supabase-reset`) still need the user's go-ahead.
+**Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`. EXCEPTION: resets and seeding (`make db-reset-full`, `make supabase-reset`) need the user's go-ahead.
 
 ### Quick Reference
 ```bash
