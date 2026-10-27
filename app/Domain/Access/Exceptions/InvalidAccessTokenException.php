@@ -22,9 +22,9 @@ final class InvalidAccessTokenException extends DomainException
         parent::__construct('Invalid access token', 0, $previous);
     }
 
-    public static function malformedToken(): self
+    public static function malformedToken(?Throwable $previous = null): self
     {
-        return new self('malformed_token');
+        return new self('malformed_token', previous: $previous);
     }
 
     public static function unsupportedAlgorithm(): self
