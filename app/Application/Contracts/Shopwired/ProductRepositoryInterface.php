@@ -278,9 +278,11 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Check whether a single product has sale state drift.
      *
+     * A product has any sale when its master SKU or any variation SKU is on sale;
+     * a variation with no price or sale price of its own inherits its product's.
      * Detects two types of drift:
-     * - On sale (sale_price > 0, < price) but NOT in sale category or missing sale custom fields
-     * - NOT on sale but still in sale category or has sale custom fields
+     * - Has any sale but NOT in the sale category
+     * - Has no sale but still in the sale category
      *
      * @param IntId $productId Product external ID to check
      * @param int $saleCategoryId The ShopWired sale category ID
@@ -294,8 +296,10 @@ interface ProductRepositoryInterface extends RepositoryWriteInterface
     /**
      * Find all products with sale state drift.
      *
-     * Scans the entire catalog for products where DB sale state is
-     * inconsistent with expected state. Used by the bulk reconciliation job.
+     * Scans the entire catalog for products whose sale category membership
+     * disagrees with whether they have any sale (master SKU or any variation
+     * SKU on sale, as defined on hasSaleStateDrift()). Used by the bulk
+     * reconciliation job.
      *
      * @param int $saleCategoryId The ShopWired sale category ID
      *
