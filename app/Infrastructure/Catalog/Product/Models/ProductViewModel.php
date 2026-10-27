@@ -52,6 +52,7 @@ use Override;
  * @property CarbonImmutable $created_at When first synced to local DB
  * @property CarbonImmutable $updated_at When last updated locally
  * @property bool $is_on_sale Whether effective price is a sale price
+ * @property bool $has_any_sale Whether the master SKU or any variation SKU is on sale
  * @property float $effective_price Selling price after sale logic (sale_price if active, else price)
  * @property float|null $cost_price Linnworks cost price (from default supplier, tax-exclusive)
  * @property float|null $profit_margin Gross profit margin % computed at DB level
@@ -138,6 +139,7 @@ final class ProductViewModel extends Model
             'vat_exclusive' => 'boolean',
             'vat_relief' => 'boolean',
             'is_on_sale' => 'boolean',
+            'has_any_sale' => 'boolean',
             'has_free_delivery' => 'boolean',
         ];
     }

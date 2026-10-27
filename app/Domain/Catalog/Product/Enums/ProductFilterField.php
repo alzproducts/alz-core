@@ -9,6 +9,7 @@ enum ProductFilterField: string
     case IsActive = 'is_active';
     case CategoryId = 'category_id';
     case IsOnSale = 'is_on_sale';
+    case HasAnySale = 'has_any_sale';
     case Sku = 'sku';
     case HasFreeDelivery = 'has_free_delivery';
     case Search = 'search';

@@ -117,6 +117,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                     ProductFilterField::IsActive => $q->where('is_active', $value),
                     ProductFilterField::CategoryId => $q->whereJsonContains('category_ids', $value),
                     ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
+                    ProductFilterField::HasAnySale => $q->where('has_any_sale', $value),
                     ProductFilterField::Sku => $q->where('sku', $value),
                     ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
                     ProductFilterField::Search => $q->whereRaw(
@@ -507,7 +508,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         // Always load product-level extra data (RRP for API response)
         $relations[] = 'extraData';
 
-        // Always load variation relations for parent-level derivation (defaultSupplier, hasAnySale, ProductViewMeta)
+        // Always load variation relations for parent-level derivation (defaultSupplier, ProductViewMeta)
         // API exposure is gated separately in the assembler via the includes check
         $relations[] = 'variations';
         $relations[] = 'variations.extraData';
@@ -731,12 +732,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
         return $this->eloquentGateway->query(function () use ($includes): array {
             $query = self::VIEW_MODEL_CLASS::query()
                 ->with(self::relationsForIncludes($includes))
-                ->where(static function (Builder $q): void {
-                    $q->where('is_on_sale', true)
-                        ->orWhereHas('variations', static function (Builder $sub): void {
-                            $sub->where('is_on_sale', true);
-                        });
-                });
+                ->where('has_any_sale', true);
 
             /** @var list<ProductView> */
             return $query->get()
@@ -802,57 +798,23 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * Custom field checks deliberately excluded — they caused an infinite
      * reconciliation loop (local JSONB lags behind ShopWired API writes).
      *
-     * @return Builder<ProductModel>
+     * @return Builder<ProductViewModel>
      */
     private static function buildSaleStateDriftQuery(int $saleCategoryId): Builder
     {
         $saleCategoryJson = '[' . $saleCategoryId . ']';
 
-        return self::MODEL_CLASS::query()
+        return self::VIEW_MODEL_CLASS::query()
             ->select('external_id')
             ->where(static function (Builder $q) use ($saleCategoryJson): void {
-                // Case 1: On sale (master or variant) but NOT in sale category
                 $q->where(static function (Builder $onSale) use ($saleCategoryJson): void {
-                    self::whereAnySaleActive($onSale);
-                    $onSale->whereRaw('NOT (category_ids @> ?::jsonb)', [$saleCategoryJson]);
-                })
-                // Case 2: NOT on sale but still in sale category
-                ->orWhere(static function (Builder $notOnSale) use ($saleCategoryJson): void {
-                    self::whereNoSaleActive($notOnSale);
-                    $notOnSale->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson]);
+                    $onSale->where('has_any_sale', true)
+                        ->whereRaw('NOT (category_ids @> ?::jsonb)', [$saleCategoryJson]);
+                })->orWhere(static function (Builder $notOnSale) use ($saleCategoryJson): void {
+                    $notOnSale->where('has_any_sale', false)
+                        ->whereRaw('category_ids @> ?::jsonb', [$saleCategoryJson]);
                 });
             });
-    }
-
-    /** @param Builder<ProductModel> $query */
-    private static function whereAnySaleActive(Builder $query): void
-    {
-        $query->where(static function (Builder $q): void {
-            $q->where(static function (Builder $m): void {
-                $m->whereNotNull('sale_price')->where('sale_price', '>', 0)->whereRaw('sale_price < price');
-            })->orWhereExists(self::variationSaleExistsSubquery());
-        });
-    }
-
-    /** @param Builder<ProductModel> $query */
-    private static function whereNoSaleActive(Builder $query): void
-    {
-        $query->where(static function (Builder $q): void {
-            $q->whereNull('sale_price')->orWhere('sale_price', '<=', 0)->orWhereRaw('sale_price >= price');
-        })->whereNotExists(self::variationSaleExistsSubquery());
-    }
-
-    /** @return Closure(\Illuminate\Database\Query\Builder): void */
-    private static function variationSaleExistsSubquery(): Closure
-    {
-        return static function (\Illuminate\Database\Query\Builder $sub): void {
-            $sub->selectRaw('1')
-                ->from('shopwired.product_variations')
-                ->whereColumn('product_external_id', 'shopwired.products.external_id')
-                ->whereNotNull('sale_price')
-                ->where('sale_price', '>', 0)
-                ->whereRaw('sale_price < COALESCE(shopwired.product_variations.price, shopwired.products.price)');
-        };
     }
 
     /**

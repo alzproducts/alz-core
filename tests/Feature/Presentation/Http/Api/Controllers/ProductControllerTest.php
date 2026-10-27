@@ -709,6 +709,68 @@ final class ProductControllerTest extends TestCase
         $this->assertSame('validation_error', $body['error']['type']);
     }
 
+    #[Test]
+    public function has_any_sale_true_passes_true_to_query(): void
+    {
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasAnySale->value] ?? null) === true))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?has_any_sale=1');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function has_any_sale_false_passes_false_to_query(): void
+    {
+        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+
+        $this->productRepository
+            ->shouldReceive('paginate')
+            ->once()
+            ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasAnySale->value] ?? null) === false))
+            ->andReturn($dto);
+
+        $response = $this->asApprovedUser()->getJson('/api/products?has_any_sale=0');
+
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function has_any_sale_true_string_returns_422(): void
+    {
+        $response = $this->asApprovedUser()->getJson('/api/products?has_any_sale=true');
+
+        $response->assertStatus(422);
+        $body = $response->json();
+        $this->assertSame('validation_error', $body['error']['type']);
+    }
+
+    #[Test]
+    public function has_any_sale_false_string_returns_422(): void
+    {
+        $response = $this->asApprovedUser()->getJson('/api/products?has_any_sale=false');
+
+        $response->assertStatus(422);
+        $body = $response->json();
+        $this->assertSame('validation_error', $body['error']['type']);
+    }
+
+    #[Test]
+    public function has_any_sale_non_boolean_string_returns_422(): void
+    {
+        $response = $this->asApprovedUser()->getJson('/api/products?has_any_sale=yes');
+
+        $response->assertStatus(422);
+        $body = $response->json();
+        $this->assertSame('validation_error', $body['error']['type']);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Pagination edge cases
@@ -944,7 +1006,7 @@ final class ProductControllerTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([$variation], null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            hasAnySale: false,
             parentAvailableStock: -4,
             parentPhysicalStock: 0,
             allVariations: [$variation],
@@ -1274,7 +1336,7 @@ final class ProductControllerTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([$variation], null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale([$variation]),
+            hasAnySale: false,
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
             allVariations: [$variation],
@@ -1322,7 +1384,7 @@ final class ProductControllerTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta([], null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale([]),
+            hasAnySale: false,
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
             allVariations: null,
@@ -1398,7 +1460,7 @@ final class ProductControllerTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta($variations, null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            hasAnySale: false,
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
             allVariations: $variations,

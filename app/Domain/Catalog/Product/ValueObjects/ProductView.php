@@ -123,7 +123,7 @@ final readonly class ProductView
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
         ProductViewMeta $meta,
-        bool $hasAnyVariationOnSale,
+        bool $hasAnySale,
         int $parentAvailableStock,
         int $parentPhysicalStock,
         ?array $allVariations = null,
@@ -156,7 +156,8 @@ final readonly class ProductView
         $this->categoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $categoryIds);
         $this->mainCategoryIds = \array_map(static fn(int $id): IntId => IntId::from($id), $mainCategoryIds);
         $this->hasFreeDelivery = $freeDelivery !== null && ! $freeDelivery->isNone();
-        $this->hasAnySale = $this->isOnSale || $hasAnyVariationOnSale;
+        Assert::true(! $isOnSale || $hasAnySale, 'hasAnySale must be true when the master product is on sale');
+        $this->hasAnySale = $hasAnySale;
         $this->defaultSupplier = $defaultSupplier;
         $this->createdAtFormatted = $createdAt->format(DateFormat::DEFAULT_DATE_FORMAT);
         $this->updatedAtFormatted = $updatedAt->format(DateFormat::DEFAULT_DATE_FORMAT);

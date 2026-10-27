@@ -260,7 +260,7 @@ final class ReconcileShopwiredComparePriceUseCaseTest extends TestCase
             createdAt: new DateTimeImmutable('2024-01-01'),
             updatedAt: new DateTimeImmutable('2024-01-01'),
             meta: new ProductViewMeta($variations, null, null),
-            hasAnyVariationOnSale: ProductVariationView::anyOnSale($variations),
+            hasAnySale: false,
             parentAvailableStock: 0,
             parentPhysicalStock: 0,
             allVariations: $variations,
