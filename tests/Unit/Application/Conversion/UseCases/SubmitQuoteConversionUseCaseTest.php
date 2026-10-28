@@ -24,6 +24,8 @@ use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\ValueObjects\TaxType;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Mockery;
@@ -43,7 +45,7 @@ use Tests\TestCase;
  *   msclkid — Bing cannot receive a quote
  * - 422 when there's no completed LeadReceived action
  * - 409 when a quote action already exists for the submission
- * - 202 happy path (gclid → one Google dispatch)
+ * - 202 happy path (gclid → one Google dispatch; the action row stores the quote value and converted-at)
  * - both click IDs → Google dispatched once, Bing skipped
  *
  * The resolver is a REAL {@see AdPlatformAdapterResolverService} wrapping fake
@@ -108,7 +110,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->andThrow(new RecordNotFoundException('contact_submission', self::SUBMISSION_ID));
 
         $this->actionRepository->shouldNotReceive('hasCompletedAction');
-        $this->actionRepository->shouldNotReceive('create');
+        $this->actionRepository->shouldNotReceive('createQuoteAction');
         $this->dispatcher->shouldNotReceive('dispatchQuoteConversion');
 
         $this->expectException(RecordNotFoundException::class);
@@ -124,7 +126,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->andReturn($this->makeSubmission(gclid: null, msclkid: null));
 
         $this->actionRepository->shouldNotReceive('hasCompletedAction');
-        $this->actionRepository->shouldNotReceive('create');
+        $this->actionRepository->shouldNotReceive('createQuoteAction');
         $this->dispatcher->shouldNotReceive('dispatchQuoteConversion');
 
         try {
@@ -150,7 +152,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             });
 
         $this->actionRepository->shouldNotReceive('hasCompletedAction');
-        $this->actionRepository->shouldNotReceive('create');
+        $this->actionRepository->shouldNotReceive('createQuoteAction');
         $this->dispatcher->shouldNotReceive('dispatchQuoteConversion');
 
         $this->useCase->execute(self::SUBMISSION_ID, self::VALUE, self::CONVERTED_AT);
@@ -169,7 +171,7 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(false);
 
-        $this->actionRepository->shouldNotReceive('create');
+        $this->actionRepository->shouldNotReceive('createQuoteAction');
         $this->dispatcher->shouldNotReceive('dispatchQuoteConversion');
 
         try {
@@ -192,8 +194,8 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(true);
 
-        $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
+        $this->actionRepository->expects('createQuoteAction')
+            ->with(self::SUBMISSION_ID, AdPlatform::Google, Mockery::type(Money::class), Mockery::type(DateTimeImmutable::class))
             ->andThrow(new DuplicateRecordException(
                 'contact_submission_actions',
                 'contact_submission_actions_submission_action_unique',
@@ -217,9 +219,16 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(true);
 
-        $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
-            ->andReturn(self::ACTION_ID);
+        $storedValue = null;
+        $storedConvertedAt = null;
+        $this->actionRepository->expects('createQuoteAction')
+            ->with(self::SUBMISSION_ID, AdPlatform::Google, Mockery::type(Money::class), Mockery::type(DateTimeImmutable::class))
+            ->andReturnUsing(static function (string $submissionId, AdPlatform $platform, Money $value, DateTimeImmutable $convertedAt) use (&$storedValue, &$storedConvertedAt): string {
+                $storedValue = $value;
+                $storedConvertedAt = $convertedAt;
+
+                return self::ACTION_ID;
+            });
 
         $captured = null;
         $this->dispatcher->expects('dispatchQuoteConversion')
@@ -229,6 +238,12 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             });
 
         $this->useCase->execute(self::SUBMISSION_ID, self::VALUE, self::CONVERTED_AT);
+
+        self::assertNotNull($storedValue);
+        self::assertSame(self::VALUE, $storedValue->toNet());
+        self::assertSame(TaxType::Exclusive, $storedValue->taxType);
+        self::assertNotNull($storedConvertedAt);
+        self::assertSame(self::CONVERTED_AT, $storedConvertedAt->format(DateTimeInterface::ATOM));
 
         self::assertNotNull($captured);
         self::assertSame(self::SUBMISSION_ID, $captured->submissionId->value);
@@ -249,8 +264,8 @@ final class SubmitQuoteConversionUseCaseTest extends TestCase
             ->with(self::SUBMISSION_ID, ActionType::LeadReceived)
             ->andReturn(true);
 
-        $this->actionRepository->expects('create')
-            ->with(self::SUBMISSION_ID, ActionType::QuoteIssued, AdPlatform::Google)
+        $this->actionRepository->expects('createQuoteAction')
+            ->with(self::SUBMISSION_ID, AdPlatform::Google, Mockery::type(Money::class), Mockery::type(DateTimeImmutable::class))
             ->andReturn(self::ACTION_ID);
 
         $captured = null;

@@ -96,9 +96,18 @@ final readonly class SubmitQuoteConversionUseCase
      */
     private function dispatchForPlatform(string $submissionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
     {
-        $actionId = $this->actionRepository->create($submissionId, ActionType::QuoteIssued, $platform);
+        $value = Money::exclusive($details->value);
+        $convertedAt = self::parseConvertedAt($details->convertedAt);
 
-        $this->dispatcher->dispatchQuoteConversion(self::buildCommand($submissionId, $actionId, $details, $platform));
+        $actionId = $this->actionRepository->createQuoteAction($submissionId, $platform, $value, $convertedAt);
+
+        $this->dispatcher->dispatchQuoteConversion(new QuoteConversionCommand(
+            submissionId: Uuid::fromTrusted($submissionId),
+            actionId: Uuid::fromTrusted($actionId),
+            value: $value,
+            convertedAt: $convertedAt,
+            platform: $platform,
+        ));
 
         $this->logger->info('Quote conversion dispatched', [
             'submission_id' => $submissionId,
@@ -113,10 +122,10 @@ final readonly class SubmitQuoteConversionUseCase
      *
      * @throws MalformedStoredDataException
      */
-    private static function buildCommand(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): QuoteConversionCommand
+    private static function parseConvertedAt(string $convertedAt): DateTimeImmutable
     {
         try {
-            $convertedAtTime = new DateTimeImmutable($details->convertedAt);
+            return new DateTimeImmutable($convertedAt);
         } catch (DateMalformedStringException $e) {
             throw new MalformedStoredDataException(
                 'ConversionRequest',
@@ -124,14 +133,6 @@ final readonly class SubmitQuoteConversionUseCase
                 previous: $e,
             );
         }
-
-        return new QuoteConversionCommand(
-            submissionId: Uuid::fromTrusted($submissionId),
-            actionId: Uuid::fromTrusted($actionId),
-            value: Money::exclusive($details->value),
-            convertedAt: $convertedAtTime,
-            platform: $platform,
-        );
     }
 
     /**

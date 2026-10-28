@@ -6,12 +6,10 @@ namespace App\Infrastructure\Jobs\Conversion;
 
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\QuoteConversionDetailsDTO;
-use App\Application\Conversion\UseCases\HandleQuoteConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessQuoteConversionUseCase;
+use App\Domain\ContactSubmission\Exceptions\ActionTypeMismatchException;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
-use App\Domain\Exceptions\Data\InsufficientDataException;
-use App\Domain\Exceptions\Data\InvalidFormatException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\Exceptions\Data\AbstractDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
@@ -20,7 +18,6 @@ use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Throwable;
 
 /**
  * Uploads a quote conversion to the given ad platform asynchronously.
@@ -32,8 +29,8 @@ use Throwable;
  * Exception Strategy mirrors {@see ProcessLeadConversionJob}:
  * - TransientApiFailure: Handled by {@see HandleApiExceptions} middleware (release/rethrow)
  * - PermanentApiFailure: Handled by {@see HandleApiExceptions} middleware (fail immediately)
- * - Data exceptions: Caught in handle() → fail immediately (non-API permanent failures)
- * - Unexpected Throwable: Retried by Laravel, failed() on exhaustion
+ * - Data exceptions, unsupported conversion type, misrouted action: Caught in handle() → fail immediately
+ * - Unexpected Throwable: Retried by Laravel; the action row stays `processing` until the lease sweep
  */
 final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUnique
 {
@@ -45,7 +42,7 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
 
     public int $maxExceptions = 5;
 
-    public int $timeout = 60;
+    public int $timeout = 75;
 
     /**
      * Seconds to wait before retrying.
@@ -82,10 +79,11 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
             AdPlatform::Bing => ServiceCircuitBreaker::bingAdsRest(),
         };
 
+        // intentional: HandleApiExceptions wraps the breaker so the breaker still counts transients carrying retryAfter
         return [
             ...parent::middleware(),
-            $circuitBreaker,
             new HandleApiExceptions(),
+            $circuitBreaker,
         ];
     }
 
@@ -107,26 +105,8 @@ final class ProcessQuoteConversionJob extends AbstractJob implements ShouldBeUni
                 new QuoteConversionDetailsDTO($this->value, $this->convertedAt),
                 $this->platform,
             );
-        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
+        } catch (AbstractDataException|UnsupportedConversionTypeException|ActionTypeMismatchException $e) {
             $this->fail($e);
         }
-    }
-
-    /**
-     * Handle job failure after all retries exhausted.
-     *
-     * Delegates to {@see HandleQuoteConversionFailureUseCase} which marks the
-     * action as failed (preventing infinite cleanup loop).
-     */
-    public function failed(Throwable $exception): void
-    {
-        /** @var HandleQuoteConversionFailureUseCase $useCase */
-        $useCase = \app(HandleQuoteConversionFailureUseCase::class);
-        $useCase->execute(
-            submissionId: $this->submissionId,
-            actionId: $this->actionId,
-            exceptionMessage: $exception->getMessage(),
-            attempts: $this->attempts(),
-        );
     }
 }
