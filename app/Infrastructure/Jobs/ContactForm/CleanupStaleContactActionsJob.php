@@ -23,7 +23,7 @@ final class CleanupStaleContactActionsJob extends AbstractJob implements ShouldB
 
     public int $maxExceptions = 3;
 
-    public int $timeout = 120;
+    public int $timeout = 110;
 
     /**
      * Backoff delays in seconds.
