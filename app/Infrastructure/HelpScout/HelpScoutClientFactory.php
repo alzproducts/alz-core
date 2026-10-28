@@ -6,6 +6,7 @@ namespace App\Infrastructure\HelpScout;
 
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
@@ -47,6 +48,14 @@ final class HelpScoutClientFactory
      * Create the conversations read client.
      */
     public static function createConversationsClient(TransientLogThrottle $logThrottle): ConversationsClientInterface
+    {
+        return new ConversationsClient(self::getTransport($logThrottle));
+    }
+
+    /**
+     * Create the single-attempt contact conversation lookup.
+     */
+    public static function createContactConversationLookup(TransientLogThrottle $logThrottle): ContactConversationLookupInterface
     {
         return new ConversationsClient(self::getTransport($logThrottle));
     }

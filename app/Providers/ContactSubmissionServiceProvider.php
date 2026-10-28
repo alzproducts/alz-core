@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\ContactSubmission\Resolvers\ExistingConversationResolver;
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionDashboardQueryRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\Conversion\PotentialConversion\PotentialConversionAnnotationRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
@@ -18,9 +20,12 @@ use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubm
 use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionDashboardQueryRepository;
 use App\Infrastructure\Marketing\Repositories\EloquentPotentialConversionAnnotationRepository;
 use App\Infrastructure\Validation\EmailValidationService;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use Psr\Log\LoggerInterface;
 
 /**
  * Contact Submission Service Provider.
@@ -86,6 +91,21 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             EmailValidationServiceInterface::class,
             EmailValidationService::class,
         );
+
+        $this->registerResolvers();
+    }
+
+    private function registerResolvers(): void
+    {
+        $this->app->bind(
+            ExistingConversationResolver::class,
+            static fn(Application $app): ExistingConversationResolver => new ExistingConversationResolver(
+                $app->make(ContactConversationLookupInterface::class),
+                $app->make(ContactSubmissionActionRepositoryInterface::class),
+                $app->make(LoggerInterface::class),
+                Config::integer('helpscout.mailboxes.support'),
+            ),
+        );
     }
 
     /**
@@ -102,6 +122,7 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
             PotentialConversionAnnotationRepositoryInterface::class,
             ConversationWriteClientInterface::class,
             EmailValidationServiceInterface::class,
+            ExistingConversationResolver::class,
         ];
     }
 }

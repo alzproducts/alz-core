@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\ContactSubmission\UseCases;
 
 use App\Application\ContactSubmission\DTOs\ActionClaimDTO;
+use App\Application\ContactSubmission\Resolvers\ExistingConversationResolver;
 use App\Application\ContactSubmission\Services\EmailValidationNoteService;
 use App\Application\ContactSubmission\Transformers\ContactSubmissionToConversationCommandTransformer;
 use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUseCase;
@@ -12,6 +13,7 @@ use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Application\HelpScout\Config\HelpScoutSystemUserId;
@@ -28,6 +30,9 @@ use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\CustomerService\Enums\ConversationStatus;
 use App\Domain\CustomerService\Enums\ConversationType;
 use App\Domain\CustomerService\Enums\Mailbox;
+use App\Domain\CustomerService\ValueObjects\Conversation;
+use App\Domain\CustomerService\ValueObjects\ConversationCustomer;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
@@ -59,6 +64,10 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
     private const int SYSTEM_USER_ID = 12345;
 
+    private const int MAILBOX_ID = 321;
+
+    private const int EARLIER_CONVERSATION_ID = 77777;
+
     private ContactSubmissionRepositoryInterface&MockInterface $submissionRepository;
 
     private ContactSubmissionActionRepositoryInterface&MockInterface $actionRepository;
@@ -72,6 +81,8 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     private LoggerInterface&MockInterface $logger;
 
     private HandleContactSubmissionFailureUseCase&MockInterface $failureHandler;
+
+    private ContactConversationLookupInterface&MockInterface $lookup;
 
     private ProcessContactSubmissionUseCase $useCase;
 
@@ -89,6 +100,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
         $this->emailValidator = Mockery::mock(EmailValidationServiceInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class)->shouldIgnoreMissing();
         $this->failureHandler = Mockery::mock(HandleContactSubmissionFailureUseCase::class);
+        $this->lookup = Mockery::mock(ContactConversationLookupInterface::class);
 
         $this->useCase = new ProcessContactSubmissionUseCase(
             submissionRepository: $this->submissionRepository,
@@ -104,6 +116,12 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
             logger: $this->logger,
             eventDispatcher: \app(Dispatcher::class),
             failureHandler: $this->failureHandler,
+            existingConversation: new ExistingConversationResolver(
+                lookup: $this->lookup,
+                actionRepository: $this->actionRepository,
+                logger: $this->logger,
+                mailboxId: self::MAILBOX_ID,
+            ),
         );
     }
 
@@ -252,6 +270,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     {
         $this->expectClaim($this->claim(attempts: 2, externalId: '55555'));
         $this->expectSubmission();
+        $this->lookup->shouldNotReceive('findMatches');
         $this->transformer->shouldNotReceive('transform');
         $this->helpScoutClient->shouldNotReceive('createConversationFromCustomer');
         $this->actionRepository->expects('completeClaim')->with(self::ACTION_ID, self::TOKEN, '55555')->andReturn(true);
@@ -259,10 +278,167 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
 
+        Event::assertDispatchedTimes(ContactFormProcessedEvent::class, 1);
         Event::assertDispatched(
             ContactFormProcessedEvent::class,
             static fn(ContactFormProcessedEvent $event): bool => $event->conversationId->value === 55555,
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Search before create on a retry
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function a_first_attempt_creates_without_searching(): void
+    {
+        $this->expectClaim($this->claim(attempts: 1));
+        $this->expectSubmission();
+        $this->lookup->shouldNotReceive('findMatches');
+        $this->expectCreate();
+        $this->actionRepository->expects('completeClaim')->andReturn(true);
+        $this->emailValidator->expects('isValid')->andReturn(true);
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_with_a_single_search_match_completes_with_it_without_creating(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([$this->earlierConversation(self::EARLIER_CONVERSATION_ID)]);
+        $this->actionRepository->expects('linkedConversationIds')
+            ->with([(string) self::EARLIER_CONVERSATION_ID], self::ACTION_ID)
+            ->andReturn([]);
+        $this->transformer->shouldNotReceive('transform');
+        $this->helpScoutClient->shouldNotReceive('createConversationFromCustomer');
+        $this->actionRepository->expects('completeClaim')
+            ->with(self::ACTION_ID, self::TOKEN, (string) self::EARLIER_CONVERSATION_ID)
+            ->andReturn(true);
+        $this->emailValidator->expects('isValid')->andReturn(true);
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+
+        Event::assertDispatchedTimes(ContactFormProcessedEvent::class, 1);
+        Event::assertDispatched(
+            ContactFormProcessedEvent::class,
+            static fn(ContactFormProcessedEvent $event): bool => $event->conversationId->value === self::EARLIER_CONVERSATION_ID,
+        );
+    }
+
+    #[Test]
+    public function a_retry_without_a_search_hit_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([]);
+        $this->actionRepository->shouldNotReceive('linkedConversationIds');
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_whose_only_match_is_linked_to_another_action_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([$this->earlierConversation(self::EARLIER_CONVERSATION_ID)]);
+        $this->actionRepository->expects('linkedConversationIds')
+            ->with([(string) self::EARLIER_CONVERSATION_ID], self::ACTION_ID)
+            ->andReturn([(string) self::EARLIER_CONVERSATION_ID]);
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_with_two_unlinked_matches_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([
+            $this->earlierConversation(self::EARLIER_CONVERSATION_ID),
+            $this->earlierConversation(self::EARLIER_CONVERSATION_ID + 1),
+        ]);
+        $this->actionRepository->expects('linkedConversationIds')->andReturn([]);
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_whose_match_has_another_email_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([
+            $this->earlierConversation(self::EARLIER_CONVERSATION_ID, email: 'other@example.com'),
+        ]);
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_whose_match_has_another_subject_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([
+            $this->earlierConversation(self::EARLIER_CONVERSATION_ID, subject: 'Re: an older enquiry'),
+        ]);
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_whose_search_fails_permanently_creates_once(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andThrow(new AuthenticationExpiredException('HelpScout', 'Invalid credentials'));
+        $this->failureHandler->shouldNotReceive('execute');
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_retry_for_an_email_outside_the_allowlist_creates_once_without_searching(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission(email: 'x@example.com" OR email:"y@example.com');
+        $this->lookup->shouldNotReceive('findMatches');
+        $this->expectCreateCompletes();
+
+        $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+    }
+
+    #[Test]
+    public function a_search_timeout_on_a_retry_returns_the_action_to_pending_without_creating(): void
+    {
+        $this->expectClaim($this->claim(attempts: 2));
+        $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andThrow(new ExternalServiceUnavailableException('HelpScout'));
+        $this->transformer->shouldNotReceive('transform');
+        $this->helpScoutClient->shouldNotReceive('createConversationFromCustomer');
+        $this->actionRepository->shouldNotReceive('completeClaim');
+        $this->failureHandler->shouldNotReceive('execute');
+        $this->actionRepository->expects('returnToPending')->with(self::ACTION_ID, self::TOKEN, 300)->andReturn(true);
+
+        try {
+            $this->useCase->execute(self::SUBMISSION_ID, self::ACTION_ID);
+            self::fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            self::assertSame(300, $e->retryAfter);
+        }
+
+        Event::assertNotDispatched(ContactFormProcessedEvent::class);
     }
 
     #[Test]
@@ -327,6 +503,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
 
         $this->expectClaim($this->claim(attempts: 2));
         $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([]);
         $this->expectCreateThrows($original);
         $this->actionRepository->expects('returnToPending')->with(self::ACTION_ID, self::TOKEN, 120)->andReturn(true);
         $this->actionRepository->shouldNotReceive('completeClaim');
@@ -347,6 +524,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     {
         $this->expectClaim($this->claim(attempts: 2));
         $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([]);
         $this->expectCreateThrows(new ExternalServiceUnavailableException('HelpScout'));
         $this->actionRepository->expects('returnToPending')->with(self::ACTION_ID, self::TOKEN, 300)->andReturn(true);
 
@@ -363,6 +541,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     {
         $this->expectClaim($this->claim(attempts: ActionAttempts::LIMIT));
         $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([]);
         $this->expectCreateThrows(new ExternalServiceUnavailableException('HelpScout', retryAfter: 120));
         $this->actionRepository->shouldNotReceive('returnToPending');
 
@@ -378,6 +557,7 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     {
         $this->expectClaim($this->claim(attempts: 2));
         $this->expectSubmission();
+        $this->lookup->expects('findMatches')->andReturn([]);
         $this->expectCreateThrows(new ExternalServiceUnavailableException('HelpScout', retryAfter: 120));
         $this->actionRepository->expects('returnToPending')->andReturn(false);
 
@@ -500,6 +680,34 @@ final class ProcessContactSubmissionUseCaseTest extends TestCase
     {
         $this->transformer->expects('transform')->andReturn($this->createCommand());
         $this->helpScoutClient->expects('createConversationFromCustomer')->andReturn(self::CONVERSATION_ID);
+    }
+
+    private function expectCreateCompletes(): void
+    {
+        $this->expectCreate();
+        $this->actionRepository->expects('completeClaim')
+            ->with(self::ACTION_ID, self::TOKEN, (string) self::CONVERSATION_ID)
+            ->andReturn(true);
+        $this->emailValidator->allows('isValid')->andReturn(true);
+    }
+
+    private function earlierConversation(int $id, string $email = 'test@example.com', ?string $subject = null): Conversation
+    {
+        return new Conversation(
+            id: $id,
+            number: $id + 1,
+            subject: $subject ?? $this->createSubmission($email)->helpScoutSubject(),
+            status: 'active',
+            mailboxId: self::MAILBOX_ID,
+            createdAt: new DateTimeImmutable('2024-01-15 10:00:02'),
+            updatedAt: null,
+            userUpdatedAt: null,
+            customerWaitingSince: null,
+            snooze: null,
+            tags: [],
+            customer: new ConversationCustomer(id: 1, firstName: 'Test', lastName: 'User', email: $email),
+            assignee: null,
+        );
     }
 
     private function expectCreateThrows(Throwable $exception): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\ContactSubmission\UseCases;
 
 use App\Application\ContactSubmission\DTOs\ActionClaimDTO;
+use App\Application\ContactSubmission\Resolvers\ExistingConversationResolver;
 use App\Application\ContactSubmission\Services\EmailValidationNoteService;
 use App\Application\ContactSubmission\Transformers\ContactSubmissionToConversationCommandTransformer;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
@@ -49,6 +50,7 @@ final readonly class ProcessContactSubmissionUseCase
         private LoggerInterface $logger,
         private Dispatcher $eventDispatcher,
         private HandleContactSubmissionFailureUseCase $failureHandler,
+        private ExistingConversationResolver $existingConversation,
     ) {}
 
     /**
@@ -136,15 +138,13 @@ final readonly class ProcessContactSubmissionUseCase
     {
         try {
             $submission = $this->submissionRepository->findById($submissionId);
-            $conversationId = $claim->externalId ?? $this->createConversation($submission);
+            $conversationId = $this->conversationIdFor($submissionId, $actionId, $claim, $submission);
         } catch (TransientApiFailure $e) {
             $this->retryOrFail($submissionId, $actionId, $claim, $e);
 
             return;
         } catch (PermanentApiFailure|AbstractDataException $e) {
-            if ($this->failureHandler->execute($submissionId, $actionId, $claim->token, $e->getMessage())) {
-                throw $e;
-            }
+            $this->failPermanently($submissionId, $actionId, $claim, $e);
 
             return;
         }
@@ -157,17 +157,35 @@ final readonly class ProcessContactSubmissionUseCase
     }
 
     /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws AuthenticationExpiredException
      * @throws InvalidApiRequestException
      * @throws UnexpectedApiResultException
      * @throws InsufficientDataException
      */
-    private function createConversation(ContactSubmission $submission): string
+    private function conversationIdFor(string $submissionId, string $actionId, ActionClaimDTO $claim, ContactSubmission $submission): string
     {
-        $command = $this->transformer->transform($submission);
+        return $claim->externalId
+            ?? $this->existingConversation->resolve($submissionId, $actionId, $claim, $submission)
+            ?? (string) $this->helpScoutClient->createConversationFromCustomer($this->transformer->transform($submission));
+    }
 
-        return (string) $this->helpScoutClient->createConversationFromCustomer($command);
+    /**
+     * Rethrows when the failure handler failed the action.
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     * @throws PermanentApiFailure
+     * @throws AbstractDataException
+     */
+    private function failPermanently(string $submissionId, string $actionId, ActionClaimDTO $claim, PermanentApiFailure|AbstractDataException $e): void
+    {
+        if ($this->failureHandler->execute($submissionId, $actionId, $claim->token, $e->getMessage())) {
+            throw $e;
+        }
     }
 
     /**
