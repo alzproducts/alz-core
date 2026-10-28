@@ -6,7 +6,6 @@ namespace App\Application\Contracts\ContactSubmission;
 
 use App\Application\ContactSubmission\DTOs\ActionClaimDTO;
 use App\Application\ContactSubmission\DTOs\RecoverableActionDTO;
-use App\Application\Contracts\AsyncActionRepositoryInterface;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
@@ -16,10 +15,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use DateTimeImmutable;
 
-/**
- * @extends AsyncActionRepositoryInterface<ActionStatus>
- */
-interface ContactSubmissionActionRepositoryInterface extends AsyncActionRepositoryInterface
+interface ContactSubmissionActionRepositoryInterface
 {
     /**
      * `$adPlatform = null` for HelpScout rows. Partial unique indexes scope uniqueness
