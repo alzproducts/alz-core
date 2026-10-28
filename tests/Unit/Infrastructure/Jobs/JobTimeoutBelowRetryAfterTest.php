@@ -36,7 +36,7 @@ final class JobTimeoutBelowRetryAfterTest extends TestCase
                 continue;
             }
 
-            $relative = \substr($file->getPathname(), \strlen($jobsDir) + 1, -4);
+            $relative = \mb_substr($file->getPathname(), \mb_strlen($jobsDir) + 1, -4);
             $class = 'App\\Infrastructure\\Jobs\\' . \str_replace('/', '\\', $relative);
 
             if (!\class_exists($class)) {
