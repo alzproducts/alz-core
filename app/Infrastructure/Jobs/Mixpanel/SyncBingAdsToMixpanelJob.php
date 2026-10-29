@@ -58,7 +58,7 @@ final class SyncBingAdsToMixpanelJob extends AbstractJob
         private readonly DateTimeImmutable $from,
         private readonly DateTimeImmutable $to,
     ) {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Low->value);
     }
 
     /**
