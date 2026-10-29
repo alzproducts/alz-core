@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Ingest\ContactSubmission\Models;
 
+use App\Application\ContactSubmission\DTOs\ActionClaimDTO;
+use App\Application\ContactSubmission\DTOs\RecoverableActionDTO;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Domain\ContactSubmission\Enums\ActionStatus;
 use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\Shared\Money\ValueObjects\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +28,10 @@ use Override;
  * @property CarbonImmutable $updated_at
  * @property CarbonImmutable|null $processing_started_at
  * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $next_attempt_at
+ * @property string|null $claim_token
+ * @property string|null $quote_value_net
+ * @property CarbonImmutable|null $quote_converted_at
  */
 final class ContactSubmissionActionModel extends Model
 {
@@ -37,6 +44,28 @@ final class ContactSubmissionActionModel extends Model
     protected $keyType = 'string';
 
     protected $guarded = [];
+
+    public function toActionClaim(string $claimToken): ActionClaimDTO
+    {
+        return new ActionClaimDTO(
+            token: $claimToken,
+            attempts: $this->attempts,
+            externalId: $this->external_id,
+            createdAt: $this->created_at,
+        );
+    }
+
+    public function toRecoverableAction(): RecoverableActionDTO
+    {
+        return new RecoverableActionDTO(
+            actionId: $this->id,
+            submissionId: $this->contact_submission_id,
+            actionType: $this->action_type,
+            adPlatform: $this->ad_platform,
+            quoteValue: $this->quote_value_net === null ? null : Money::exclusiveFromString($this->quote_value_net),
+            quoteConvertedAt: $this->quote_converted_at,
+        );
+    }
 
     /**
      * @return array<string, string>
@@ -53,6 +82,9 @@ final class ContactSubmissionActionModel extends Model
             'updated_at' => 'immutable_datetime',
             'processing_started_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
+            'next_attempt_at' => 'immutable_datetime',
+            'quote_value_net' => 'decimal:6',
+            'quote_converted_at' => 'immutable_datetime',
         ];
     }
 }

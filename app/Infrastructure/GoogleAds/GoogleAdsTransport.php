@@ -48,6 +48,8 @@ final readonly class GoogleAdsTransport
 
     private const string SERVICE_KEY = 'google-ads';
 
+    private const string ALREADY_UPLOADED_CODE = 'CLICK_CONVERSION_ALREADY_EXISTS';
+
     public function __construct(
         private SdkGoogleAdsClient $sdkClient,
         private GoogleAdsConfig $config,
@@ -220,7 +222,8 @@ final readonly class GoogleAdsTransport
      *
      * Google returns 2xx with `partial_failure_error` populated when individual conversions
      * inside an otherwise-valid request were rejected (e.g. expired gclid, unknown action ID).
-     * This is a request-data fault, not a service-availability fault.
+     * This is a request-data fault, not a service-availability fault — except a rejection made
+     * only of already-uploaded conversions, which means an earlier attempt landed.
      *
      * @throws InvalidApiRequestException When at least one conversion was rejected
      */
@@ -232,31 +235,54 @@ final readonly class GoogleAdsTransport
             return;
         }
 
+        $codeNames = self::decodeErrorCodeNames($error);
+
+        if (self::isOnlyAlreadyUploaded($codeNames)) {
+            Log::info(self::SERVICE_NAME . ' conversion already uploaded — treating as success', [
+                'message' => $error->getMessage(),
+            ]);
+
+            return;
+        }
+
         Log::error(self::SERVICE_NAME . ' conversion upload partial failure', [
             'code' => $error->getCode(),
             'message' => $error->getMessage(),
         ]);
 
-        throw new InvalidApiRequestException(self::SERVICE_NAME, self::describePartialFailure($error));
+        throw new InvalidApiRequestException(self::SERVICE_NAME, self::describePartialFailure($error, $codeNames));
+    }
+
+    /**
+     * A partially decoded list cannot prove the undecoded errors were duplicates too.
+     *
+     * @param list<string|null> $codeNames
+     */
+    private static function isOnlyAlreadyUploaded(array $codeNames): bool
+    {
+        return $codeNames !== []
+            && \array_all($codeNames, static fn(?string $codeName): bool => $codeName === self::ALREADY_UPLOADED_CODE);
     }
 
     /**
      * Google's partial-failure message is unstructured prose with no stable identifier,
      * so append the error-code names decoded from the packed GoogleAdsFailure details.
+     *
+     * @param list<string|null> $codeNames
      */
-    private static function describePartialFailure(Status $error): string
+    private static function describePartialFailure(Status $error, array $codeNames): string
     {
-        $codeNames = self::decodeErrorCodeNames($error);
+        $decoded = \array_values(\array_filter($codeNames, static fn(?string $codeName): bool => $codeName !== null));
 
-        if ($codeNames === []) {
+        if ($decoded === []) {
             return $error->getMessage();
         }
 
-        return $error->getMessage() . ' [' . \implode(', ', $codeNames) . ']';
+        return $error->getMessage() . ' [' . \implode(', ', $decoded) . ']';
     }
 
     /**
-     * @return list<string>
+     * @return list<string|null> one entry per error, null where the code name could not be read; empty when the details cannot be unpacked
      */
     private static function decodeErrorCodeNames(Status $error): array
     {
@@ -270,11 +296,7 @@ final readonly class GoogleAdsTransport
 
         foreach ($failures as $failure) {
             foreach ($failure->getErrors() as $failureError) {
-                $codeName = self::extractErrorCodeName($failureError);
-
-                if ($codeName !== null) {
-                    $codeNames[] = $codeName;
-                }
+                $codeNames[] = self::extractErrorCodeName($failureError);
             }
         }
 

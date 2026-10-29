@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
 use App\Application\HelpScout\Config\HelpScoutSystemUserId;
@@ -48,6 +49,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     public function register(): void
     {
         $this->registerClients();
+        $this->registerContactConversationLookup();
         $this->registerSystemUserId();
         $this->registerUseCases();
     }
@@ -69,6 +71,14 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
         $this->app->singleton(
             ConnectivityClientInterface::class,
             static fn(Application $app): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient($app->make(TransientLogThrottle::class)),
+        );
+    }
+
+    private function registerContactConversationLookup(): void
+    {
+        $this->app->singleton(
+            ContactConversationLookupInterface::class,
+            static fn(Application $app): ContactConversationLookupInterface => HelpScoutClientFactory::createContactConversationLookup($app->make(TransientLogThrottle::class)),
         );
     }
 
@@ -122,6 +132,7 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         return [
             ConversationsClientInterface::class,
+            ContactConversationLookupInterface::class,
             MailboxesClientInterface::class,
             AgentsClientInterface::class,
             ConnectivityClientInterface::class,

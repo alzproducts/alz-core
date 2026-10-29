@@ -6,6 +6,8 @@ namespace App\Application\HelpScout\Queries;
 
 use App\Application\HelpScout\Queries\Conversation\Enums\SortField;
 use App\Application\HelpScout\Queries\Conversation\Enums\SortOrder;
+use DateTimeImmutable;
+use DateTimeZone;
 
 /**
  * Value object encapsulating conversation query parameters.
@@ -18,6 +20,9 @@ final readonly class ConversationQueryParams
     private const string CACHE_PREFIX = 'helpscout:conversations';
 
     private const int DEFAULT_TTL_SECONDS = 300;
+
+    /** Local part: RFC 5322 atext and `.`; domain: letters, digits, `.` and `-`. */
+    private const string DOT_ATOM_EMAIL_PATTERN = '/^[A-Za-z0-9!#$%&\'*+\/=?^_`{|}~.-]+@[A-Za-z0-9.-]+$/D';
 
     private function __construct(
         public string $queryName,
@@ -169,6 +174,33 @@ final readonly class ConversationQueryParams
             tag: $assignedTag,
             sortField: SortField::WaitingSince,
             sortOrder: SortOrder::Asc,
+        );
+    }
+
+    /**
+     * Create params for finding a contact form conversation that an earlier attempt may have created.
+     *
+     * The subject stays out of the query; callers match it in code. Returns null when the email
+     * fails the dot-atom allowlist, because the email is submitter input placed inside the query.
+     *
+     * @param DateTimeImmutable $createdSince Earliest conversation creation time to match
+     */
+    public static function contactFormRetry(string $email, DateTimeImmutable $createdSince, int $mailboxId): ?self
+    {
+        if (\preg_match(self::DOT_ATOM_EMAIL_PATTERN, $email) !== 1) {
+            return null;
+        }
+
+        $since = $createdSince->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+
+        return new self(
+            queryName: 'contact-form-retry',
+            ttlSeconds: self::DEFAULT_TTL_SECONDS,
+            status: 'all',
+            mailboxId: $mailboxId,
+            query: "(email:\"{$email}\" AND createdAt:[{$since} TO *])",
+            sortField: SortField::CreatedAt,
+            sortOrder: SortOrder::Desc,
         );
     }
 

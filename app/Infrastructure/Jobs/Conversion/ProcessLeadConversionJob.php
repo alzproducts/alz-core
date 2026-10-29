@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\Conversion;
 
 use App\Application\Conversion\Enums\AdPlatform;
-use App\Application\Conversion\UseCases\HandleLeadConversionFailureUseCase;
 use App\Application\Conversion\UseCases\ProcessLeadConversionUseCase;
+use App\Domain\ContactSubmission\Exceptions\ActionTypeMismatchException;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
-use App\Domain\Exceptions\Data\InsufficientDataException;
-use App\Domain\Exceptions\Data\InvalidFormatException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\Exceptions\Data\AbstractDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
@@ -19,7 +17,6 @@ use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Throwable;
 
 /**
  * Uploads a lead conversion to the given ad platform asynchronously.
@@ -30,8 +27,10 @@ use Throwable;
  * Exception Strategy:
  * - TransientApiFailure: Handled by {@see HandleApiExceptions} middleware (release/rethrow)
  * - PermanentApiFailure: Handled by {@see HandleApiExceptions} middleware (fail immediately)
- * - Data exceptions: Caught in handle() → fail immediately (non-API permanent failures)
- * - Unexpected Throwable: Retried by Laravel, failed() on exhaustion
+ * - Data exceptions, unsupported conversion type, misrouted action: Caught in handle() → fail immediately
+ * - Unexpected Throwable: Retried by Laravel; the action row stays `processing` until the lease sweep
+ *
+ * The use case writes the action row's failure under its claim (ADR-0012), so there is no `failed()`.
  */
 final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUnique
 {
@@ -43,7 +42,7 @@ final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUniq
 
     public int $maxExceptions = 5;
 
-    public int $timeout = 60;
+    public int $timeout = 75;
 
     /**
      * Seconds to wait before retrying.
@@ -78,10 +77,11 @@ final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUniq
             AdPlatform::Bing => ServiceCircuitBreaker::bingAdsRest(),
         };
 
+        // intentional: HandleApiExceptions wraps the breaker so the breaker still counts transients carrying retryAfter
         return [
             ...parent::middleware(),
-            $circuitBreaker,
             new HandleApiExceptions(),
+            $circuitBreaker,
         ];
     }
 
@@ -98,26 +98,8 @@ final class ProcessLeadConversionJob extends AbstractJob implements ShouldBeUniq
     {
         try {
             $useCase->execute($this->submissionId, $this->actionId, $this->platform);
-        } catch (InsufficientDataException|InvalidFormatException|MalformedStoredDataException|UnsupportedConversionTypeException $e) {
+        } catch (AbstractDataException|UnsupportedConversionTypeException|ActionTypeMismatchException $e) {
             $this->fail($e);
         }
-    }
-
-    /**
-     * Handle job failure after all retries exhausted.
-     *
-     * Delegates to {@see HandleLeadConversionFailureUseCase} which marks the
-     * action as failed (preventing infinite cleanup loop).
-     */
-    public function failed(Throwable $exception): void
-    {
-        /** @var HandleLeadConversionFailureUseCase $useCase */
-        $useCase = \app(HandleLeadConversionFailureUseCase::class);
-        $useCase->execute(
-            submissionId: $this->submissionId,
-            actionId: $this->actionId,
-            exceptionMessage: $exception->getMessage(),
-            attempts: $this->attempts(),
-        );
     }
 }

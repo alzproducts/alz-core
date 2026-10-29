@@ -7,7 +7,10 @@ namespace Tests\Unit\Application\HelpScout\Queries;
 use App\Application\HelpScout\Queries\Conversation\Enums\SortField;
 use App\Application\HelpScout\Queries\Conversation\Enums\SortOrder;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
+use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -325,6 +328,99 @@ final class ConversationQueryParamsTest extends TestCase
         $params = ConversationQueryParams::manuallyAssigned(assignedTag: 'handling');
 
         $this->assertSame('manually-assigned', $params->queryName);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | contactFormRetry() Factory Tests
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function contact_form_retry_builds_the_email_and_created_at_query(): void
+    {
+        $params = ConversationQueryParams::contactFormRetry(
+            email: 'jane.doe@example.com',
+            createdSince: new DateTimeImmutable('2024-01-15T09:59:00Z'),
+            mailboxId: 321,
+        );
+
+        $this->assertNotNull($params);
+        $this->assertSame('(email:"jane.doe@example.com" AND createdAt:[2024-01-15T09:59:00Z TO *])', $params->query);
+        $this->assertSame('all', $params->status);
+        $this->assertSame(321, $params->mailboxId);
+        $this->assertSame(SortField::CreatedAt, $params->sortField);
+        $this->assertSame(SortOrder::Desc, $params->sortOrder);
+        $this->assertSame('contact-form-retry', $params->queryName);
+        $this->assertNull($params->tag);
+        $this->assertNull($params->agentId);
+    }
+
+    #[Test]
+    public function contact_form_retry_converts_created_since_to_utc(): void
+    {
+        $params = ConversationQueryParams::contactFormRetry(
+            email: 'jane@example.com',
+            createdSince: new DateTimeImmutable('2024-07-01 11:00:30', new DateTimeZone('Europe/London')),
+            mailboxId: 1,
+        );
+
+        $this->assertNotNull($params);
+        $this->assertStringContainsString('createdAt:[2024-07-01T10:00:30Z TO *]', $params->query);
+    }
+
+    #[Test]
+    #[DataProvider('allowedEmails')]
+    public function contact_form_retry_accepts_dot_atom_emails(string $email): void
+    {
+        $params = ConversationQueryParams::contactFormRetry($email, new DateTimeImmutable('2024-01-15T09:59:00Z'), 1);
+
+        $this->assertNotNull($params);
+        $this->assertStringStartsWith("(email:\"{$email}\" AND ", $params->query);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function allowedEmails(): array
+    {
+        return [
+            'plain' => ['jane@example.com'],
+            'dots, plus and apostrophe' => ["o'brien.j+web@mail.example.co.uk"],
+            'every atext symbol' => ['a!#$%&\'*+/=?^_`{|}~-z@example.com'],
+            'hyphenated domain' => ['jane@my-shop.example'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('rejectedEmails')]
+    public function contact_form_retry_returns_null_for_an_email_outside_the_allowlist(string $email): void
+    {
+        $this->assertNull(
+            ConversationQueryParams::contactFormRetry($email, new DateTimeImmutable('2024-01-15T09:59:00Z'), 1),
+        );
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function rejectedEmails(): array
+    {
+        return [
+            'double quote' => ['ja"ne@example.com'],
+            'query break-out' => ['x@example.com" OR email:"y@example.com'],
+            'backslash' => ['ja\\ne@example.com'],
+            'space' => ['ja ne@example.com'],
+            'parentheses' => ['ja(ne)@example.com'],
+            'colon' => ['ja:ne@example.com'],
+            'square bracket in domain' => ['jane@[127.0.0.1]'],
+            'underscore in domain' => ['jane@ex_ample.com'],
+            'two at signs' => ['jane@doe@example.com'],
+            'empty local part' => ['@example.com'],
+            'empty domain' => ['jane@'],
+            'trailing newline' => ["jane@example.com\n"],
+            'non-ascii' => ['jané@example.com'],
+        ];
     }
 
     /*

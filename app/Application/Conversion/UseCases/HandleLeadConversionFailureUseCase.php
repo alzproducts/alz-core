@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace App\Application\Conversion\UseCases;
 
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
- * Handles permanent failure of lead conversion upload.
- *
- * Marks the action as failed so the stale-action cleanup job stops resetting it.
- * Best-effort — marking failure must never throw past this boundary, otherwise
- * the framework's `failed()` callback would mask the original exception.
+ * Fails a lead conversion action on behalf of the worker holding its claim (ADR-0012).
  */
 final readonly class HandleLeadConversionFailureUseCase
 {
@@ -22,32 +20,27 @@ final readonly class HandleLeadConversionFailureUseCase
         private LoggerInterface $logger,
     ) {}
 
-    public function execute(string $submissionId, string $actionId, string $exceptionMessage, int $attempts): void
+    /**
+     * @return bool false when the claim was lost and the row is unchanged
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException When DB unavailable
+     */
+    public function execute(string $submissionId, string $actionId, string $claimToken, string $message): bool
     {
-        $this->logger->error('Lead conversion permanently failed', [
-            'submission_id' => $submissionId,
-            'action_id' => $actionId,
-            'exception' => $exceptionMessage,
-            'attempts' => $attempts,
-        ]);
+        $context = ['submission_id' => $submissionId, 'action_id' => $actionId];
 
-        $this->markActionFailed($actionId, $exceptionMessage, $attempts);
-    }
+        $this->logger->info('Failing lead conversion action', $context);
 
-    private function markActionFailed(string $actionId, string $exceptionMessage, int $attempts): void
-    {
-        try {
-            $this->actionRepository->markFailed(
-                $actionId,
-                "Retries exhausted after {$attempts} attempts: {$exceptionMessage}",
-            );
-        } catch (Throwable $e) { // @ignoreException - must not throw; cleanup job will reset stale rows
-            $this->logger->critical('Failed to mark lead conversion action as failed after exhaustion', [
-                'action_id' => $actionId,
-                'original_exception' => $exceptionMessage,
-                'mark_failed_exception' => $e::class,
-                'mark_failed_message' => $e->getMessage(),
-            ]);
+        if (! $this->actionRepository->failClaim($actionId, $claimToken, $message)) {
+            $this->logger->warning('Lead conversion action claim lost — failure not recorded', $context);
+
+            return false;
         }
+
+        $this->logger->error('Lead conversion permanently failed', [...$context, 'exception' => $message]);
+
+        return true;
     }
 }

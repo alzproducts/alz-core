@@ -8,20 +8,18 @@ use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositor
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
 use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Handles permanent failure of contact submission processing.
+ * Fails a claimed contact submission action and notifies support (ADR-0012).
  *
- * Encapsulates the business response when all retries are exhausted:
- * 1. Mark action as failed (prevents stale-action cleanup loop)
- * 2. Validate email (best-effort, for support team)
- * 3. Fire failure event for notifications
- *
- * Called from ProcessContactSubmissionJob::failed() — a framework callback
- * that delegates business logic here.
+ * The failure event fires only when this claim holder's `failClaim` changed the row,
+ * so a lost claim never notifies.
  */
 final readonly class HandleContactSubmissionFailureUseCase
 {
@@ -34,50 +32,39 @@ final readonly class HandleContactSubmissionFailureUseCase
     ) {}
 
     /**
-     * Handle permanent failure of a contact submission processing attempt.
-     *
-     * All operations are best-effort: individual failures are logged but
-     * do not prevent the failure event from firing.
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
      */
-    public function execute(string $submissionId, string $actionId, string $exceptionMessage, int $attempts): void
+    public function execute(string $submissionId, string $actionId, string $claimToken, string $errorMessage): bool
     {
         $this->logger->error('Contact submission processing permanently failed', [
             'submission_id' => $submissionId,
             'action_id' => $actionId,
-            'exception' => $exceptionMessage,
-            'attempts' => $attempts,
+            'exception' => $errorMessage,
         ]);
 
-        $this->markActionFailed($actionId, $exceptionMessage, $attempts);
+        if (! $this->actionRepository->failClaim($actionId, $claimToken, $errorMessage)) {
+            $this->logger->warning('Contact submission action claim lost', [
+                'submission_id' => $submissionId,
+                'action_id' => $actionId,
+            ]);
 
-        $emailValid = $this->validateEmail($submissionId);
+            return false;
+        }
 
-        $this->eventDispatcher->dispatch(new ContactFormProcessingFailedEvent(
-            submissionId: $submissionId,
-            exceptionMessage: $exceptionMessage,
-            emailValid: $emailValid,
-        ));
+        $this->notifyFailed($submissionId, $errorMessage);
+
+        return true;
     }
 
-    /**
-     * Mark the action as permanently failed to prevent the cleanup job
-     * from resetting it back to pending indefinitely.
-     */
-    private function markActionFailed(string $actionId, string $exceptionMessage, int $attempts): void
+    private function notifyFailed(string $submissionId, string $errorMessage): void
     {
-        try {
-            $this->actionRepository->markFailed(
-                $actionId,
-                "Retries exhausted after {$attempts} attempts: {$exceptionMessage}",
-            );
-        } catch (Throwable $e) { // @ignoreException - must not throw; cleanup job will handle retries
-            $this->logger->critical('Failed to mark action as failed after job exhaustion', [
-                'action_id' => $actionId,
-                'original_exception' => $exceptionMessage,
-                'mark_failed_exception' => $e::class,
-                'mark_failed_message' => $e->getMessage(),
-            ]);
-        }
+        $this->eventDispatcher->dispatch(new ContactFormProcessingFailedEvent(
+            submissionId: $submissionId,
+            exceptionMessage: $errorMessage,
+            emailValid: $this->validateEmail($submissionId),
+        ));
     }
 
     /**

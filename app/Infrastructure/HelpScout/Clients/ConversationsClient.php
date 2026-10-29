@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\HelpScout\Clients;
 
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\HelpScout\Queries\ConversationQueryParams;
 use App\Domain\CustomerService\ValueObjects\Conversation as DomainConversation;
@@ -29,9 +30,12 @@ use Override;
  *
  * @see https://developer.helpscout.com/mailbox-api/endpoints/conversations/
  */
-final readonly class ConversationsClient implements ConversationsClientInterface
+final readonly class ConversationsClient implements ConversationsClientInterface, ContactConversationLookupInterface
 {
     private const string ENDPOINT = '/conversations';
+
+    /** Search plus create must finish inside the 75s process-job timeout. */
+    private const int LOOKUP_TIMEOUT_SECONDS = 10;
 
     public function __construct(
         private HelpScoutHttpTransport $transport,
@@ -53,6 +57,25 @@ final readonly class ConversationsClient implements ConversationsClientInterface
         /** @var list<DomainConversation> */
         return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
             $this->transport->get(self::ENDPOINT, $this->buildApiParams($params)),
+            'conversations',
+            ConversationResponse::class,
+        );
+    }
+
+    /**
+     * @return list<DomainConversation>
+     *
+     * @throws AuthenticationExpiredException When credentials invalid/expired
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, or the request times out
+     * @throws InvalidApiRequestException When request parameters invalid
+     * @throws InvalidApiResponseException When API response structure is invalid
+     */
+    #[Override]
+    public function findMatches(ConversationQueryParams $params): array
+    {
+        /** @var list<DomainConversation> */
+        return HelpScoutResponseParser::parseEmbeddedCollectionToDomain(
+            $this->transport->getSingleAttempt(self::ENDPOINT, $this->buildApiParams($params), self::LOOKUP_TIMEOUT_SECONDS),
             'conversations',
             ConversationResponse::class,
         );

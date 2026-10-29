@@ -12,6 +12,7 @@ use App\Infrastructure\Support\TransientLogThrottle;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 
 final readonly class HelpScoutErrorHandler
@@ -132,4 +133,49 @@ final readonly class HelpScoutErrorHandler
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
     }
 
+    /**
+     * Translate a failed response by status alone; the body and URL can echo submitter PII.
+     */
+    public function handleRedactedResponse(
+        Response $response,
+    ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
+        $exception = self::redactedExceptionFor($response);
+        $message = self::SERVICE_NAME . ' API redacted request failed';
+        $context = ['status' => $response->status()];
+
+        if ($exception instanceof ExternalServiceUnavailableException) {
+            $this->logThrottle->logTransient(self::SERVICE_KEY, $message, $context);
+        } else {
+            Log::error($message, $context);
+        }
+
+        return $exception;
+    }
+
+    private static function redactedExceptionFor(
+        Response $response,
+    ): InvalidApiRequestException|AuthenticationExpiredException|ExternalServiceUnavailableException {
+        return match ($response->status()) {
+            400, 422 => new InvalidApiRequestException(self::SERVICE_NAME, 'Invalid request parameters'),
+            401 => new AuthenticationExpiredException(self::SERVICE_NAME, 'Invalid credentials'),
+            403 => new AuthenticationExpiredException(self::SERVICE_NAME, 'Insufficient permissions'),
+            429 => new ExternalServiceUnavailableException(
+                self::SERVICE_NAME,
+                RetryAfterParser::parse($response->header('Retry-After')),
+            ),
+            default => new ExternalServiceUnavailableException(self::SERVICE_NAME),
+        };
+    }
+
+    /**
+     * Translate a connection failure or timeout by class alone; its message holds the request URL.
+     */
+    public function handleRedactedException(Exception $e): ExternalServiceUnavailableException
+    {
+        $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API redacted request failed', [
+            'exception_class' => $e::class,
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME);
+    }
 }

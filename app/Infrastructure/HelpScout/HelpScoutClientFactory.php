@@ -6,6 +6,7 @@ namespace App\Infrastructure\HelpScout;
 
 use App\Application\Contracts\HelpScout\AgentsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface;
+use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationsClientInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Application\Contracts\HelpScout\MailboxesClientInterface;
@@ -18,9 +19,9 @@ use App\Infrastructure\HelpScout\Clients\UsersClient;
 use App\Infrastructure\HelpScout\Mappers\CustomerMapper;
 use App\Infrastructure\HelpScout\Services\NameFormatterService;
 use App\Infrastructure\HelpScout\Services\PhoneFormatterService;
+use App\Infrastructure\HelpScout\Support\NoRetryRestClientBuilder;
 use App\Infrastructure\Support\TransientLogThrottle;
 use HelpScout\Api\ApiClient;
-use HelpScout\Api\ApiClientFactory as SdkClientFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Config;
 
@@ -47,6 +48,14 @@ final class HelpScoutClientFactory
      * Create the conversations read client.
      */
     public static function createConversationsClient(TransientLogThrottle $logThrottle): ConversationsClientInterface
+    {
+        return new ConversationsClient(self::getTransport($logThrottle));
+    }
+
+    /**
+     * Create the single-attempt contact conversation lookup.
+     */
+    public static function createContactConversationLookup(TransientLogThrottle $logThrottle): ContactConversationLookupInterface
     {
         return new ConversationsClient(self::getTransport($logThrottle));
     }
@@ -128,18 +137,22 @@ final class HelpScoutClientFactory
     }
 
     /**
-     * Create the HelpScout SDK client for OAuth2 authentication.
+     * Create the HelpScout SDK client.
      *
-     * We use the SDK solely for token management; actual API calls
-     * go through direct HTTP for full field support.
+     * The SDK mints the OAuth2 token used by all calls and performs the
+     * writes; reads go through direct HTTP for full field support.
      */
     private static function createSdkClient(): ApiClient
     {
         /** @var array<string, mixed> $authConfig */
         $authConfig = \config('helpscout.auth', []);
 
-        // SDK expects config wrapped in 'auth' key
-        return SdkClientFactory::createClient(['auth' => $authConfig]);
+        $builder = new NoRetryRestClientBuilder([
+            'auth' => $authConfig,
+            'guzzle' => ['timeout' => self::getConfig()->timeoutSeconds],
+        ]);
+
+        return new ApiClient($builder->build());
     }
 
     /**

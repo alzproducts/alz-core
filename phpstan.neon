@@ -234,6 +234,10 @@ parameters:
                 - app/Infrastructure/Shopwired/Responses/OrderResponse.php
                 - app/Infrastructure/Shopwired/Factories/ProductDomainFactory.php
                 - app/Infrastructure/ReviewsIo/ReviewsIoClient.php
+        # Retry search before create: a permanent search failure is logged and falls through to create (ADR-0012).
+        -
+            identifier: alz.noCatchReturnEmpty
+            path: app/Application/ContactSubmission/Resolvers/ExistingConversationResolver.php
         # Console commands: return null after showing user-friendly error message (#211).
         # Standard CLI pattern — error is communicated via $this->error() before returning.
         -
