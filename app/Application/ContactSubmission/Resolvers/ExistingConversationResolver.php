@@ -85,6 +85,7 @@ final readonly class ExistingConversationResolver
 
     /**
      * A permanent failure leaves nothing to match, so the caller creates.
+     * intentional: a 401 is not re-minted on this search (COR-235 plan D33).
      *
      * @return list<Conversation>
      *
