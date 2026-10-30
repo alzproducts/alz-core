@@ -4,49 +4,45 @@ declare(strict_types=1);
 
 namespace App\Application\Conversion\UseCases;
 
+use App\Application\ContactSubmission\DTOs\ActionClaimDTO;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionActionRepositoryInterface;
 use App\Application\Contracts\ContactSubmission\ContactSubmissionRepositoryInterface;
-use App\Application\Contracts\Conversion\AdPlatformConversionAdapterInterface;
-use App\Application\Conversion\ConversionUploadDTO;
 use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\QuoteConversionDetailsDTO;
 use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
-use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
+use App\Application\Conversion\Transformers\ConversionUploadTransformer;
+use App\Domain\ContactSubmission\Enums\ActionType;
+use App\Domain\ContactSubmission\Exceptions\ActionTypeMismatchException;
+use App\Domain\ContactSubmission\ValueObjects\ActionAttempts;
 use App\Domain\Conversion\Enums\ConversionType;
 use App\Domain\Conversion\Exceptions\UnsupportedConversionTypeException;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
+use App\Domain\Exceptions\Api\PermanentApiFailure;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
+use App\Domain\Exceptions\Api\TransientApiFailure;
+use App\Domain\Exceptions\Data\AbstractDataException;
 use App\Domain\Exceptions\Data\InsufficientDataException;
 use App\Domain\Exceptions\Data\InvalidFormatException;
 use App\Domain\Exceptions\Data\MalformedStoredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Domain\Shared\Money\ValueObjects\Money;
-use App\Infrastructure\Jobs\Conversion\ProcessQuoteConversionJob;
-use DateMalformedStringException;
-use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
  * Uploads a quote conversion to an ad platform (Google, Bing, …), resolved from
  * the passed {@see AdPlatform} via the adapter seam.
  *
- * Called by {@see ProcessQuoteConversionJob} after the action is created in pending
- * state. Idempotent — skips if action already terminal (completed or failed).
- *
- * Differs from {@see ProcessLeadConversionUseCase} in two ways:
- * - `convertedAt` is the staff-provided timestamp from the command, NOT the
- *   submission's `submittedAt` (a quote may be issued days after the form).
- * - The upload carries a monetary `value` (GBP ex-VAT) instead of `null` — the
- *   ad platform attributes revenue to the conversion.
+ * Runs only on a claim of a due `pending` action, with the claim outcomes of
+ * {@see ProcessLeadConversionUseCase}. The upload carries the staff-provided
+ * value and conversion time from the job payload.
  */
 final readonly class ProcessQuoteConversionUseCase
 {
     /**
-     * Sentinel passed to `markCompleted()` since ad platforms return no receipt ID for
+     * Sentinel passed to `completeClaim()` since ad platforms return no receipt ID for
      * uploaded conversions — the action row still requires a non-null external reference.
      */
     private const string COMPLETION_RECEIPT = 'uploaded';
@@ -55,38 +51,37 @@ final readonly class ProcessQuoteConversionUseCase
         private ContactSubmissionRepositoryInterface $submissionRepository,
         private ContactSubmissionActionRepositoryInterface $actionRepository,
         private AdPlatformAdapterResolverService $adapterResolver,
+        private HandleQuoteConversionFailureUseCase $failureHandler,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @throws ExternalServiceUnavailableException When the ad platform/DB unavailable (transient — retry)
-     * @throws AuthenticationExpiredException When ad platform credentials invalid (permanent)
-     * @throws InvalidApiRequestException When the ad platform rejects the conversion (permanent)
-     * @throws InvalidApiResponseException When the ad platform API response is malformed (permanent)
-     * @throws UnsupportedConversionTypeException When the platform does not support quote conversions (permanent)
-     * @throws RecordNotFoundException When the submission no longer exists
-     * @throws MalformedStoredDataException When stored submission JSONB or convertedAt is corrupted
-     * @throws DatabaseOperationFailedException When DB update fails (permanent)
+     * @throws ActionTypeMismatchException When the action belongs to another pipeline
+     * @throws ExternalServiceUnavailableException When the ad platform/DB unavailable (row returned to pending)
+     * @throws PermanentApiFailure When the ad platform rejects the upload or its credentials (row failed)
+     * @throws AbstractDataException When the click ID or the queued convertedAt is unusable (row failed)
+     * @throws UnsupportedConversionTypeException When the platform does not support quote conversions (row failed)
+     * @throws DatabaseOperationFailedException When DB update fails
      * @throws DuplicateRecordException
-     * @throws InsufficientDataException When the click ID is missing (permanent)
-     * @throws InvalidFormatException When the stored click ID has an invalid format (permanent)
      */
     public function execute(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
     {
         $this->logProcessing($submissionId, $actionId, $details, $platform);
 
-        if ($this->isAlreadyTerminal($submissionId, $actionId, $platform)) {
+        $claim = $this->claimDueAction($submissionId, $actionId);
+        if ($claim === null) {
             return;
         }
 
-        $this->actionRepository->incrementAttempts($actionId);
-        $this->actionRepository->markProcessing($actionId);
+        try {
+            $this->upload($submissionId, $details, $platform);
+        } catch (TransientApiFailure|PermanentApiFailure|AbstractDataException|UnsupportedConversionTypeException $e) {
+            $this->handleUploadFailure($submissionId, $actionId, $claim, $e);
 
-        $submission = $this->submissionRepository->findById($submissionId);
-        $adapter = $this->adapterResolver->adapterFor($platform);
-        $data = self::buildConversionUploadDTO($adapter, $submission, $details->value, self::parseConvertedAt($details->convertedAt));
+            return;
+        }
 
-        $this->uploadAndMarkComplete($adapter, $submissionId, $actionId, $data);
+        $this->complete($submissionId, $actionId, $platform, $claim->token);
     }
 
     private function logProcessing(string $submissionId, string $actionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
@@ -101,25 +96,50 @@ final readonly class ProcessQuoteConversionUseCase
     }
 
     /**
-     * Idempotency guard — re-runs of the job after success/failure must be no-ops.
+     * @return ActionClaimDTO|null null when there is nothing to run, or the attempt budget was spent and the row failed
      *
+     * @throws ActionTypeMismatchException
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException When DB unavailable
      */
-    private function isAlreadyTerminal(string $submissionId, string $actionId, AdPlatform $platform): bool
+    private function claimDueAction(string $submissionId, string $actionId): ?ActionClaimDTO
     {
-        $isTerminal = $this->actionRepository->getStatus($actionId)?->isTerminal() === true;
+        $claim = $this->claim($submissionId, $actionId);
 
-        if ($isTerminal) {
-            $this->logger->info('Quote conversion action already terminal — skipping', [
+        if ($claim !== null && new ActionAttempts($claim->attempts)->isPastLimit()) {
+            $this->failureHandler->execute($submissionId, $actionId, $claim->token, 'Attempt limit exceeded');
+
+            return null;
+        }
+
+        return $claim;
+    }
+
+    /**
+     * @throws ActionTypeMismatchException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException When DB unavailable
+     */
+    private function claim(string $submissionId, string $actionId): ?ActionClaimDTO
+    {
+        $actionType = $this->actionRepository->findActionType($actionId);
+
+        if ($actionType !== null && $actionType !== ActionType::QuoteIssued) {
+            throw new ActionTypeMismatchException($actionId, ActionType::QuoteIssued, $actionType);
+        }
+
+        $claim = $actionType === null ? null : $this->actionRepository->claim($actionId);
+        if ($claim === null) {
+            $this->logger->info('Quote conversion action missing or not claimable — skipping', [
                 'submission_id' => $submissionId,
                 'action_id' => $actionId,
-                'platform' => $platform->value,
+                'action_found' => $actionType !== null,
             ]);
         }
 
-        return $isTerminal;
+        return $claim;
     }
 
     /**
@@ -128,66 +148,104 @@ final readonly class ProcessQuoteConversionUseCase
      * @throws InvalidApiRequestException When the ad platform rejects the conversion
      * @throws InvalidApiResponseException When the ad platform API response is malformed
      * @throws UnsupportedConversionTypeException When the platform does not support quote conversions
-     * @throws DatabaseOperationFailedException When DB update fails
+     * @throws RecordNotFoundException When the submission no longer exists
+     * @throws MalformedStoredDataException When stored submission JSONB or convertedAt is corrupted
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws InsufficientDataException When the click ID is missing
      * @throws InvalidFormatException When the stored click ID has an invalid format
      */
-    private function uploadAndMarkComplete(
-        AdPlatformConversionAdapterInterface $adapter,
-        string $submissionId,
-        string $actionId,
-        ConversionUploadDTO $data,
-    ): void {
-        $adapter->upload(ConversionType::QuoteIssued, $data);
+    private function upload(string $submissionId, QuoteConversionDetailsDTO $details, AdPlatform $platform): void
+    {
+        $submission = $this->submissionRepository->findById($submissionId);
+        $adapter = $this->adapterResolver->adapterFor($platform);
 
-        $this->actionRepository->markCompleted($actionId, self::COMPLETION_RECEIPT);
-
-        $this->logger->info('Quote conversion uploaded', [
-            'submission_id' => $submissionId,
-            'action_id' => $actionId,
-            'platform' => $adapter->platform()->value,
-        ]);
-    }
-
-    /**
-     * @throws InsufficientDataException
-     */
-    private static function buildConversionUploadDTO(
-        AdPlatformConversionAdapterInterface $adapter,
-        ContactSubmission $submission,
-        float $value,
-        DateTimeImmutable $convertedAt,
-    ): ConversionUploadDTO {
-        $clickId = $adapter->extractClickId($submission->attribution);
-        if ($clickId === null) {
-            throw new InsufficientDataException('ContactSubmission', 'a click ID for the ad platform conversion upload');
-        }
-
-        return new ConversionUploadDTO(
-            clickId: $clickId,
-            email: $submission->form->email,
-            convertedAt: $convertedAt,
-            value: Money::exclusive($value),
-            phone: $submission->form->phone,
+        $adapter->upload(
+            ConversionType::QuoteIssued,
+            ConversionUploadTransformer::forQuote($adapter->extractClickId($submission->attribution), $submission, $details),
         );
     }
 
     /**
-     * The convertedAt string was produced by `QueuedConversionDispatcher` formatting
-     * the command's `DateTimeImmutable` as ATOM. A parse failure here means the queue
-     * payload was tampered or corrupted between dispatch and execution.
+     * A transient failure returns the row to pending; any other fails it and is rethrown
+     * unless the claim was lost.
      *
-     * @throws MalformedStoredDataException When the string is not a parseable date
+     * @throws ExternalServiceUnavailableException Carrying the retry delay, or when DB unavailable
+     * @throws PermanentApiFailure
+     * @throws AbstractDataException
+     * @throws UnsupportedConversionTypeException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      */
-    private static function parseConvertedAt(string $convertedAt): DateTimeImmutable
-    {
-        try {
-            return new DateTimeImmutable($convertedAt);
-        } catch (DateMalformedStringException $e) {
-            throw new MalformedStoredDataException(
-                'ConversionJobPayload',
-                'converted_at must be a parseable date string',
-                previous: $e,
-            );
+    private function handleUploadFailure(
+        string $submissionId,
+        string $actionId,
+        ActionClaimDTO $claim,
+        TransientApiFailure|PermanentApiFailure|AbstractDataException|UnsupportedConversionTypeException $e,
+    ): void {
+        if ($e instanceof TransientApiFailure) {
+            $this->retryLater($submissionId, $actionId, $claim, $e);
+
+            return;
         }
+
+        if ($this->failureHandler->execute($submissionId, $actionId, $claim->token, $e->getMessage())) {
+            throw $e;
+        }
+    }
+
+    /**
+     * The last attempt fails the row instead, since the claim's attempt count is the only retry budget.
+     *
+     * @throws ExternalServiceUnavailableException Carrying the delay the row was returned to pending with
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
+    private function retryLater(string $submissionId, string $actionId, ActionClaimDTO $claim, TransientApiFailure $e): void
+    {
+        $attempts = new ActionAttempts($claim->attempts);
+
+        if ($attempts->isLast()) {
+            $this->failureHandler->execute($submissionId, $actionId, $claim->token, 'Retries exhausted: ' . $e->getMessage());
+
+            return;
+        }
+
+        $delay = $attempts->retryDelay($e->retryAfter);
+        if (! $this->actionRepository->returnToPending($actionId, $claim->token, $delay)) {
+            $this->logClaimLost($submissionId, $actionId);
+
+            return;
+        }
+
+        throw new ExternalServiceUnavailableException($e->serviceName, $delay, $e);
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException When DB unavailable
+     */
+    private function complete(string $submissionId, string $actionId, AdPlatform $platform, string $claimToken): void
+    {
+        if (! $this->actionRepository->completeClaim($actionId, $claimToken, self::COMPLETION_RECEIPT)) {
+            $this->logClaimLost($submissionId, $actionId);
+
+            return;
+        }
+
+        $this->logger->info('Quote conversion uploaded', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+            'platform' => $platform->value,
+        ]);
+    }
+
+    private function logClaimLost(string $submissionId, string $actionId): void
+    {
+        $this->logger->warning('Quote conversion action claim lost — write skipped', [
+            'submission_id' => $submissionId,
+            'action_id' => $actionId,
+        ]);
     }
 }

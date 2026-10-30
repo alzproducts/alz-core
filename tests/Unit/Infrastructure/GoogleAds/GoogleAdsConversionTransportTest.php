@@ -239,21 +239,124 @@ final class GoogleAdsConversionTransportTest extends TestCase
         }
     }
 
+    #[Test]
+    public function it_treats_an_all_duplicate_partial_failure_as_success(): void
+    {
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError(self::statusWithPackedFailure(
+            'Errors in mutate operation.',
+            ConversionUploadError::CLICK_CONVERSION_ALREADY_EXISTS,
+            ConversionUploadError::CLICK_CONVERSION_ALREADY_EXISTS,
+        ));
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->once()
+            ->andReturn($response);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(static fn(string $message): bool => \str_contains($message, 'already uploaded'));
+        Log::shouldReceive('error')->never();
+
+        $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+    }
+
+    #[Test]
+    public function it_still_rejects_a_partial_failure_mixing_duplicates_with_other_errors(): void
+    {
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError(self::statusWithPackedFailure(
+            'Errors in mutate operation.',
+            ConversionUploadError::CLICK_CONVERSION_ALREADY_EXISTS,
+            ConversionUploadError::UNPARSEABLE_GCLID,
+        ));
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')->once();
+        Log::shouldReceive('info')->never();
+
+        try {
+            $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Errors in mutate operation. [CLICK_CONVERSION_ALREADY_EXISTS, UNPARSEABLE_GCLID]', $e->detail);
+        }
+    }
+
+    #[Test]
+    public function it_still_rejects_a_duplicate_alongside_an_error_without_a_code(): void
+    {
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError(self::statusWithPackedFailure(
+            'Errors in mutate operation.',
+            ConversionUploadError::CLICK_CONVERSION_ALREADY_EXISTS,
+            null,
+        ));
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')->once();
+        Log::shouldReceive('info')->never();
+
+        try {
+            $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+            $this->fail('Expected InvalidApiRequestException');
+        } catch (InvalidApiRequestException $e) {
+            $this->assertSame('Errors in mutate operation. [CLICK_CONVERSION_ALREADY_EXISTS]', $e->detail);
+        }
+    }
+
+    #[Test]
+    public function it_still_rejects_a_partial_failure_with_no_packed_errors(): void
+    {
+        $status = new Status();
+        $status->setCode(3);
+        $status->setMessage('Errors in mutate operation.');
+
+        $response = new UploadClickConversionsResponse();
+        $response->setPartialFailureError($status);
+
+        $this->mockServiceClient
+            ->shouldReceive('uploadClickConversions')
+            ->andReturn($response);
+
+        Log::shouldReceive('error')->once();
+        Log::shouldReceive('info')->never();
+
+        $this->expectException(InvalidApiRequestException::class);
+
+        $this->transport->uploadClickConversion(new UploadClickConversionsRequest());
+    }
+
     /**
      * Build the real partial-failure shape: a Status whose details carry a packed
-     * GoogleAdsFailure, exactly as the API returns it.
+     * GoogleAdsFailure, exactly as the API returns it. A null code packs an error
+     * with no error code set.
      */
-    private static function statusWithPackedFailure(string $message, int $conversionUploadError): Status
+    private static function statusWithPackedFailure(string $message, ?int ...$conversionUploadErrors): Status
     {
-        $errorCode = new ErrorCode();
-        $errorCode->setConversionUploadError($conversionUploadError);
+        $errors = [];
+        foreach ($conversionUploadErrors as $conversionUploadError) {
+            $error = new GoogleAdsError();
+            $error->setMessage('The click ID is invalid.');
 
-        $error = new GoogleAdsError();
-        $error->setErrorCode($errorCode);
-        $error->setMessage('The click ID is invalid.');
+            if ($conversionUploadError !== null) {
+                $errorCode = new ErrorCode();
+                $errorCode->setConversionUploadError($conversionUploadError);
+                $error->setErrorCode($errorCode);
+            }
+
+            $errors[] = $error;
+        }
 
         $failure = new GoogleAdsFailure();
-        $failure->setErrors([$error]);
+        $failure->setErrors($errors);
 
         $any = new Any();
         $any->pack($failure);

@@ -21,11 +21,10 @@ final class ContactFormScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Cleanup stale 'processing' actions that got stuck (worker crash, network issue, etc.)
-        // Resets them to 'pending' and re-dispatches the processing job
+        // Releases expired leases and re-dispatches overdue pending actions (ADR-0012)
         Schedule::job(new CleanupStaleContactActionsJob())
             ->name('cleanup-stale-contact-actions')
-            ->hourly()
+            ->everyFiveMinutes()
             ->onOneServer()
             ->withoutOverlapping(5); // 5 min lock - job timeout is 2 min
     }

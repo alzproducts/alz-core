@@ -61,7 +61,7 @@ final class UpdateSkuJob extends AbstractJob implements ShouldBeUnique
     /**
      * Job timeout in seconds.
      */
-    public int $timeout = 120;
+    public int $timeout = 110;
     /**
      * Backoff delays in seconds.
      *

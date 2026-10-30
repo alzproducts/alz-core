@@ -771,6 +771,48 @@ final readonly class EloquentGateway
     }
 
     /**
+     * Update records matching all of the provided criteria.
+     *
+     * Use for compare-and-set writes (e.g. id + status + claim token): each
+     * criterion is applied as an equality `where`, and the affected-row count
+     * tells the caller whether the row still matched. Wraps the update in a transaction.
+     *
+     * @param class-string<Model> $modelClass
+     * @param array<string, bool|int|string> $criteria Column => value equality pairs
+     * @param array<string, mixed> $data Data to update
+     *
+     * @return int Number of rows affected
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function updateWhereAll(string $modelClass, array $criteria, array $data): int
+    {
+        $modelName = \class_basename($modelClass);
+
+        $affected = $this->dbGateway->transact(
+            static function () use ($modelClass, $criteria, $data): int {
+                $query = $modelClass::query();
+
+                foreach ($criteria as $column => $value) {
+                    $query->where($column, $value);
+                }
+
+                return $query->update($data);
+            },
+        );
+
+        Log::debug('Compound update completed', [
+            'model' => $modelName,
+            'criteria' => $criteria,
+            'affected' => $affected,
+        ]);
+
+        return $affected;
+    }
+
+    /**
      * Delete records matching column value.
      *
      * @param class-string<Model> $modelClass

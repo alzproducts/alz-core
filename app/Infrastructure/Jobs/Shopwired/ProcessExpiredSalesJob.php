@@ -38,7 +38,7 @@ final class ProcessExpiredSalesJob extends AbstractJob implements ShouldBeUnique
 
     public function __construct()
     {
-        $this->onQueue(QueueName::Default->value);
+        $this->onQueue(QueueName::Low->value);
     }
 
     public function uniqueId(): string

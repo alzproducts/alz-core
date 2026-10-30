@@ -65,6 +65,39 @@ final readonly class HelpScoutHttpTransport
     }
 
     /**
+     * Perform one GET request with no retry and no auth re-mint, for queries carrying submitter PII.
+     *
+     * Failures are translated without the URL, response body or previous exception, so the
+     * query string never reaches a log or error report.
+     *
+     * @param string $endpoint API endpoint (relative path, e.g., '/conversations')
+     * @param array<string, mixed> $queryParams Query parameters
+     *
+     * @throws InvalidApiRequestException When request parameters are invalid (400/422)
+     * @throws AuthenticationExpiredException When credentials invalid/expired (401/403)
+     * @throws ExternalServiceUnavailableException When API unavailable, rate limited, times out, or connection fails
+     */
+    public function getSingleAttempt(string $endpoint, array $queryParams, int $timeoutSeconds): Response
+    {
+        try {
+            /** @var array<string, string> $authHeaders */
+            $authHeaders = $this->sdkClient->getAuthenticator()->getAuthHeader();
+
+            $response = $this->httpFactory->withHeaders($authHeaders)
+                ->timeout($timeoutSeconds)
+                ->send('GET', HelpScoutConfig::BASE_URL . $endpoint, ['query' => $queryParams]);
+        } catch (Exception $e) {
+            throw $this->errorHandler->handleRedactedException($e);
+        }
+
+        if ($response->failed()) {
+            throw $this->errorHandler->handleRedactedResponse($response);
+        }
+
+        return $response;
+    }
+
+    /**
      * Perform concurrent GET requests to HelpScout API conversations endpoint.
      *
      * Uses Http::pool() for parallel execution - no serialization required.

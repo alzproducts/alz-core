@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\Jobs\ContactForm;
 
 use App\Application\ContactSubmission\UseCases\CleanupStaleContactActionsUseCase;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
 use App\Infrastructure\Jobs\Enums\QueueName;
 use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
@@ -12,10 +14,10 @@ use DateTimeImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 
 /**
- * Cleans up contact submission actions stuck in 'processing' status.
+ * Recovers contact submission actions with an expired lease or overdue in 'pending'.
  *
- * Scheduled to run hourly. Delegates to UseCase which finds stale actions,
- * resets them to 'pending', and re-dispatches the processing job.
+ * Scheduled every five minutes. Delegates to the UseCase, which re-dispatches each
+ * recovered action to its own pipeline.
  */
 final class CleanupStaleContactActionsJob extends AbstractJob implements ShouldBeUnique
 {
@@ -23,7 +25,7 @@ final class CleanupStaleContactActionsJob extends AbstractJob implements ShouldB
 
     public int $maxExceptions = 3;
 
-    public int $timeout = 120;
+    public int $timeout = 110;
 
     /**
      * Backoff delays in seconds.
@@ -59,6 +61,10 @@ final class CleanupStaleContactActionsJob extends AbstractJob implements ShouldB
         return \now()->addHours(4)->toDateTimeImmutable();
     }
 
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     */
     public function handle(CleanupStaleContactActionsUseCase $useCase): void
     {
         $useCase->execute();

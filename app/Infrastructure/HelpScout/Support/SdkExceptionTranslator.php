@@ -7,8 +7,12 @@ namespace App\Infrastructure\HelpScout\Support;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
+use App\Infrastructure\Support\RetryAfterParser;
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ServerException;
 use HelpScout\Api\Exception\AuthenticationException;
+use HelpScout\Api\Exception\RateLimitExceededException;
 use HelpScout\Api\Exception\ValidationErrorException;
 use Illuminate\Support\Facades\Log;
 
@@ -37,8 +41,8 @@ final class SdkExceptionTranslator
      * @return T
      *
      * @throws AuthenticationExpiredException When credentials invalid/expired
-     * @throws ExternalServiceUnavailableException When API unavailable or connection fails
-     * @throws InvalidApiRequestException When request parameters invalid
+     * @throws ExternalServiceUnavailableException When rate limited, API unavailable (5xx) or connection fails
+     * @throws InvalidApiRequestException When the request is rejected (4xx)
      */
     public static function execute(callable $operation, string $context, array $logContext = []): mixed
     {
@@ -50,6 +54,12 @@ final class SdkExceptionTranslator
             throw self::handleValidationError($e, $context, $logContext);
         } catch (ConnectException $e) {
             throw self::handleConnectionError($e, $context, $logContext);
+        } catch (RateLimitExceededException $e) {
+            throw self::handleRateLimit($e, $context, $logContext);
+        } catch (ServerException $e) {
+            throw self::handleServerError($e, $context, $logContext);
+        } catch (ClientException $e) {
+            throw self::handleClientError($e, $context, $logContext);
         }
     }
 
@@ -105,5 +115,64 @@ final class SdkExceptionTranslator
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleRateLimit(
+        RateLimitExceededException $e,
+        string $context,
+        array $logContext,
+    ): ExternalServiceUnavailableException {
+        $retryAfter = RetryAfterParser::parse($e->getResponse()?->getHeaderLine('Retry-After'));
+
+        Log::warning(self::SERVICE_NAME . " rate limited during {$context}", [
+            ...$logContext,
+            'retry_after' => $retryAfter,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, $retryAfter, $e);
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleServerError(
+        ServerException $e,
+        string $context,
+        array $logContext,
+    ): ExternalServiceUnavailableException {
+        Log::error(self::SERVICE_NAME . " server error during {$context}", [
+            ...$logContext,
+            'status' => $e->getResponse()->getStatusCode(),
+            'error' => $e->getMessage(),
+        ]);
+
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+    }
+
+    /**
+     * @param array<string, mixed> $logContext
+     */
+    private static function handleClientError(
+        ClientException $e,
+        string $context,
+        array $logContext,
+    ): InvalidApiRequestException {
+        $status = $e->getResponse()->getStatusCode();
+
+        Log::error(self::SERVICE_NAME . " request rejected during {$context}", [
+            ...$logContext,
+            'status' => $status,
+            'error' => $e->getMessage(),
+        ]);
+
+        return new InvalidApiRequestException(
+            self::SERVICE_NAME,
+            \sprintf('Request rejected with HTTP %d', $status),
+            $e,
+        );
     }
 }

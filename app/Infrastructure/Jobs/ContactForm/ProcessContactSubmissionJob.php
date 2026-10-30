@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Jobs\ContactForm;
 
-use App\Application\ContactSubmission\UseCases\HandleContactSubmissionFailureUseCase;
 use App\Application\ContactSubmission\UseCases\ProcessContactSubmissionUseCase;
-use App\Domain\Exceptions\Data\InsufficientDataException;
-use App\Domain\Exceptions\Data\MalformedStoredDataException;
+use App\Domain\ContactSubmission\Exceptions\ActionTypeMismatchException;
+use App\Domain\Exceptions\Data\AbstractDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Jobs\AbstractJob;
@@ -16,7 +15,6 @@ use App\Infrastructure\Jobs\Middleware\HandleApiExceptions;
 use App\Infrastructure\Jobs\Middleware\ServiceCircuitBreaker;
 use DateTimeImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Throwable;
 
 /**
  * Processes a contact submission by creating a HelpScout conversation.
@@ -24,11 +22,13 @@ use Throwable;
  * Uses ShouldBeUnique by submission ID to prevent duplicate HelpScout tickets
  * if the job is retried while another instance is still processing.
  *
+ * The use case owns the action row (ADR-0012); the job never writes it, so it defines no failed().
+ *
  * Exception Strategy:
  * - TransientApiFailure: Handled by {@see HandleApiExceptions} middleware (release/rethrow)
  * - PermanentApiFailure: Handled by {@see HandleApiExceptions} middleware (fail immediately)
- * - Data exceptions: Caught in handle() → fail immediately (non-API permanent failures)
- * - Unexpected Throwable: Retried by Laravel, failed() on exhaustion
+ * - Data exceptions and ActionTypeMismatchException: Caught in handle() → fail immediately
+ * - Unexpected Throwable: Retried by Laravel; the action stays `processing` until the lease sweep
  */
 final class ProcessContactSubmissionJob extends AbstractJob implements ShouldBeUnique
 {
@@ -40,7 +40,7 @@ final class ProcessContactSubmissionJob extends AbstractJob implements ShouldBeU
 
     public int $maxExceptions = 5;
 
-    public int $timeout = 60;
+    public int $timeout = 75;
 
     /**
      * Seconds to wait before retrying.
@@ -71,8 +71,9 @@ final class ProcessContactSubmissionJob extends AbstractJob implements ShouldBeU
     {
         return [
             ...parent::middleware(),
-            ServiceCircuitBreaker::helpscout(),
+            // intentional: outside the breaker, so the breaker still counts transients carrying retryAfter (COR-235)
             new HandleApiExceptions(),
+            ServiceCircuitBreaker::helpscout(),
         ];
     }
 
@@ -89,27 +90,8 @@ final class ProcessContactSubmissionJob extends AbstractJob implements ShouldBeU
     {
         try {
             $useCase->execute($this->submissionId, $this->actionId);
-        } catch (InsufficientDataException|MalformedStoredDataException $e) {
+        } catch (ActionTypeMismatchException|AbstractDataException $e) {
             $this->fail($e);
         }
-    }
-
-    /**
-     * Handle job failure after all retries exhausted.
-     *
-     * Delegates to {@see HandleContactSubmissionFailureUseCase} which marks the
-     * action as failed (preventing infinite cleanup loop), validates the email,
-     * and fires a failure notification event.
-     */
-    public function failed(Throwable $exception): void
-    {
-        /** @var HandleContactSubmissionFailureUseCase $useCase */
-        $useCase = \app(HandleContactSubmissionFailureUseCase::class);
-        $useCase->execute(
-            submissionId: $this->submissionId,
-            actionId: $this->actionId,
-            exceptionMessage: $exception->getMessage(),
-            attempts: $this->attempts(),
-        );
     }
 }

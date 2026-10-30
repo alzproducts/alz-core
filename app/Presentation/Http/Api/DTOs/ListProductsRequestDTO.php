@@ -44,6 +44,8 @@ final class ListProductsRequestDTO extends Data
         public readonly ?int $category_id = null,
         #[Nullable, BooleanType]
         public readonly ?bool $is_on_sale = null,
+        #[Nullable, BooleanType]
+        public readonly ?bool $has_any_sale = null,
         #[Nullable, StringType]
         public readonly ?string $sku = null,
         #[Nullable, BooleanType]
@@ -115,6 +117,7 @@ final class ListProductsRequestDTO extends Data
             ProductFilterField::IsActive->value => $this->is_active,
             ProductFilterField::CategoryId->value => $this->category_id,
             ProductFilterField::IsOnSale->value => $this->is_on_sale,
+            ProductFilterField::HasAnySale->value => $this->has_any_sale,
             ProductFilterField::Sku->value => $this->sku,
             ProductFilterField::HasFreeDelivery->value => $this->has_free_delivery,
             ProductFilterField::Search->value => $trimmedSearch !== '' ? $trimmedSearch : null,
