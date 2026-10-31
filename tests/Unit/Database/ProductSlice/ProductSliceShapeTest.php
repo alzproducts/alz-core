@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Database\ProductSlice;
 
+use Database\Seeders\ProductSlice\Builders\PopularityBuilder;
 use Database\Seeders\ProductSlice\SliceTables;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,6 +39,19 @@ final class ProductSliceShapeTest extends TestCase
             SliceTables::SKU_POPULARITY_SNAPSHOTS => 3582,
         ], \array_map(\count(...), $slice->tables));
         $this->assertSame(SliceTables::INSERT_ORDER, $slice->tableNames());
+    }
+
+    #[Test]
+    public function popularity_ranks_stay_within_the_config_max_rank(): void
+    {
+        $slice = SliceFixture::rows();
+
+        foreach ([SliceTables::PRODUCT_POPULARITY_SNAPSHOTS, SliceTables::SKU_POPULARITY_SNAPSHOTS] as $table) {
+            $ranks = SliceFixture::column($slice->rows($table), 'calculated_sort_order');
+
+            $this->assertSame(1, \min($ranks), $table);
+            $this->assertSame(PopularityBuilder::MAX_RANK, \max($ranks), $table);
+        }
     }
 
     #[Test]
