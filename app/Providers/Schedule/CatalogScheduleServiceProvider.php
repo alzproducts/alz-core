@@ -10,7 +10,6 @@ use App\Infrastructure\Jobs\Catalog\SyncCreditTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncMarginTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
-use App\Infrastructure\Jobs\Catalog\SyncProductsViewJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
@@ -22,9 +21,6 @@ use RuntimeException;
 
 /**
  * Catalog Schedule Definitions
- *
- * Materialized view refresh (every minute):
- *   - catalog.products_view refresh (pre-computes expensive join plan for API reads)
  *
  * Product-level state syncs to ShopWired product filters (three hourly + one 10-minute stock-driven):
  *   - Customer rating filter (from reviews_io.product_ratings)
@@ -50,7 +46,6 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerProductsViewRefreshSchedule();
         $this->registerRatingFilterSchedule();
         $this->registerVatReliefFilterSchedule();
         $this->registerOffersFilterSchedule();
@@ -62,24 +57,6 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerRelatedProductsSyncSchedule();
         $this->registerMarginTierLabelSchedule();
         $this->registerCreditTierLabelSchedule();
-    }
-
-    /**
-     * Refresh the catalog.products_view materialized view every minute.
-     *
-     * Pre-computes the expensive join plan (variation aggregation, recursive category
-     * traversal) so API reads hit a simple table scan (~5-10ms) instead of 1.1s of joins.
-     *
-     * @throws RuntimeException
-     */
-    private function registerProductsViewRefreshSchedule(): void
-    {
-        Schedule::job(new SyncProductsViewJob())
-            ->name('sync-products-view')
-            ->everyMinute()
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(2);
     }
 
     /**

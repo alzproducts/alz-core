@@ -153,8 +153,6 @@ final class CatalogListPaginationTiebreakTest extends TestCase
      */
     private function pageProducts(?ProductSortField $sortField, ?string $search = null): array
     {
-        DB::statement('REFRESH MATERIALIZED VIEW catalog.products_view');
-
         $repository = $this->app->make(ProductRepositoryInterface::class);
         $filters = [ProductFilterField::CategoryId->value => self::CATEGORY_EXTERNAL_ID];
         if ($search !== null) {

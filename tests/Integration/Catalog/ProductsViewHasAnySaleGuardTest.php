@@ -55,7 +55,6 @@ final class ProductsViewHasAnySaleGuardTest extends TestCase
         $this->saleCategoryId = $saleCategoryId;
 
         $this->insertInheritanceOnlyFixture();
-        DB::statement('REFRESH MATERIALIZED VIEW catalog.products_view');
 
         $this->repository = $this->app->make(ProductRepositoryInterface::class);
     }
