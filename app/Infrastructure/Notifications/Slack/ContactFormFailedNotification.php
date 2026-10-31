@@ -40,7 +40,7 @@ final class ContactFormFailedNotification extends Notification
         $form = $this->submission->form;
 
         $message = (new SlackMessage())
-            ->text("Contact form processing failed for {$form->email}")
+            ->text('Contact form processing failed for ' . SlackMrkdwn::escape($form->email))
             ->headerBlock('⚠️ Contact Form Processing Failed');
 
         $this->addCustomerSection($message, $form);
@@ -56,9 +56,10 @@ final class ContactFormFailedNotification extends Notification
 
     private function addCustomerSection(SlackMessage $message, ContactFormData $form): void
     {
-        $customerDetails = "*Email:* {$form->email}\n*Name:* {$form->name}";
+        $customerDetails = '*Email:* ' . SlackMrkdwn::escape($form->email)
+            . "\n*Name:* " . SlackMrkdwn::escape($form->name);
         if ($form->phone !== null) {
-            $customerDetails .= "\n*Phone:* {$form->phone}";
+            $customerDetails .= "\n*Phone:* " . SlackMrkdwn::escape($form->phone);
         }
 
         $message->sectionBlock(static function (SectionBlock $block) use ($customerDetails): void {
@@ -75,9 +76,11 @@ final class ContactFormFailedNotification extends Notification
 
     private function addMessageSection(SlackMessage $message, ContactFormData $form): void
     {
-        $truncatedMessage = \mb_strlen($form->message) > 500
-            ? \mb_substr($form->message, 0, 497) . '...'
-            : $form->message;
+        $truncatedMessage = SlackMrkdwn::escape(
+            \mb_strlen($form->message) > 500
+                ? \mb_substr($form->message, 0, 497) . '...'
+                : $form->message,
+        );
 
         $message->sectionBlock(static function (SectionBlock $block) use ($truncatedMessage): void {
             $block->text("*Message:*\n{$truncatedMessage}")->markdown();
@@ -99,12 +102,12 @@ final class ContactFormFailedNotification extends Notification
     private static function formatProductText(SelectedProduct $product): string
     {
         $identifier = $product->sku !== null
-            ? "ID {$product->productId->value} (SKU: {$product->sku})"
+            ? "ID {$product->productId->value} (SKU: " . SlackMrkdwn::escape($product->sku) . ')'
             : "ID {$product->productId->value}";
 
         $text = "*Product:*\n{$identifier}";
         if ($product->title !== null) {
-            $text .= " - {$product->title}";
+            $text .= ' - ' . SlackMrkdwn::escape($product->title);
         }
 
         return $text;
@@ -114,10 +117,10 @@ final class ContactFormFailedNotification extends Notification
     {
         $metadata = [];
         if ($form->orderNumber !== null) {
-            $metadata[] = "*Order:* {$form->orderNumber}";
+            $metadata[] = '*Order:* ' . SlackMrkdwn::escape($form->orderNumber);
         }
         if ($form->deliveryPostcode !== null) {
-            $metadata[] = "*Postcode:* {$form->deliveryPostcode}";
+            $metadata[] = '*Postcode:* ' . SlackMrkdwn::escape($form->deliveryPostcode);
         }
 
         if ($metadata !== []) {
@@ -143,7 +146,7 @@ final class ContactFormFailedNotification extends Notification
         $message
             ->dividerBlock()
             ->sectionBlock(function (SectionBlock $block): void {
-                $block->text("*Error:*\n```{$this->errorMessage}```")->markdown();
+                $block->text("*Error:*\n```" . SlackMrkdwn::escape($this->errorMessage) . '```')->markdown();
             })
             ->contextBlock(function (ContextBlock $block): void {
                 $block->text($this->buildContextText());

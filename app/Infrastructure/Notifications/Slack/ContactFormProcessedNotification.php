@@ -34,12 +34,14 @@ final class ContactFormProcessedNotification extends Notification
     public function toSlack(object $notifiable): SlackMessage
     {
         $helpScoutUrl = "https://secure.helpscout.net/conversation/{$this->conversationId}";
+        $name = SlackMrkdwn::escape($this->customerName);
+        $email = SlackMrkdwn::escape($this->customerEmail);
 
         return (new SlackMessage())
-            ->text("New contact form processed for {$this->customerName}")
+            ->text("New contact form processed for {$name}")
             ->headerBlock('✅ Contact Form Processed')
-            ->sectionBlock(function (SectionBlock $block): void {
-                $block->text("New contact form submitted by *{$this->customerName}* ({$this->customerEmail})")->markdown();
+            ->sectionBlock(static function (SectionBlock $block) use ($name, $email): void {
+                $block->text("New contact form submitted by *{$name}* ({$email})")->markdown();
             })
             ->actionsBlock(static function (ActionsBlock $block) use ($helpScoutUrl): void {
                 $block->button('View in HelpScout')
