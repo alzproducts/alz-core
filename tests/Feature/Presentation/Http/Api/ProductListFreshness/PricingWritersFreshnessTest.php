@@ -35,6 +35,8 @@ final class PricingWritersFreshnessTest extends ProductListFreshnessTestCase
         Queue::fake();
         $this->mock(PriceUpdateClientInterface::class);
         $this->mock(ProductClientInterface::class);
+        $this->mock(InventoryClientInterface::class);
+        $this->mock(InventoryUpdateClientInterface::class);
         $this->insertProduct(0);
         $this->insertStockItem(0, self::sku('P0'), ['quantity' => 3, 'available' => 3]);
         $this->insertStockItemSupplier(0, 1, '10.00');
