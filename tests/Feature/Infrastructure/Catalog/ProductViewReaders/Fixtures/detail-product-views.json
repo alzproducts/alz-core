@@ -1,0 +1,1377 @@
+{
+    "2147481500": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481500
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P0"
+        },
+        "gtin": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Gtin",
+            "value": "5012345678900"
+        },
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 120.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "costPrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 30.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+            "currency": "GBP"
+        },
+        "salePrice": null,
+        "rrp": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 150.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": true
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 120.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "profitMargin": 70.0,
+        "hasSingleSellingPrice": true,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481591
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481590
+            }
+        ],
+        "hasFreeDelivery": true,
+        "hasAnySale": false,
+        "defaultSupplier": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductSupplier",
+            "supplierName": "Quokkaparity supplier 1",
+            "purchasePrice": {
+                "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                "amount": 30.0,
+                "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                "currency": "GBP"
+            },
+            "isDefault": true,
+            "code": null,
+            "supplierBarcode": null,
+            "leadTime": null,
+            "supplierMinOrderQty": null,
+            "supplierPackSize": null,
+            "minPrice": null,
+            "maxPrice": null,
+            "averagePrice": null,
+            "averageLeadTime": null
+        },
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 5,
+            "physicalStock": 7
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": null,
+            "preorderDate": null,
+            "otherStockStatus": null
+        },
+        "title": "Quokkaparity Vexmoor Aldrith",
+        "description": "<p>Quokkaparity Vexmoor Aldrith</p>",
+        "slug": "pvr-p0",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p0",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481500"
+        },
+        "isOnSale": false,
+        "isActive": true,
+        "vatExclusive": false,
+        "vatRelief": false,
+        "metaTitle": "Meta 0",
+        "metaDescription": null,
+        "variations": [],
+        "images": [
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductImage",
+                "id": 1,
+                "url": "https://example.test/pvr-p0.jpg",
+                "description": "Front",
+                "sortOrder": 0
+            }
+        ],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": [
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ProductListCustomFieldValue",
+                    "productIds": [
+                        2147481505
+                    ],
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002c1"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481505,
+                            "name": "related_pins",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::ProductList",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 5,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                },
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Standard",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002bc"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481500,
+                            "name": "free_delivery",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::List",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 0,
+                            "allowedValues": [
+                                "Standard",
+                                "Express"
+                            ]
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                },
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Gold",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002bf"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481503,
+                            "name": "custom_label_0",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 3,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                },
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "1 - Low margin",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002c0"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481504,
+                            "name": "custom_label_1",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 4,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                }
+            ]
+        },
+        "filters": [
+            {
+                "@class": "App\\Domain\\Catalog\\Filters\\ValueObjects\\ProductFilter",
+                "definition": {
+                    "@class": "App\\Domain\\Catalog\\Filters\\ValueObjects\\FilterGroupDefinition",
+                    "id": 2147481500,
+                    "title": "Offers",
+                    "optionNo": 14,
+                    "sortOrder": 1
+                },
+                "values": [
+                    "On Sale"
+                ]
+            }
+        ],
+        "sortOrder": 3,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": "App\\Domain\\Catalog\\Product\\Enums\\FreeDeliveryType::Standard",
+        "suppliers": [
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductSupplier",
+                "supplierName": "Quokkaparity supplier 1",
+                "purchasePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 30.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                    "currency": "GBP"
+                },
+                "isDefault": true,
+                "code": null,
+                "supplierBarcode": null,
+                "leadTime": null,
+                "supplierMinOrderQty": null,
+                "supplierPackSize": null,
+                "minPrice": null,
+                "maxPrice": null,
+                "averagePrice": null,
+                "averageLeadTime": null
+            },
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductSupplier",
+                "supplierName": "Quokkaparity supplier 2",
+                "purchasePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 28.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                    "currency": "GBP"
+                },
+                "isDefault": false,
+                "code": null,
+                "supplierBarcode": null,
+                "leadTime": null,
+                "supplierMinOrderQty": null,
+                "supplierPackSize": null,
+                "minPrice": null,
+                "maxPrice": null,
+                "averagePrice": null,
+                "averageLeadTime": null
+            }
+        ],
+        "inventory": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductInventory",
+            "barcode": null,
+            "weight": null,
+            "dimensions": null,
+            "minimumLevel": null,
+            "isComposite": false,
+            "categoryName": "Default"
+        },
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": 7,
+            "available": 5,
+            "inOrder": 2,
+            "due": 2,
+            "jit": false,
+            "aggregateAvailable": 5,
+            "aggregatePhysical": 7
+        },
+        "isComposite": false,
+        "priceLastUpdatedAt": null,
+        "costPriceLastUpdatedAt": "2026-09-20T12:00:00.000000+00:00",
+        "popularity": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Popularity",
+            "rank": 1,
+            "max": 12
+        }
+    },
+    "2147481501": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481501
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P1"
+        },
+        "gtin": null,
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 80.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+            "currency": "GBP"
+        },
+        "costPrice": null,
+        "salePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 60.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+            "currency": "GBP"
+        },
+        "rrp": null,
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": false
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 60.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+            "currency": "GBP"
+        },
+        "profitMargin": null,
+        "hasSingleSellingPrice": false,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481591
+            },
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481590
+            },
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "hasFreeDelivery": false,
+        "hasAnySale": true,
+        "defaultSupplier": null,
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 7,
+            "physicalStock": 8
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": "Yes",
+            "preorderDate": null,
+            "otherStockStatus": "Back soon"
+        },
+        "title": "Quokkaparity Vexmoor Brindle Deluxe",
+        "description": "<p>Quokkaparity Vexmoor Brindle Deluxe</p>",
+        "slug": "pvr-p1",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p1",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+        },
+        "isOnSale": true,
+        "isActive": true,
+        "vatExclusive": true,
+        "vatRelief": false,
+        "metaTitle": "Meta 1",
+        "metaDescription": null,
+        "variations": [
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationView",
+                "id": {
+                    "@class": "App\\Domain\\ValueObjects\\IntId",
+                    "value": 2147481530
+                },
+                "sku": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+                    "value": "PVR-V0"
+                },
+                "gtin": null,
+                "price": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 85.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "costPrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 20.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                    "currency": "GBP"
+                },
+                "salePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 60.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "rrp": null,
+                "effectivePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 60.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "weight": null,
+                "canEditCostPrice": true,
+                "stockLevel": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+                    "availableStock": 3,
+                    "physicalStock": 3
+                },
+                "stockValue": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 60.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                    "currency": "GBP"
+                },
+                "isOnSale": true,
+                "profitMargin": 66.67,
+                "mpn": null,
+                "imageIndex": null,
+                "options": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationOption",
+                        "optionId": 1,
+                        "optionName": "Colour",
+                        "valueId": 10,
+                        "valueName": "Shade 0"
+                    }
+                ],
+                "createdAt": "2026-10-01T09:30:00.000000+00:00",
+                "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+                "defaultSupplier": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductSupplier",
+                    "supplierName": "Quokkaparity supplier 1",
+                    "purchasePrice": {
+                        "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                        "amount": 20.0,
+                        "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                        "currency": "GBP"
+                    },
+                    "isDefault": true,
+                    "code": null,
+                    "supplierBarcode": null,
+                    "leadTime": null,
+                    "supplierMinOrderQty": null,
+                    "supplierPackSize": null,
+                    "minPrice": null,
+                    "maxPrice": null,
+                    "averagePrice": null,
+                    "averageLeadTime": null
+                },
+                "suppliers": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductSupplier",
+                        "supplierName": "Quokkaparity supplier 1",
+                        "purchasePrice": {
+                            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                            "amount": 20.0,
+                            "taxType": "App\\Domain\\ValueObjects\\TaxType::Exclusive",
+                            "currency": "GBP"
+                        },
+                        "isDefault": true,
+                        "code": null,
+                        "supplierBarcode": null,
+                        "leadTime": null,
+                        "supplierMinOrderQty": null,
+                        "supplierPackSize": null,
+                        "minPrice": null,
+                        "maxPrice": null,
+                        "averagePrice": null,
+                        "averageLeadTime": null
+                    }
+                ],
+                "isComposite": false,
+                "inventory": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductInventory",
+                    "barcode": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "minimumLevel": null,
+                    "isComposite": false,
+                    "categoryName": "Default"
+                },
+                "popularity": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Popularity",
+                    "rank": 2,
+                    "max": 12
+                }
+            },
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationView",
+                "id": {
+                    "@class": "App\\Domain\\ValueObjects\\IntId",
+                    "value": 2147481531
+                },
+                "sku": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+                    "value": "PVR-V1"
+                },
+                "gtin": null,
+                "price": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 80.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "costPrice": null,
+                "salePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 60.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "rrp": null,
+                "effectivePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 60.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "weight": null,
+                "canEditCostPrice": false,
+                "stockLevel": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+                    "availableStock": 0,
+                    "physicalStock": 1
+                },
+                "stockValue": null,
+                "isOnSale": true,
+                "profitMargin": null,
+                "mpn": null,
+                "imageIndex": null,
+                "options": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationOption",
+                        "optionId": 1,
+                        "optionName": "Colour",
+                        "valueId": 11,
+                        "valueName": "Shade 1"
+                    }
+                ],
+                "createdAt": "2026-10-01T09:30:00.000000+00:00",
+                "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+                "defaultSupplier": null,
+                "suppliers": [],
+                "isComposite": false,
+                "inventory": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductInventory",
+                    "barcode": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "minimumLevel": null,
+                    "isComposite": false,
+                    "categoryName": "Default"
+                },
+                "popularity": null
+            },
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationView",
+                "id": {
+                    "@class": "App\\Domain\\ValueObjects\\IntId",
+                    "value": 2147481532
+                },
+                "sku": null,
+                "gtin": null,
+                "price": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 90.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "costPrice": null,
+                "salePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 70.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "rrp": null,
+                "effectivePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 70.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::ZeroRated",
+                    "currency": "GBP"
+                },
+                "weight": null,
+                "canEditCostPrice": false,
+                "stockLevel": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+                    "availableStock": 4,
+                    "physicalStock": 4
+                },
+                "stockValue": null,
+                "isOnSale": true,
+                "profitMargin": null,
+                "mpn": null,
+                "imageIndex": null,
+                "options": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationOption",
+                        "optionId": 1,
+                        "optionName": "Colour",
+                        "valueId": 12,
+                        "valueName": "Shade 2"
+                    }
+                ],
+                "createdAt": "2026-10-01T09:30:00.000000+00:00",
+                "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+                "defaultSupplier": null,
+                "suppliers": [],
+                "isComposite": false,
+                "inventory": null,
+                "popularity": null
+            }
+        ],
+        "images": [],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": [
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Yes",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002bd"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481501,
+                            "name": "discontinued",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 1,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                },
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "3 - High margin",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002c0"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481504,
+                            "name": "custom_label_1",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 4,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                },
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Back soon",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002be"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481502,
+                            "name": "other_stock_status",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 2,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                }
+            ]
+        },
+        "filters": [],
+        "sortOrder": null,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": null,
+        "suppliers": null,
+        "inventory": null,
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": null,
+            "available": null,
+            "inOrder": null,
+            "due": null,
+            "jit": false,
+            "aggregateAvailable": 7,
+            "aggregatePhysical": 8
+        },
+        "isComposite": null,
+        "priceLastUpdatedAt": "2026-09-15T08:00:00.000000+00:00",
+        "costPriceLastUpdatedAt": null,
+        "popularity": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Popularity",
+            "rank": 3,
+            "max": 12
+        }
+    },
+    "2147481502": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481502
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P2"
+        },
+        "gtin": null,
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 45.5,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "costPrice": null,
+        "salePrice": null,
+        "rrp": null,
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": false
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 45.5,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "profitMargin": null,
+        "hasSingleSellingPrice": false,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481593
+            },
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "hasFreeDelivery": true,
+        "hasAnySale": true,
+        "defaultSupplier": null,
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 6,
+            "physicalStock": 6
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": null,
+            "preorderDate": null,
+            "otherStockStatus": null
+        },
+        "title": "Quokkaparity Trillow Gorvane",
+        "description": "<p>Quokkaparity Trillow Gorvane</p>",
+        "slug": "pvr-p2",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p2",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481502"
+        },
+        "isOnSale": false,
+        "isActive": true,
+        "vatExclusive": false,
+        "vatRelief": false,
+        "metaTitle": "Meta 2",
+        "metaDescription": null,
+        "variations": [
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationView",
+                "id": {
+                    "@class": "App\\Domain\\ValueObjects\\IntId",
+                    "value": 2147481533
+                },
+                "sku": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+                    "value": "PVR-V3"
+                },
+                "gtin": null,
+                "price": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 45.5,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+                    "currency": "GBP"
+                },
+                "costPrice": null,
+                "salePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 40.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+                    "currency": "GBP"
+                },
+                "rrp": null,
+                "effectivePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 40.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+                    "currency": "GBP"
+                },
+                "weight": null,
+                "canEditCostPrice": false,
+                "stockLevel": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+                    "availableStock": 6,
+                    "physicalStock": 6
+                },
+                "stockValue": null,
+                "isOnSale": true,
+                "profitMargin": null,
+                "mpn": null,
+                "imageIndex": null,
+                "options": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationOption",
+                        "optionId": 1,
+                        "optionName": "Colour",
+                        "valueId": 13,
+                        "valueName": "Shade 3"
+                    }
+                ],
+                "createdAt": "2026-10-01T09:30:00.000000+00:00",
+                "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+                "defaultSupplier": null,
+                "suppliers": [],
+                "isComposite": false,
+                "inventory": null,
+                "popularity": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Popularity",
+                    "rank": 4,
+                    "max": 12
+                }
+            },
+            {
+                "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationView",
+                "id": {
+                    "@class": "App\\Domain\\ValueObjects\\IntId",
+                    "value": 2147481534
+                },
+                "sku": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+                    "value": "PVR-V4"
+                },
+                "gtin": null,
+                "price": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 47.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+                    "currency": "GBP"
+                },
+                "costPrice": null,
+                "salePrice": null,
+                "rrp": null,
+                "effectivePrice": {
+                    "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+                    "amount": 47.0,
+                    "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+                    "currency": "GBP"
+                },
+                "weight": null,
+                "canEditCostPrice": false,
+                "stockLevel": {
+                    "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+                    "availableStock": 0,
+                    "physicalStock": 0
+                },
+                "stockValue": null,
+                "isOnSale": false,
+                "profitMargin": null,
+                "mpn": null,
+                "imageIndex": null,
+                "options": [
+                    {
+                        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductVariationOption",
+                        "optionId": 1,
+                        "optionName": "Colour",
+                        "valueId": 14,
+                        "valueName": "Shade 4"
+                    }
+                ],
+                "createdAt": "2026-10-01T09:30:00.000000+00:00",
+                "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+                "defaultSupplier": null,
+                "suppliers": [],
+                "isComposite": false,
+                "inventory": null,
+                "popularity": null
+            }
+        ],
+        "images": [],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": [
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Express",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002bc"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481500,
+                            "name": "free_delivery",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::List",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 0,
+                            "allowedValues": [
+                                "Standard",
+                                "Express"
+                            ]
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                }
+            ]
+        },
+        "filters": [
+            {
+                "@class": "App\\Domain\\Catalog\\Filters\\ValueObjects\\ProductFilter",
+                "definition": {
+                    "@class": "App\\Domain\\Catalog\\Filters\\ValueObjects\\FilterGroupDefinition",
+                    "id": 2147481500,
+                    "title": "Offers",
+                    "optionNo": 14,
+                    "sortOrder": 1
+                },
+                "values": [
+                    "on sale"
+                ]
+            }
+        ],
+        "sortOrder": null,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": "App\\Domain\\Catalog\\Product\\Enums\\FreeDeliveryType::Express",
+        "suppliers": null,
+        "inventory": null,
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": null,
+            "available": null,
+            "inOrder": null,
+            "due": null,
+            "jit": false,
+            "aggregateAvailable": 6,
+            "aggregatePhysical": 6
+        },
+        "isComposite": null,
+        "priceLastUpdatedAt": null,
+        "costPriceLastUpdatedAt": null,
+        "popularity": null
+    },
+    "2147481503": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481503
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P3"
+        },
+        "gtin": null,
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 10.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "costPrice": null,
+        "salePrice": null,
+        "rrp": null,
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": false
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 10.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "profitMargin": null,
+        "hasSingleSellingPrice": true,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481592
+            }
+        ],
+        "hasFreeDelivery": false,
+        "hasAnySale": false,
+        "defaultSupplier": null,
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 5,
+            "physicalStock": 5
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": null,
+            "preorderDate": null,
+            "otherStockStatus": null
+        },
+        "title": "Quokkaparity Trillow Dusk",
+        "description": "<p>Quokkaparity Trillow Dusk</p>",
+        "slug": "pvr-p3",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p3",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481503"
+        },
+        "isOnSale": false,
+        "isActive": false,
+        "vatExclusive": false,
+        "vatRelief": false,
+        "metaTitle": "Meta 3",
+        "metaDescription": null,
+        "variations": [],
+        "images": [],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": []
+        },
+        "filters": [],
+        "sortOrder": null,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": null,
+        "suppliers": null,
+        "inventory": null,
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": null,
+            "available": null,
+            "inOrder": null,
+            "due": null,
+            "jit": false,
+            "aggregateAvailable": 5,
+            "aggregatePhysical": 5
+        },
+        "isComposite": null,
+        "priceLastUpdatedAt": null,
+        "costPriceLastUpdatedAt": null,
+        "popularity": null
+    },
+    "2147481504": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481504
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P4"
+        },
+        "gtin": null,
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 33.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "costPrice": null,
+        "salePrice": null,
+        "rrp": null,
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": false
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 33.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "profitMargin": null,
+        "hasSingleSellingPrice": true,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481590
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481590
+            }
+        ],
+        "hasFreeDelivery": false,
+        "hasAnySale": false,
+        "defaultSupplier": null,
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 0,
+            "physicalStock": 0
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": "Discontinued",
+            "preorderDate": null,
+            "otherStockStatus": null
+        },
+        "title": "Quokkaparity Plimsett Eskar",
+        "description": "<p>Quokkaparity Plimsett Eskar</p>",
+        "slug": "pvr-p4",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p4",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481504"
+        },
+        "isOnSale": false,
+        "isActive": true,
+        "vatExclusive": false,
+        "vatRelief": false,
+        "metaTitle": "Meta 4",
+        "metaDescription": null,
+        "variations": [],
+        "images": [],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": [
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\StringCustomFieldValue",
+                    "value": "Discontinued",
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002bd"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481501,
+                            "name": "discontinued",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Text",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 1,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                }
+            ]
+        },
+        "filters": [],
+        "sortOrder": null,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": null,
+        "suppliers": null,
+        "inventory": null,
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": null,
+            "available": null,
+            "inOrder": null,
+            "due": null,
+            "jit": false,
+            "aggregateAvailable": 0,
+            "aggregatePhysical": 0
+        },
+        "isComposite": null,
+        "priceLastUpdatedAt": null,
+        "costPriceLastUpdatedAt": null,
+        "popularity": null
+    },
+    "2147481505": {
+        "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductView",
+        "id": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481505
+        },
+        "sku": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Sku",
+            "value": "PVR-P5"
+        },
+        "gtin": null,
+        "price": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 25.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "costPrice": null,
+        "salePrice": null,
+        "rrp": null,
+        "meta": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductViewMeta",
+            "canEditCostPrice": false
+        },
+        "effectivePrice": {
+            "@class": "App\\Domain\\Shared\\Money\\ValueObjects\\Money",
+            "amount": 25.0,
+            "taxType": "App\\Domain\\ValueObjects\\TaxType::Inclusive",
+            "currency": "GBP"
+        },
+        "profitMargin": null,
+        "hasSingleSellingPrice": true,
+        "categoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481591
+            }
+        ],
+        "mainCategoryIds": [
+            {
+                "@class": "App\\Domain\\ValueObjects\\IntId",
+                "value": 2147481590
+            }
+        ],
+        "hasFreeDelivery": false,
+        "hasAnySale": false,
+        "defaultSupplier": null,
+        "createdAtFormatted": "01/10/2026",
+        "updatedAtFormatted": "01/10/2026",
+        "stockLevel": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Stock",
+            "availableStock": 2,
+            "physicalStock": 2
+        },
+        "stockStatus": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\StockStatus",
+            "discontinued": null,
+            "preorderDate": null,
+            "otherStockStatus": null
+        },
+        "title": "Quokkaparity Vexmoor Zentral",
+        "description": "<p>Quokkaparity Vexmoor Zentral</p>",
+        "slug": "pvr-p5",
+        "links": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductLinks",
+            "publicUrl": "/pvr-p5",
+            "editWebsiteUrl": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481505"
+        },
+        "isOnSale": false,
+        "isActive": true,
+        "vatExclusive": false,
+        "vatRelief": false,
+        "metaTitle": "Meta 5",
+        "metaDescription": null,
+        "variations": [],
+        "images": [],
+        "customFields": {
+            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldValueList",
+            "fields": [
+                {
+                    "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ToggleCustomFieldValue",
+                    "value": true,
+                    "definition": {
+                        "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\ConfiguredFieldDefinition",
+                        "internalId": {
+                            "@class": "App\\Domain\\ValueObjects\\Uuid",
+                            "value": "7ffff79c-0000-4000-8000-0000000002c2"
+                        },
+                        "base": {
+                            "@class": "App\\Domain\\Catalog\\CustomFields\\ValueObjects\\CustomFieldDefinition",
+                            "id": 2147481506,
+                            "name": "related_exclude_self",
+                            "type": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldType::Toggle",
+                            "label": null,
+                            "itemType": "App\\Domain\\Catalog\\CustomFields\\Enums\\CustomFieldItemType::Product",
+                            "sortOrder": 6,
+                            "allowedValues": null
+                        },
+                        "generalSettings": null,
+                        "productSettings": null
+                    }
+                }
+            ]
+        },
+        "filters": [],
+        "sortOrder": null,
+        "createdAt": "2026-10-01T09:30:00.000000+00:00",
+        "updatedAt": "2026-10-01T09:30:00.000000+00:00",
+        "saleSettings": null,
+        "freeDelivery": null,
+        "suppliers": null,
+        "inventory": null,
+        "stock": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\ProductStock",
+            "quantity": null,
+            "available": null,
+            "inOrder": null,
+            "due": null,
+            "jit": false,
+            "aggregateAvailable": 2,
+            "aggregatePhysical": 2
+        },
+        "isComposite": null,
+        "priceLastUpdatedAt": null,
+        "costPriceLastUpdatedAt": null,
+        "popularity": {
+            "@class": "App\\Domain\\Catalog\\Product\\ValueObjects\\Popularity",
+            "rank": 6,
+            "max": 12
+        }
+    }
+}

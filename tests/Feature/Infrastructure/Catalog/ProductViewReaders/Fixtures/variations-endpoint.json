@@ -1,0 +1,570 @@
+{
+    "category-2147481590": {
+        "data": [
+            {
+                "id": 2147481530,
+                "sku": "PVR-V0",
+                "gtin": null,
+                "mpn": null,
+                "price": 85,
+                "cost_price": 20,
+                "sale_price": 60,
+                "rrp": null,
+                "effective_price": 60,
+                "profit_margin": 66.67,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 3,
+                    "physical_stock": 3,
+                    "stock_value": 60
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 10,
+                        "value_name": "Shade 0"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": {
+                    "supplier_name": "Quokkaparity supplier 1",
+                    "purchase_price": 20,
+                    "is_default": true,
+                    "code": null,
+                    "supplier_barcode": null,
+                    "lead_time": null,
+                    "supplier_min_order_qty": null,
+                    "supplier_pack_size": null,
+                    "min_price": null,
+                    "max_price": null,
+                    "average_price": null,
+                    "average_lead_time": null
+                },
+                "popularity": {
+                    "rank": 2,
+                    "max": 12,
+                    "level": 5
+                },
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 0",
+                "links": {
+                    "public_url": "/pvr-p1?var=PVR-V0",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": [
+                    {
+                        "supplier_name": "Quokkaparity supplier 1",
+                        "purchase_price": 20,
+                        "is_default": true,
+                        "code": null,
+                        "supplier_barcode": null,
+                        "lead_time": null,
+                        "supplier_min_order_qty": null,
+                        "supplier_pack_size": null,
+                        "min_price": null,
+                        "max_price": null,
+                        "average_price": null,
+                        "average_lead_time": null
+                    }
+                ],
+                "inventory": {
+                    "barcode": null,
+                    "minimum_level": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "is_composite": false,
+                    "category_name": "Default"
+                }
+            },
+            {
+                "id": 2147481531,
+                "sku": "PVR-V1",
+                "gtin": null,
+                "mpn": null,
+                "price": 80,
+                "cost_price": null,
+                "sale_price": 60,
+                "rrp": null,
+                "effective_price": 60,
+                "profit_margin": null,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 0,
+                    "physical_stock": 1,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 11,
+                        "value_name": "Shade 1"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": null,
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 1",
+                "links": {
+                    "public_url": "/pvr-p1?var=PVR-V1",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": [],
+                "inventory": {
+                    "barcode": null,
+                    "minimum_level": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "is_composite": false,
+                    "category_name": "Default"
+                }
+            },
+            {
+                "id": 2147481532,
+                "sku": null,
+                "gtin": null,
+                "mpn": null,
+                "price": 90,
+                "cost_price": null,
+                "sale_price": 70,
+                "rrp": null,
+                "effective_price": 70,
+                "profit_margin": null,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 4,
+                    "physical_stock": 4,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 12,
+                        "value_name": "Shade 2"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": null,
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 2",
+                "links": {
+                    "public_url": "/pvr-p1",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": []
+            }
+        ],
+        "links": {
+            "first": "/?category_id=2147481590&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+            "last": "/?category_id=2147481590&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+            "prev": null,
+            "next": null
+        },
+        "meta": {
+            "current_page": 1,
+            "from": 1,
+            "last_page": 1,
+            "links": [
+                {
+                    "url": null,
+                    "label": "&laquo; Previous",
+                    "page": null,
+                    "active": false
+                },
+                {
+                    "url": "/?category_id=2147481590&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+                    "label": "1",
+                    "page": 1,
+                    "active": true
+                },
+                {
+                    "url": null,
+                    "label": "Next &raquo;",
+                    "page": null,
+                    "active": false
+                }
+            ],
+            "path": "/",
+            "per_page": 100,
+            "to": 3,
+            "total": 3
+        }
+    },
+    "category-2147481592": {
+        "data": [
+            {
+                "id": 2147481530,
+                "sku": "PVR-V0",
+                "gtin": null,
+                "mpn": null,
+                "price": 85,
+                "cost_price": 20,
+                "sale_price": 60,
+                "rrp": null,
+                "effective_price": 60,
+                "profit_margin": 66.67,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 3,
+                    "physical_stock": 3,
+                    "stock_value": 60
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 10,
+                        "value_name": "Shade 0"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": {
+                    "supplier_name": "Quokkaparity supplier 1",
+                    "purchase_price": 20,
+                    "is_default": true,
+                    "code": null,
+                    "supplier_barcode": null,
+                    "lead_time": null,
+                    "supplier_min_order_qty": null,
+                    "supplier_pack_size": null,
+                    "min_price": null,
+                    "max_price": null,
+                    "average_price": null,
+                    "average_lead_time": null
+                },
+                "popularity": {
+                    "rank": 2,
+                    "max": 12,
+                    "level": 5
+                },
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 0",
+                "links": {
+                    "public_url": "/pvr-p1?var=PVR-V0",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": [
+                    {
+                        "supplier_name": "Quokkaparity supplier 1",
+                        "purchase_price": 20,
+                        "is_default": true,
+                        "code": null,
+                        "supplier_barcode": null,
+                        "lead_time": null,
+                        "supplier_min_order_qty": null,
+                        "supplier_pack_size": null,
+                        "min_price": null,
+                        "max_price": null,
+                        "average_price": null,
+                        "average_lead_time": null
+                    }
+                ],
+                "inventory": {
+                    "barcode": null,
+                    "minimum_level": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "is_composite": false,
+                    "category_name": "Default"
+                }
+            },
+            {
+                "id": 2147481531,
+                "sku": "PVR-V1",
+                "gtin": null,
+                "mpn": null,
+                "price": 80,
+                "cost_price": null,
+                "sale_price": 60,
+                "rrp": null,
+                "effective_price": 60,
+                "profit_margin": null,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 0,
+                    "physical_stock": 1,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 11,
+                        "value_name": "Shade 1"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": null,
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 1",
+                "links": {
+                    "public_url": "/pvr-p1?var=PVR-V1",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": [],
+                "inventory": {
+                    "barcode": null,
+                    "minimum_level": null,
+                    "weight": null,
+                    "dimensions": null,
+                    "is_composite": false,
+                    "category_name": "Default"
+                }
+            },
+            {
+                "id": 2147481532,
+                "sku": null,
+                "gtin": null,
+                "mpn": null,
+                "price": 90,
+                "cost_price": null,
+                "sale_price": 70,
+                "rrp": null,
+                "effective_price": 70,
+                "profit_margin": null,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 4,
+                    "physical_stock": 4,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 12,
+                        "value_name": "Shade 2"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": null,
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481501,
+                "variation_title": "Quokkaparity Vexmoor Brindle Deluxe - Shade 2",
+                "links": {
+                    "public_url": "/pvr-p1",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481501"
+                },
+                "is_active": true,
+                "vat_exclusive": true,
+                "vat_relief": false,
+                "has_free_delivery": false,
+                "free_delivery": null,
+                "main_category_ids": [
+                    2147481590,
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": []
+            },
+            {
+                "id": 2147481533,
+                "sku": "PVR-V3",
+                "gtin": null,
+                "mpn": null,
+                "price": 45.5,
+                "cost_price": null,
+                "sale_price": 40,
+                "rrp": null,
+                "effective_price": 40,
+                "profit_margin": null,
+                "is_on_sale": true,
+                "stock": {
+                    "available_stock": 6,
+                    "physical_stock": 6,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 13,
+                        "value_name": "Shade 3"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": {
+                    "rank": 4,
+                    "max": 12,
+                    "level": 4
+                },
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481502,
+                "variation_title": "Quokkaparity Trillow Gorvane - Shade 3",
+                "links": {
+                    "public_url": "/pvr-p2?var=PVR-V3",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481502"
+                },
+                "is_active": true,
+                "vat_exclusive": false,
+                "vat_relief": false,
+                "has_free_delivery": true,
+                "free_delivery": "Express",
+                "main_category_ids": [
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": []
+            },
+            {
+                "id": 2147481534,
+                "sku": "PVR-V4",
+                "gtin": null,
+                "mpn": null,
+                "price": 47,
+                "cost_price": null,
+                "sale_price": null,
+                "rrp": null,
+                "effective_price": 47,
+                "profit_margin": null,
+                "is_on_sale": false,
+                "stock": {
+                    "available_stock": 0,
+                    "physical_stock": 0,
+                    "stock_value": null
+                },
+                "weight": null,
+                "options": [
+                    {
+                        "option_id": 1,
+                        "option_name": "Colour",
+                        "value_id": 14,
+                        "value_name": "Shade 4"
+                    }
+                ],
+                "is_composite": false,
+                "default_supplier": null,
+                "popularity": null,
+                "created_at": "2026-10-01T09:30:00+00:00",
+                "updated_at": "2026-10-01T09:30:00+00:00",
+                "parent_product_id": 2147481502,
+                "variation_title": "Quokkaparity Trillow Gorvane - Shade 4",
+                "links": {
+                    "public_url": "/pvr-p2?var=PVR-V4",
+                    "edit_website_url": "https://admin.myshopwired.uk/business/manage-ecommerce-add-product/2147481502"
+                },
+                "is_active": true,
+                "vat_exclusive": false,
+                "vat_relief": false,
+                "has_free_delivery": true,
+                "free_delivery": "Express",
+                "main_category_ids": [
+                    2147481592
+                ],
+                "image": null,
+                "suppliers": []
+            }
+        ],
+        "links": {
+            "first": "/?category_id=2147481592&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+            "last": "/?category_id=2147481592&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+            "prev": null,
+            "next": null
+        },
+        "meta": {
+            "current_page": 1,
+            "from": 1,
+            "last_page": 1,
+            "links": [
+                {
+                    "url": null,
+                    "label": "&laquo; Previous",
+                    "page": null,
+                    "active": false
+                },
+                {
+                    "url": "/?category_id=2147481592&include=sale_settings%2Cinventory%2Csuppliers&per_page=100&page=1",
+                    "label": "1",
+                    "page": 1,
+                    "active": true
+                },
+                {
+                    "url": null,
+                    "label": "Next &raquo;",
+                    "page": null,
+                    "active": false
+                }
+            ],
+            "path": "/",
+            "per_page": 100,
+            "to": 5,
+            "total": 5
+        }
+    }
+}
