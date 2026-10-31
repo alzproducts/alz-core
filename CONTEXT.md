@@ -59,12 +59,26 @@ _Avoid_: reading the product-level `is_on_sale` as "anything on sale" — it cov
 **Has any sale**:
 A product whose master SKU or any of its variation SKUs is **on sale** (`has_any_sale`).
 
+### Local data
+
+**Seed slice**:
+A domain-bounded group of tables the synthetic local seed generates together, consistent across their SKU and ID joins (first: the **products slice**).
+_Avoid_: "seed tier", which suggests a size setting rather than a domain boundary.
+
+**Seed profile**:
+The committed, aggregate-only description of production's shape (counts and structural distributions, no rows, prices or names) that a **seed slice** is generated from.
+_Avoid_: "prod snapshot", "prod export", which imply copied rows.
+
+**Prod sync (local)**:
+The opt-in path that fills a local database from the real ShopWired and Linnworks APIs; the synthetic **seed slice** is the default.
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
 - The design intent is for each **ShopWired custom_label_N** to be written by exactly one sync feature; multi-writer co-ownership creates clobbering risk because these are single-select string fields, not value-lists
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
 - A product belongs in the ShopWired sale category exactly when it **has any sale**
+- Each **seed slice** is generated from exactly one **seed profile**; a slice's tables are seeded together or not at all
 - A **tracking number** belongs to exactly one **number pool**
 - A **tracking number** is shown to at most one visitor within the **attribution window**
 - A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission
@@ -118,6 +132,28 @@ An offline conversion where the click ID originates from a `call_tracking_visits
 **Collision**:
 The error state where >1 visit exists for the same tracking number within the attribution window. Should be architecturally impossible at current volume (pool size guarantees ~5 day reuse). If detected: Sentry alert, row excluded from dashboard (junk data, not actionable).
 
+### Contact submission actions
+
+**Contact submission action**:
+One side effect owed for a contact submission (a HelpScout conversation, or a **Qualified Lead** / **Quote Issued** upload per **ad platform**), tracked as a row that holds everything needed to perform it again.
+_Avoid_: "job" (the queued job is only a delivery attempt; the action is the obligation)
+
+**Action claim**:
+A worker's time-limited hold on a **contact submission action** (status `processing`); only the claim holder may complete or fail it.
+_Avoid_: "processing" for an action that is waiting out a retry delay
+
+**Retry-due action**:
+A **contact submission action** returned to `pending` after a transient failure, with the time its next attempt is due.
+
+**Stale action sweep**:
+The scheduled recovery that re-dispatches each **contact submission action** whose **action claim** expired, or that is overdue in `pending`, through its own type's pipeline.
+
+## Relationships (contact submission actions)
+
+- A contact submission has at most one **contact submission action** per action type (and per **ad platform** for conversions)
+- A **contact submission action** has at most one **action claim** at a time; a re-dispatched job that finds it claimed or terminal does nothing
+- The attempt limit belongs to the **contact submission action**, not to any single queued job
+
 ### Checkout & basket recovery
 
 **Basket snapshot**:
@@ -136,4 +172,5 @@ _Avoid_: treating a match as deterministic — multiple orders from the same IP/
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
+- "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
