@@ -311,6 +311,8 @@ make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + pest mutate)
 ```
 
+- **Concurrent worktrees → `make lint-sequential`.** `make lint` writes to a shared `/tmp/alz-lint`, so parallel runs from two worktrees clobber each other's output.
+
 ### Pint Style Fixes
 
 **ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
