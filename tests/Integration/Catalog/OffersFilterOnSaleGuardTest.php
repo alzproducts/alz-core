@@ -15,9 +15,9 @@ use Tests\TestCase;
  * Guard test: `catalog.products_with_changed_offers_filters` must derive "On Sale"
  * (filter slot 14) from "master SKU or any variation SKU on sale".
  *
- * Runs against the synced catalog plus an inheritance-only fixture (variation with
- * no sale price of its own, on sale via its product's) inserted in a rolled-back
- * transaction.
+ * Runs against the seeded catalog (or opt-in synced prod data) plus an
+ * inheritance-only fixture (variation with no sale price of its own, on sale via
+ * its product's) inserted in a rolled-back transaction.
  */
 #[CoversNothing]
 #[Group('integration')]

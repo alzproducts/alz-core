@@ -69,7 +69,7 @@ When Pest Mutate reports escaped mutants:
 # Run tests
 make test-quick        # Domain tests only (~5s, no external deps)
 make test              # All tests except integration (matches CI)
-make test-integration  # Integration tests (needs local Supabase with synced data)
+make test-integration  # Integration tests (needs local Supabase seeded by make db-reset-full, i.e. dev:seed-fake; dev:sync-from-prod data also works)
 
 # Quick validation
 make test-ai           # Tests + Pest Mutate (85% threshold)

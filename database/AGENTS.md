@@ -22,7 +22,9 @@ Blocked via `.claude/settings.json`.
 make db-reset-full
 ```
 
-This runs two steps in sequence:
+This runs a preflight and two steps in sequence:
+
+**Preflight — `php artisan dev:seed-fake --dry-run`**: checks the seed guard and generates the slice with no writes, so a guard failure stops the reset before anything is wiped.
 
 **Step 1 — `make supabase-reset`** (runs `pnpm db:setup-local` in `${FRONTEND_APP}`):
 - Recreates the PostgreSQL database from scratch
@@ -30,14 +32,19 @@ This runs two steps in sequence:
 - Generates TypeScript types
 - Seeds test users
 
-**Step 2 — `make migrate`**:
+**Step 2 — `php artisan dev:seed-fake`**:
 - Applies all Laravel migrations (business tables, indexes, schemas)
+- Seeds the synthetic, production-shaped products slice (no sync jobs, no external calls)
 
-> Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema. Without `make migrate`, all business tables (linnworks, shopwired, etc.) will be missing.
+> Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema; step 2 creates the business tables (linnworks, shopwired, etc.) and fills the products slice.
+
+### Production data (opt-in)
+
+`make db-reset-full-pii` resets the same way but runs `php artisan dev:sync-from-prod --incl-pii` instead of the seed, pulling production data through the sync jobs. `dev:sync-from-prod` only upserts — run it after that reset, never on top of the seed.
 
 ### What Gets Wiped
 
-`make db-reset-full` destroys **all locally synced data**: Linnworks stock items, orders, purchase orders, ShopWired products/orders, suppliers — everything. All data must be re-synced afterwards.
+`make db-reset-full` destroys **all local data**: the seeded products slice, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and re-seeds the synthetic slice.
 
 **Do NOT use for incremental schema changes.** For a column change on a feature branch table, use a direct SQL statement or rollback just that migration:
 

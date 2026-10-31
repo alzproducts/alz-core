@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full db-reset-full-pii seed-fake pint pint-test test test-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install up down shell migrate db-reset-full db-reset-full-pii seed-fake sync-from-prod pintpint-test test test-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -243,7 +243,7 @@ test: ## Run Pest test suite (all layers, excludes integration, seed-command and
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=slack --no-coverage $(TEST_ARGS)
 
-test-integration: ## Run integration tests only (needs local Supabase DB with synced data; excludes real-Slack tests)
+test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack
 
@@ -357,13 +357,16 @@ db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synt
 seed-fake: ## Seed the synthetic products slice (add ARGS=--fresh to replace an existing slice)
 	@$(EXEC) artisan dev:seed-fake $(ARGS)
 
-db-reset-full-pii: ## Full database reset including PII sync (customers + orders)
+sync-from-prod: ## Opt-in: dispatch sync jobs to pull production data (add ARGS=--incl-pii; run after db-reset-full-pii, not on top of the seed)
+	@$(EXEC) artisan dev:sync-from-prod $(ARGS)
+
+db-reset-full-pii: ## Opt-in full database reset with production sync including PII (customers + orders), no synthetic seed
 	@echo "$(YELLOW)=== FULL DATABASE RESET (with PII) ===$(NC)"
 	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
 	@$(MAKE) supabase-reset
 	@echo ""
 	@echo "$(YELLOW)Step 2/2: Migrating + dispatching core + PII sync jobs...$(NC)"
-	@$(EXEC) artisan dev:seed-sync --incl-pii
+	@$(EXEC) artisan dev:sync-from-prod --incl-pii
 	@echo ""
 	@echo "$(GREEN)Full database reset (with PII) complete.$(NC)"
 	@echo "$(YELLOW)Note: PII sync (customers + orders) takes longer to drain than core.$(NC)"
