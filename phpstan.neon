@@ -395,10 +395,6 @@ parameters:
         -
             identifier: missingType.checkedException
             message: '#buildScope#'
-            path: app/Infrastructure/Shopwired/Repositories/EloquentProductRepository.php
-        -
-            identifier: missingType.checkedException
-            message: '#buildScope#'
             path: app/Infrastructure/Catalog/Product/Repositories/EloquentVariationQueryRepository.php
     paths:
         - app/

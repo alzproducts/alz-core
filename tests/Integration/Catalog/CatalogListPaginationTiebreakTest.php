@@ -6,13 +6,13 @@ namespace Tests\Integration\Catalog;
 
 use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Catalog\Queries\VariationListQueryParams;
+use App\Application\Catalog\Results\ProductListEntryDTO;
+use App\Application\Contracts\Catalog\ProductListReaderInterface;
 use App\Application\Contracts\Catalog\VariationQueryRepositoryInterface;
-use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductSortField;
 use App\Domain\Catalog\Product\Enums\VariationFilterField;
 use App\Domain\Catalog\Product\Enums\VariationSortField;
-use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\VariationListItem;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
@@ -99,7 +99,7 @@ final class CatalogListPaginationTiebreakTest extends TestCase
 
         $orderClauses = [];
         Event::listen(QueryExecuted::class, static function (QueryExecuted $event) use (&$orderClauses): void {
-            if (\str_contains($event->sql, 'ts_rank') && \preg_match('/order by (.+?)(?: limit |$)/i', $event->sql, $match) === 1) {
+            if (\preg_match('/row_number\(\) over \(order by (.+?)\)\) as "page_pos"/i', $event->sql, $match) === 1) {
                 $orderClauses[] = $match[1];
             }
         });
@@ -153,9 +153,7 @@ final class CatalogListPaginationTiebreakTest extends TestCase
      */
     private function pageProducts(?ProductSortField $sortField, ?string $search = null): array
     {
-        DB::statement('REFRESH MATERIALIZED VIEW catalog.products_view');
-
-        $repository = $this->app->make(ProductRepositoryInterface::class);
+        $reader = $this->app->make(ProductListReaderInterface::class);
         $filters = [ProductFilterField::CategoryId->value => self::CATEGORY_EXTERNAL_ID];
         if ($search !== null) {
             $filters[ProductFilterField::Search->value] = $search;
@@ -164,19 +162,31 @@ final class CatalogListPaginationTiebreakTest extends TestCase
         $ids = [];
         $page = 1;
         do {
-            $result = $repository->paginate(new ProductListQueryParams(
+            $result = $reader->page(new ProductListQueryParams(
                 pagination: PageRequest::from($page, self::PER_PAGE),
                 sortField: $sortField,
                 filters: $filters,
             ));
-            foreach ($result->items as $view) {
-                \assert($view instanceof ProductView);
-                $ids[] = $view->id->value;
+            foreach ($result->entries as $entry) {
+                $ids[] = self::externalId($entry);
             }
             $page++;
-        } while ($page <= $result->lastPage);
+        } while (($page - 1) * self::PER_PAGE < $result->total);
 
         return $ids;
+    }
+
+    private static function externalId(ProductListEntryDTO $entry): int
+    {
+        if ($entry->view !== null) {
+            return $entry->view->id->value;
+        }
+
+        $body = \json_decode((string) $entry->cachedBody, true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertIsInt($body['id'] ?? null);
+
+        return $body['id'];
     }
 
     /**

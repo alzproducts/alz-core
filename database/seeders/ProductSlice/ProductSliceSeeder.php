@@ -102,7 +102,6 @@ final class ProductSliceSeeder extends Seeder
             }
 
             $this->write($rows);
-            $this->database->runSql('REFRESH MATERIALIZED VIEW catalog.products_view');
         });
 
         $this->printCounts($rows, 'Seeded rows');
