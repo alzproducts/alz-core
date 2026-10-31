@@ -193,6 +193,12 @@ Fix: use `Queue::fake()` to prevent real dispatch, but verify the happy path via
 
 ---
 
+## Tests that read git need `#[Group('repo-static')]`
+
+The dev-image CI job has no `.git` and excludes the `repo-static` group; a test that lists files through git (`git ls-files`) without the group fails there.
+
+---
+
 ## Debugging test failures
 
 ### Pre-push hook says "Tests failed!" but all tests look like they pass
