@@ -17,8 +17,6 @@ use DateTimeImmutable;
  */
 final readonly class ProductListInputRow
 {
-    public string $id;
-
     public int $externalId;
 
     public ?string $sku;
@@ -97,7 +95,6 @@ final readonly class ProductListInputRow
      */
     public function __construct(array $row)
     {
-        $this->id = ProductListValue::string($row, 'id');
         $this->externalId = ProductListValue::int($row, 'external_id');
         $this->sku = ProductListValue::nullableString($row, 'sku');
         $this->gtin = ProductListValue::nullableString($row, 'gtin');

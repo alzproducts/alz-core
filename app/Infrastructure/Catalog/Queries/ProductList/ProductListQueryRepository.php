@@ -49,14 +49,16 @@ final readonly class ProductListQueryRepository implements ProductListReaderInte
         ProductListScope::apply($scope, $query);
 
         $perPage = $query->pagination->perPage;
-        $page = self::pageSelect($scope)->limit($perPage)->offset(($query->pagination->page - 1) * $perPage);
+        $offset = ($query->pagination->page - 1) * $perPage;
+        $page = self::pageSelect($scope)->limit($perPage)->offset($offset);
         $statement = ProductListSql::statement($page->toSql(), ProductListSql::FRAGMENT_JOIN);
         $bindings = [...$page->getBindings(), ProductListFragmentFormat::salt($this->release, $shape), $shape];
 
-        [$total, $rows, $shared] = ProductListSnapshot::read($this->gateway, static fn(): array => [
-            (clone $scope)->reorder()->count(),
-            ...self::readRows($connection, $statement, $bindings),
-        ]);
+        [$total, $rows, $shared] = ProductListSnapshot::read($this->gateway, static function () use ($connection, $statement, $bindings, $scope, $offset): array {
+            [$rows, $shared] = self::readRows($connection, $statement, $bindings);
+
+            return [self::total($rows, $scope, $offset), $rows, $shared];
+        });
 
         return new ProductListPageResult(
             total: $total,
@@ -125,6 +127,21 @@ final readonly class ProductListQueryRepository implements ProductListReaderInte
     }
 
     /**
+     * Every page row carries the scope's `count(*) OVER ()`, taken before LIMIT/OFFSET. Only a page
+     * past the end has no row to carry it, so only then is the scope counted on its own.
+     *
+     * @param array<mixed> $rows
+     */
+    private static function total(array $rows, Builder $scope, int $offset): int
+    {
+        if ($rows !== []) {
+            return ProductListValue::int(ProductListValue::row($rows[\array_key_first($rows)]), 'page_total');
+        }
+
+        return $offset === 0 ? 0 : (clone $scope)->reorder()->count();
+    }
+
+    /**
      * The scoped page query selecting {@see ProductListSql::PAGE_COLUMNS}, with the scope's own
      * ORDER BY carried into `page_pos` so the statement can return rows in page order.
      */
@@ -145,7 +162,8 @@ final readonly class ProductListQueryRepository implements ProductListReaderInte
         return (clone $scope)
             ->select(ProductListSql::PAGE_COLUMNS)
             ->selectSub('row_number() over (order by ' . \mb_substr($orderSql, \mb_strlen($prefix)) . ')', 'page_pos')
-            ->addBinding($orderBindings, 'select');
+            ->addBinding($orderBindings, 'select')
+            ->selectRaw('count(*) over () as page_total');
     }
 
     /**

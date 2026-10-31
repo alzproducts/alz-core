@@ -25,7 +25,7 @@ final class ProductListSql
 
     /** @var array<string, string> list_inputs column => SQL expression */
     public const array LIST_INPUT_COLUMNS = [
-        'id' => 'p.id', 'external_id' => 'p.external_id', 'sku' => 'p.sku', 'gtin' => 'p.gtin', 'title' => 'p.title',
+        'external_id' => 'p.external_id', 'sku' => 'p.sku', 'gtin' => 'p.gtin', 'title' => 'p.title',
         'slug' => 'p.slug', 'url' => 'p.url', 'price' => 'p.price', 'cost_price' => 'p.cost_price',
         'sale_price' => 'p.sale_price', 'rrp' => 'e.rrp', 'effective_price' => 'p.effective_price',
         'is_on_sale' => 'p.is_on_sale', 'has_any_sale' => 'p.has_any_sale', 'profit_margin' => 'p.profit_margin',
@@ -131,12 +131,12 @@ final class ProductListSql
           SELECT md5(row_to_json(s)::text) AS h FROM shared_inputs s
         ),
         hashed AS MATERIALIZED (
-          SELECT x.product_id, x.page_pos, x.inputs, md5(x.inputs::text || ? || sh.h) AS fingerprint
-          FROM (SELECT li.id AS product_id, p.page_pos, row_to_json(li) AS inputs
-                FROM list_inputs li JOIN page p ON p.id = li.id) x
+          SELECT x.product_id, x.page_pos, x.page_total, x.inputs, md5(x.inputs::text || ? || sh.h) AS fingerprint
+          FROM (SELECT p.id AS product_id, p.page_pos, p.page_total, row_to_json(li) AS inputs
+                FROM list_inputs li JOIN page p ON p.external_id = li.external_id) x
           CROSS JOIN shared_hash sh
         )
-        SELECT h.product_id, h.fingerprint, f.body AS cached_body,
+        SELECT h.product_id, h.fingerprint, h.page_total, f.body AS cached_body,
                CASE WHEN f.body IS NULL THEN h.inputs::text END AS inputs
         FROM hashed h
         {fragment_join}
@@ -148,7 +148,7 @@ final class ProductListSql
     /**
      * Bindings: the page SQL's, then the salt, then the shape when $fragmentJoin is {@see self::FRAGMENT_JOIN}.
      *
-     * @param string $pageSql selects {@see self::PAGE_COLUMNS} plus `page_pos`
+     * @param string $pageSql selects {@see self::PAGE_COLUMNS} plus `page_pos` and `page_total`
      */
     public static function statement(string $pageSql, string $fragmentJoin): string
     {

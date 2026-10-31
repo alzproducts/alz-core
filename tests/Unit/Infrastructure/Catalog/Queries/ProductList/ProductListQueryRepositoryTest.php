@@ -42,10 +42,6 @@ final class ProductListQueryRepositoryTest extends TestCase
         );
         $this->connection->shouldReceive('transactionLevel')->andReturn(0);
         $this->connection->shouldReceive('statement')->andReturn(true);
-        $this->connection
-            ->shouldReceive('select')
-            ->withArgs(static fn(string $sql): bool => \str_starts_with($sql, 'select count(*)'))
-            ->andReturn([(object) ['aggregate' => 3]]);
 
         $this->gateway = Mockery::mock(DatabaseGateway::class);
         $this->gateway->shouldReceive('connection')->andReturn($this->connection);
@@ -88,6 +84,39 @@ final class ProductListQueryRepositoryTest extends TestCase
         self::assertSame([self::SECOND_MISS_ID, self::HIT_ID], self::productIds($page->entries));
     }
 
+    #[Test]
+    public function an_empty_page_past_the_end_takes_its_total_from_a_count_of_the_scope(): void
+    {
+        $this->expectPageRows([]);
+        $this->expectCount(7, 1);
+
+        $page = $this->repository()->page(ProductListQueryParams::active(PageRequest::from(4, 3)));
+
+        self::assertSame(7, $page->total);
+        self::assertSame([], $page->entries);
+    }
+
+    #[Test]
+    public function an_empty_first_page_has_a_zero_total_without_a_count(): void
+    {
+        $this->expectPageRows([]);
+        $this->expectCount(0, 0);
+
+        $page = $this->repository()->page(ProductListQueryParams::active(PageRequest::from(1, 3)));
+
+        self::assertSame(0, $page->total);
+        self::assertSame([], $page->entries);
+    }
+
+    private function expectCount(int $total, int $times): void
+    {
+        $this->connection
+            ->shouldReceive('select')
+            ->withArgs(static fn(string $sql): bool => \str_starts_with($sql, 'select count(*)'))
+            ->times($times)
+            ->andReturn([(object) ['aggregate' => $total]]);
+    }
+
     /**
      * @param list<stdClass> $rows
      */
@@ -117,13 +146,13 @@ final class ProductListQueryRepositoryTest extends TestCase
 
     private static function hitRow(string $productId): stdClass
     {
-        return (object) ['product_id' => $productId, 'fingerprint' => \md5($productId), 'cached_body' => '{"id":"hit"}', 'inputs' => null];
+        return (object) ['product_id' => $productId, 'fingerprint' => \md5($productId), 'page_total' => 3, 'cached_body' => '{"id":"hit"}', 'inputs' => null];
     }
 
     private static function missRow(string $productId, int $externalId): stdClass
     {
         $inputs = [
-            'id' => $productId, 'external_id' => $externalId, 'sku' => null, 'gtin' => null, 'title' => 'Product',
+            'external_id' => $externalId, 'sku' => null, 'gtin' => null, 'title' => 'Product',
             'slug' => 'product', 'url' => 'https://shop.example/product', 'price' => 10, 'cost_price' => null,
             'sale_price' => null, 'rrp' => null, 'effective_price' => 10, 'is_on_sale' => false, 'has_any_sale' => false,
             'profit_margin' => null, 'is_active' => true, 'vat_exclusive' => false, 'vat_relief' => null,
@@ -137,6 +166,7 @@ final class ProductListQueryRepositoryTest extends TestCase
         return (object) [
             'product_id' => $productId,
             'fingerprint' => \md5($productId),
+            'page_total' => 3,
             'cached_body' => null,
             'inputs' => \json_encode($inputs, \JSON_THROW_ON_ERROR),
         ];
