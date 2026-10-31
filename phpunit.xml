@@ -90,6 +90,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SENTRY_LARAVEL_DSN" value="" force="true"/>
         <env name="HELPSCOUT_SYSTEM_USER_ID" value="999999"/>
         <env name="SUPABASE_URL" value="https://test.supabase.co"/>
     </php>

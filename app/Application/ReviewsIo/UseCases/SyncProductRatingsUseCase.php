@@ -35,6 +35,8 @@ final readonly class SyncProductRatingsUseCase
      */
     private const int DB_BATCH_SIZE = 1000;
 
+    private const int LOGGED_SKIPPED_SKU_LIMIT = 50;
+
     public function __construct(
         private ProductRepositoryInterface $productRepository,
         private ReviewsIoClientInterface $reviewsIoClient,
@@ -61,18 +63,59 @@ final readonly class SyncProductRatingsUseCase
             throw new RuntimeException('No SKUs found in product catalog - products must be synced first');
         }
 
-        $totalSkus = \count($allSkus);
-        $this->logger->info('Starting Reviews.io ratings sync', ['total_skus' => $totalSkus]);
-
-        [$totalSaved, $totalFailed] = $this->processRatingBatches($allSkus);
+        $this->logger->info('Starting Reviews.io ratings sync', ['total_skus' => \count($allSkus)]);
+        $result = $this->processRatingBatches($this->filterAcceptedSkus($allSkus));
 
         $this->logger->info('Ratings sync completed', [
-            'skus_queried' => $totalSkus,
-            'ratings_saved' => $totalSaved,
-            'failed' => $totalFailed,
+            'skus_queried' => $result->fetched,
+            'skus_skipped' => \count($allSkus) - $result->fetched,
+            'ratings_saved' => $result->saved,
+            'failed' => $result->failed,
         ]);
 
-        return new SyncResult(fetched: $totalSkus, saved: $totalSaved, failed: $totalFailed);
+        return $result;
+    }
+
+    /**
+     * Drop SKUs the client would reject, so one bad SKU cannot fail a whole batch.
+     *
+     * @param list<string> $skus
+     *
+     * @return list<string>
+     *
+     * @throws RuntimeException When the SKU validator cannot be resolved
+     */
+    private function filterAcceptedSkus(array $skus): array
+    {
+        $accepted = [];
+        $skipped = [];
+
+        foreach ($skus as $sku) {
+            if ($this->reviewsIoClient->acceptsSku($sku)) {
+                $accepted[] = $sku;
+            } else {
+                $skipped[] = $sku;
+            }
+        }
+
+        $this->logSkippedSkus($skipped);
+
+        return $accepted;
+    }
+
+    /**
+     * @param list<string> $skipped
+     */
+    private function logSkippedSkus(array $skipped): void
+    {
+        if ($skipped === []) {
+            return;
+        }
+
+        $this->logger->warning('Skipping SKUs rejected by Reviews.io client', [
+            'skipped_count' => \count($skipped),
+            'skipped_skus' => \array_slice($skipped, 0, self::LOGGED_SKIPPED_SKU_LIMIT),
+        ]);
     }
 
     /**
@@ -80,13 +123,11 @@ final readonly class SyncProductRatingsUseCase
      *
      * @param list<string> $allSkus
      *
-     * @return array{int<0, max>, int<0, max>} [totalSaved, totalFailed]
-     *
      * @throws AuthenticationExpiredException When Reviews.io credentials invalid
      * @throws ExternalServiceUnavailableException When API or DB unavailable
      * @throws InvalidApiResponseException When API response parsing fails
      */
-    private function processRatingBatches(array $allSkus): array
+    private function processRatingBatches(array $allSkus): SyncResult
     {
         $totalSaved = 0;
         $totalFailed = 0;
@@ -111,7 +152,7 @@ final readonly class SyncProductRatingsUseCase
             $totalFailed += $result->failed;
         }
 
-        return [$totalSaved, $totalFailed];
+        return new SyncResult(fetched: \count($allSkus), saved: $totalSaved, failed: $totalFailed);
     }
 
     /**
