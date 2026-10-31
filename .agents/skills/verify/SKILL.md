@@ -9,7 +9,7 @@ One run is one private stack in the current worktree: Compose project `alz-verif
 
 - Covers the HTTP API only; the dashboard and storefront live in alz-admin.
 - Journeys live in the feature map, [`features/README.md`](features/README.md).
-- Run every verb with cwd = the worktree under test; an extracted copy of this skill works the same.
+- Run every verb with cwd = the worktree under test.
 
 ## Launch
 

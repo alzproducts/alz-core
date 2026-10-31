@@ -6,12 +6,10 @@ The maintained source for verifying alz-core's HTTP API. Read this index, then u
 
 - A run launched with `verify.sh launch` from the worktree under test; `doctor` exits 0 on its evidence dir.
 - Data comes only from `dev:seed-fake` (products slice); brands, orders and customers stay empty (ADR-0013).
-- Requests authenticate through the run's `X-Local-Bypass` secret as persona `dev@alzadmin.test`.
 
 ## Driving conventions
 
 - Drive every journey with `verify.sh http` and `verify.sh db` against the launched run; never against port 8000/8001.
-- Take ids from a list response captured in this run.
 - Journeys that write to an external API are not yet coverable; each feature's `Gotchas` names them.
 
 ## Feature entry contract

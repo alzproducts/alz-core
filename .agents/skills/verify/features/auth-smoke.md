@@ -1,6 +1,6 @@
 # Auth smoke
 
-An authenticated API client calls `GET /api/user` and gets back its own user id and email; it is the cheapest proof that authentication, the persona and the app boot work.
+An authenticated API client calls `GET /api/user` and gets back its own user id and email.
 
 ## Sub-features
 
