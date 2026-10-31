@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -16,15 +17,20 @@ use Throwable;
  * this process lists it over HTTP. Before each request the committed version is read on a separate
  * session; the listed version must be at least that floor, must never go backwards, and the
  * variation must belong to the same version as its product.
+ *
+ * The writer keeps committing until this process has finished {@see self::READS} reads and tells it
+ * to stop, so every read overlaps the writes however slow a read is (xdebug, pcov).
  */
 #[CoversNothing]
 final class ConcurrentWriterFreshnessTest extends ProductListFreshnessTestCase
 {
-    private const int VERSIONS = 30;
+    private const int READS = 20;
 
     private const int WRITE_INTERVAL_MICROSECONDS = 15_000;
 
-    private const float DEADLINE_SECONDS = 60.0;
+    private const float DEADLINE_SECONDS = 180.0;
+
+    private const string STOP = 'stop';
 
     private ?int $childPid = null;
 
@@ -71,25 +77,36 @@ final class ConcurrentWriterFreshnessTest extends ProductListFreshnessTestCase
         $this->childPid = $pid;
         \fclose($childSocket);
 
-        $seen = $this->readWhileWriting($pid);
+        $deadline = \microtime(true) + self::DEADLINE_SECONDS;
+        $seen = $this->readWhileWriting($pid, $parentSocket, $deadline);
+        $this->awaitExit($pid, $deadline);
         $this->childPid = null;
 
-        self::assertSame('ok', \stream_get_contents($parentSocket), 'The writer child failed');
-        self::assertSame(self::VERSIONS, $this->listedVersion($this->listedProduct(0)));
+        $report = \stream_get_contents($parentSocket);
+        self::assertIsString($report);
+        self::assertSame(1, \preg_match('/^ok:(\d+)$/', $report, $match), "The writer child failed: {$report}");
+        self::assertSame((int) $match[1], $this->listedVersion($this->listedProduct(0)), 'The list misses the last committed version');
         self::assertGreaterThan(1, \count(\array_unique($seen)), 'The reads never overlapped the writes');
     }
 
     /**
+     * Reads until {@see self::READS} reads have completed, then tells the writer to stop.
+     *
+     * @param resource $socket
+     *
      * @return list<int> every listed version, in read order
      */
-    private function readWhileWriting(int $pid): array
+    private function readWhileWriting(int $pid, $socket, float $deadline): array
     {
         $seen = [];
         $previous = 0;
-        $deadline = \microtime(true) + self::DEADLINE_SECONDS;
 
-        while (\pcntl_waitpid($pid, $status, \WNOHANG) === 0) {
-            self::assertLessThan($deadline, \microtime(true), 'The writer child did not finish');
+        while (\count($seen) < self::READS) {
+            if (\pcntl_waitpid($pid, $status, \WNOHANG) !== 0) {
+                $this->childPid = null;
+                self::fail('The writer child exited before the reads finished: ' . \stream_get_contents($socket));
+            }
+            self::assertLessThan($deadline, \microtime(true), \sprintf('Only %d of %d reads finished within %.0fs', \count($seen), self::READS, self::DEADLINE_SECONDS));
 
             $floor = self::versionOf(DB::table('shopwired.products')->where('external_id', self::productExternalId(0))->value('title'));
             $version = $this->listedVersion($this->listedProduct(0));
@@ -99,7 +116,17 @@ final class ConcurrentWriterFreshnessTest extends ProductListFreshnessTestCase
             $seen[] = $previous = $version;
         }
 
+        \fwrite($socket, self::STOP);
+
         return $seen;
+    }
+
+    private function awaitExit(int $pid, float $deadline): void
+    {
+        while (\pcntl_waitpid($pid, $status, \WNOHANG) === 0) {
+            self::assertLessThan($deadline, \microtime(true), 'The writer child did not stop when told to');
+            \usleep(10_000);
+        }
     }
 
     /**
@@ -122,14 +149,21 @@ final class ConcurrentWriterFreshnessTest extends ProductListFreshnessTestCase
         try {
             DB::purge('pgsql');
             DB::reconnect('pgsql');
-            for ($n = 1; $n <= self::VERSIONS; $n++) {
+            \stream_set_blocking($socket, false);
+            $deadline = \microtime(true) + self::DEADLINE_SECONDS;
+            $n = 0;
+            while (\fread($socket, \mb_strlen(self::STOP)) !== self::STOP) {
+                if (\microtime(true) > $deadline) {
+                    throw new RuntimeException("No stop signal after {$n} versions");
+                }
                 \usleep(self::WRITE_INTERVAL_MICROSECONDS);
+                $n++;
                 $repository->saveFromWebhook(
                     self::domainProduct(0, self::price($n), [self::domainVariation(0, 0, self::price($n))], self::title($n)),
                     ['variations'],
                 );
             }
-            \fwrite($socket, 'ok');
+            \fwrite($socket, "ok:{$n}");
         } catch (Throwable $e) {
             \fwrite($socket, $e::class . ': ' . $e->getMessage());
         }
