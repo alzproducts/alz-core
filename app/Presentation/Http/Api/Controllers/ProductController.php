@@ -8,12 +8,14 @@ use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\UseCases\GetProductCustomFieldsUseCase;
 use App\Application\Catalog\UseCases\GetProductUseCase;
 use App\Application\Catalog\UseCases\ListProductsUseCase;
+use App\Application\Catalog\UseCases\StoreProductListFragmentsUseCase;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Data\InvalidEnumValueException;
+use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
@@ -22,8 +24,9 @@ use App\Presentation\Http\Api\DTOs\ListProductsRequestDTO;
 use App\Presentation\Http\Api\DTOs\ShowProductRequestDTO;
 use App\Presentation\Http\Api\Resources\CustomFieldValueResource;
 use App\Presentation\Http\Api\Resources\ProductDetailResource;
-use App\Presentation\Http\Api\Resources\ProductResource;
-use App\Presentation\Http\Api\Traits\BuildsPaginatedResponseTrait;
+use App\Presentation\Http\Api\Responses\ProductListResponseFactory;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 /**
@@ -33,16 +36,16 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * @throws DatabaseOperationFailedException
  * @throws DuplicateRecordException
  * @throws ExternalServiceUnavailableException
+ * @throws MissingRequiredDataException
  * @throws ResourceNotFoundException
  */
 final readonly class ProductController
 {
-    use BuildsPaginatedResponseTrait;
-
     public function __construct(
         private ListProductsUseCase $listProductsUseCase,
         private GetProductUseCase $getProductUseCase,
         private GetProductCustomFieldsUseCase $getProductCustomFieldsUseCase,
+        private StoreProductListFragmentsUseCase $storeProductListFragmentsUseCase,
     ) {}
 
     /**
@@ -53,12 +56,15 @@ final readonly class ProductController
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidEnumValueException
+     * @throws MissingRequiredDataException
      */
-    public function index(ListProductsRequestDTO $data): ResourceCollection
+    public function index(ListProductsRequestDTO $data, Request $request): JsonResponse
     {
-        $result = $this->listProductsUseCase->execute($data->toQuery());
+        $page = $this->listProductsUseCase->execute($data->toQuery());
+        $built = ProductListResponseFactory::make($page, $request);
+        $this->storeProductListFragmentsUseCase->execute($built->renderedFragments);
 
-        return $this->paginatedResponse($result, ProductResource::class);
+        return $built->response;
     }
 
     /**

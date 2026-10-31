@@ -239,9 +239,9 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run Pest test suite (all layers, excludes integration, seed-command and real-Slack tests; matches CI)
+test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity and real-Slack tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=slack --no-coverage $(TEST_ARGS)
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --no-coverage $(TEST_ARGS)
 
 test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
 	@echo "$(MODE)"

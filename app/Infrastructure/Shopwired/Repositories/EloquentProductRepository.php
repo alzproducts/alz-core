@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Shopwired\Repositories;
 
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
-use App\Application\Catalog\Queries\ProductListQueryParams;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Exceptions\InvalidCustomFieldValueException;
-use App\Domain\Catalog\Product\Enums\ProductFilterField;
 use App\Domain\Catalog\Product\Enums\ProductInclude;
 use App\Domain\Catalog\Product\ValueObjects\Product;
 use App\Domain\Catalog\Product\ValueObjects\ProductVariation;
@@ -21,9 +19,7 @@ use App\Domain\Exceptions\Data\MissingRequiredDataException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\ValueObjects\IntId;
-use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Catalog\Product\Mappers\ProductModelMapper;
-use App\Infrastructure\Catalog\Product\Mappers\ProductSortFieldMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationModelMapper;
 use App\Infrastructure\Catalog\Product\Mappers\ProductViewAssembler;
 use App\Infrastructure\Catalog\Product\Models\ProductModel;
@@ -31,7 +27,6 @@ use App\Infrastructure\Catalog\Product\Models\ProductVariationModel;
 use App\Infrastructure\Catalog\Product\Models\ProductViewModel;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Repositories\AbstractEloquentRepository;
-use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -73,78 +68,6 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
     // ─────────────────────────────────────────────────────────────────────────
     // Interface Implementation
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return PaginatedList<ProductView>
-     *
-     * @throws InvalidCustomFieldValueException
-     * @throws MissingRequiredDataException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function paginate(ProductListQueryParams $query): PaginatedList
-    {
-        return $this->eloquentGateway->paginate(
-            modelClass: self::VIEW_MODEL_CLASS,
-            scope: self::buildScope($query),
-            relations: self::relationsForIncludes($query->includes),
-            mapper: fn(ProductViewModel $model): ProductView => $this->viewMapper->toViewDomain($model, $query->includes),
-            perPage: $query->pagination->perPage,
-            page: $query->pagination->page,
-        );
-    }
-
-    /**
-     * Build a dynamic Eloquent scope from sort/filter query params.
-     */
-    private static function buildScope(ProductListQueryParams $query): Closure
-    {
-        /** @var list<array{ProductFilterField, mixed}> $resolvedFilters */
-        $resolvedFilters = [];
-        foreach ($query->filters as $field => $value) {
-            $resolvedFilters[] = [ProductFilterField::from($field), $value];
-        }
-
-        $searchFilter = $query->filters[ProductFilterField::Search->value] ?? null;
-        $searchTerm = \is_string($searchFilter) ? $searchFilter : null;
-
-        return static function (Builder $q) use ($resolvedFilters, $query, $searchTerm): void {
-            foreach ($resolvedFilters as [$filter, $value]) {
-                $_ = match ($filter) {
-                    ProductFilterField::IsActive => $q->where('is_active', $value),
-                    ProductFilterField::CategoryId => $q->whereJsonContains('category_ids', $value),
-                    ProductFilterField::IsOnSale => $q->where('is_on_sale', $value),
-                    ProductFilterField::HasAnySale => $q->where('has_any_sale', $value),
-                    ProductFilterField::Sku => $q->where('sku', $value),
-                    ProductFilterField::HasFreeDelivery => $q->where('has_free_delivery', $value),
-                    ProductFilterField::Search => $q->whereRaw(
-                        "to_tsvector('english', title) @@ websearch_to_tsquery('english', ?)",
-                        [$value],
-                    ),
-                };
-            }
-
-            self::applyOrdering($q, $query, $searchTerm);
-        };
-    }
-
-    /**
-     * @param Builder<Model> $q
-     */
-    private static function applyOrdering(Builder $q, ProductListQueryParams $query, ?string $searchTerm): void
-    {
-        if ($query->sortField !== null) {
-            $q->orderBy(ProductSortFieldMapper::toColumn($query->sortField), $query->sortDirection->value)->orderBy('id');
-        } elseif ($searchTerm !== null) {
-            $q->orderByRaw(
-                "ts_rank(to_tsvector('english', title), websearch_to_tsquery('english', ?)) DESC",
-                [$searchTerm],
-            )->orderBy('title')->orderBy('id');
-        }
-    }
 
     /**
      * {@inheritDoc}
