@@ -112,6 +112,22 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
     }
 
     /**
+     * @throws RuntimeException When validator cannot be resolved (container misconfiguration)
+     */
+    public function acceptsSku(string $sku): bool
+    {
+        return Validator::make(['sku' => $sku], ['sku' => self::skuRules()])->passes();
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private static function skuRules(): array
+    {
+        return ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()];
+    }
+
+    /**
      * Validate input data and wrap validation failures.
      * Executes Laravel validation and translates ValidationException
      * to InvalidApiRequestException with consistent error formatting.
@@ -162,7 +178,7 @@ final readonly class ReviewsIoClient implements ReviewsIoClientInterface
             ['skus' => $skuArray],
             [
                 'skus' => ['required', 'array', 'min:1', 'max:' . ReviewsIoConfig::MAX_BATCH_SIZE],
-                'skus.*' => ['required', 'string', 'min:1', 'max:' . ReviewsIoConfig::MAX_SKU_LENGTH, new ValidSku()],
+                'skus.*' => self::skuRules(),
             ],
             'SKU(s)',
         );
