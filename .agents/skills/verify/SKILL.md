@@ -85,5 +85,5 @@ bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
 | `cleanup` | `--evidence <dir>` | Tears down the run and checks residue |
 
 - **Invocation:** `bash .agents/skills/verify/scripts/verify.sh <verb> [args]`; an extracted copy runs as `bash <extracted dir>/scripts/verify.sh <verb> [args]`, cwd = the worktree.
-- **Targeted Pest runner:** `verify.sh test --evidence <dir> <path>` after `launch`, e.g. `verify.sh test --evidence <dir> tests/Unit/Static/StaleSeedWordingTest.php`. It runs Pest with `APP_ENV=testing` against the run's DB and Redis. Never use bare Pest or `make test` for verification: `phpunit.xml` sets no DB or Redis keys, so those hit the developer's services.
+- **Targeted Pest runner:** `verify.sh test --evidence <dir> <path>` after `launch`, e.g. `verify.sh test --evidence <dir> tests/Unit/Static/StaleSeedWordingTest.php`. It runs Pest with `APP_ENV=testing` against the run's DB and Redis. Never use bare Pest or `make test` for verification: `phpunit.xml` sets no DB or Redis keys, so those hit the developer's services. In a worktree without `.env`, each test reports a `fopen(.../.env)` warning from `bypass-finals`; exit 0 is still a pass.
 - **Exit codes:** 0 ok; 1 check failed (guard, credential, residue, journey, test); 64 usage; 75 environment not ready.
