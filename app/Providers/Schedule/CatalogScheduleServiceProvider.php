@@ -15,6 +15,7 @@ use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
+use App\Presentation\Console\Commands\CheckProductListFragmentDriftCommand;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -37,6 +38,9 @@ use RuntimeException;
  *   - Margin-tier label (04:45, custom_label_1 four-tier band)
  *   - Credit-tier label (05:00, custom_label_0 three-tier band, credit-only)
  *
+ * Products list fragment cache (hourly):
+ *   - Drift check and orphan sweep over catalog.product_list_fragments
+ *
  * Snapshot writers live in {@see PopularitySnapshotScheduleServiceProvider}.
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
@@ -57,6 +61,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerRelatedProductsSyncSchedule();
         $this->registerMarginTierLabelSchedule();
         $this->registerCreditTierLabelSchedule();
+        $this->registerProductListFragmentDriftSchedule();
     }
 
     /**
@@ -260,6 +265,22 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncCreditTierLabelJob())
             ->name('sync-credit-tier-label')
             ->dailyAt('05:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Hourly drift check on the products list fragment cache (ADR-0011 amendment): reports and
+     * deletes fragments whose body no longer matches a rebuild, and deletes orphaned fragments.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductListFragmentDriftSchedule(): void
+    {
+        Schedule::command(CheckProductListFragmentDriftCommand::class)
+            ->name('check-product-list-fragment-drift')
+            ->hourly()
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);
