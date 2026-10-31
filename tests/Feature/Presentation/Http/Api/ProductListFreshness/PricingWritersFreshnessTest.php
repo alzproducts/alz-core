@@ -6,6 +6,8 @@ namespace Tests\Feature\Presentation\Http\Api\ProductListFreshness;
 
 use App\Application\Contracts\Linnworks\InventoryClientInterface;
 use App\Application\Contracts\Linnworks\InventoryUpdateClientInterface;
+use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
+use App\Application\Contracts\Shopwired\ProductClientInterface;
 use App\Domain\Catalog\Product\ValueObjects\ProductRetailPricing;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Inventory\ValueObjects\StockItemSupplierStat;
@@ -31,6 +33,8 @@ final class PricingWritersFreshnessTest extends ProductListFreshnessTestCase
         parent::setUp();
 
         Queue::fake();
+        $this->mock(PriceUpdateClientInterface::class);
+        $this->mock(ProductClientInterface::class);
         $this->insertProduct(0);
         $this->insertStockItem(0, self::sku('P0'), ['quantity' => 3, 'available' => 3]);
         $this->insertStockItemSupplier(0, 1, '10.00');

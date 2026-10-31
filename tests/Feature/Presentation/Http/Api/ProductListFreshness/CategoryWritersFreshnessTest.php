@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Http\Api\ProductListFreshness;
 
 use App\Application\Contracts\Shopwired\CategoryClientInterface;
+use App\Application\Contracts\Shopwired\CategoryUpdateClientInterface;
 use App\Application\Shopwired\UseCases\SyncCategoriesUseCase;
 use App\Domain\Catalog\Category\ValueObjects\Category;
 use DateTimeImmutable;
@@ -34,6 +35,7 @@ final class CategoryWritersFreshnessTest extends ProductListFreshnessTestCase
         parent::setUp();
 
         Queue::fake();
+        $this->mock(CategoryUpdateClientInterface::class);
         $this->insertProduct(0, ['category_ids' => \json_encode([self::categoryExternalId(self::CHILD)])]);
         $this->insertCategory(self::CHILD, ['parent_ids' => \json_encode([self::categoryExternalId(self::PARENT)])]);
     }
