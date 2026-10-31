@@ -49,6 +49,11 @@ final class SyncProductRatingsUseCaseTest extends TestCase
         $this->ratingRepository = Mockery::mock(ProductRatingRepositoryInterface::class);
         $this->logger = Mockery::mock(LoggerInterface::class);
 
+        $this->reviewsIoClient
+            ->shouldReceive('acceptsSku')
+            ->andReturnUsing(static fn(string $sku): bool => !\str_contains($sku, '&') && \mb_strlen($sku) <= 100)
+            ->byDefault();
+
         $this->useCase = new SyncProductRatingsUseCase(
             $this->productRepository,
             $this->reviewsIoClient,
@@ -250,5 +255,121 @@ final class SyncProductRatingsUseCaseTest extends TestCase
         $this->assertSame(2, $result->fetched);
         $this->assertSame(0, $result->saved);
         $this->assertSame(0, $result->failed);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rejected SKU Branch
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function execute_skips_rejected_sku_and_syncs_remaining_batches(): void
+    {
+        $validSkus = \array_map(static fn(int $i) => "SKU-{$i}", \range(1, 150));
+        $skus = [...\array_slice($validSkus, 0, 50), 'R&D-01', ...\array_slice($validSkus, 50)];
+
+        $this->productRepository->shouldReceive('getAllSkus')->once()->andReturn($skus);
+
+        $this->reviewsIoClient
+            ->shouldReceive('getProductRatingBatch')
+            ->once()
+            ->with(\array_slice($validSkus, 0, 100))
+            ->andReturn([new ProductRating('SKU-1', 4.5, 10)]);
+
+        $this->reviewsIoClient
+            ->shouldReceive('getProductRatingBatch')
+            ->once()
+            ->with(\array_slice($validSkus, 100, 50))
+            ->andReturn([new ProductRating('SKU-101', 4.8, 20)]);
+
+        $this->ratingRepository
+            ->shouldReceive('saveMany')
+            ->once()
+            ->with(Mockery::on(static fn(array $items) => \count($items) === 2))
+            ->andReturn(SaveManyResult::success(2));
+
+        $this->logger->shouldReceive('info')->with('Starting Reviews.io ratings sync', ['total_skus' => 151]);
+        $this->logger->shouldReceive('warning')->once()->with('Skipping SKUs rejected by Reviews.io client', [
+            'skipped_count' => 1,
+            'skipped_skus' => ['R&D-01'],
+        ]);
+        $this->logger->shouldReceive('debug')->with('Flushing ratings to database', ['count' => 2]);
+        $this->logger->shouldReceive('info')->once()->with('Ratings sync completed', [
+            'skus_queried' => 150,
+            'skus_skipped' => 1,
+            'ratings_saved' => 2,
+            'failed' => 0,
+        ]);
+
+        $result = $this->useCase->execute();
+
+        $this->assertSame(150, $result->fetched);
+        $this->assertSame(2, $result->saved);
+        $this->assertSame(0, $result->failed);
+    }
+
+    #[Test]
+    public function execute_skips_sku_longer_than_max_length(): void
+    {
+        $longSku = \str_repeat('A', 101);
+
+        $this->productRepository->shouldReceive('getAllSkus')->once()->andReturn(['SKU-001', $longSku]);
+
+        $this->reviewsIoClient
+            ->shouldReceive('getProductRatingBatch')
+            ->once()
+            ->with(['SKU-001'])
+            ->andReturn([]);
+
+        $this->logger->shouldReceive('info')->with('Starting Reviews.io ratings sync', ['total_skus' => 2]);
+        $this->logger->shouldReceive('warning')->once()->with('Skipping SKUs rejected by Reviews.io client', [
+            'skipped_count' => 1,
+            'skipped_skus' => [$longSku],
+        ]);
+        $this->logger->shouldReceive('info')->with('Ratings sync completed', Mockery::type('array'));
+
+        $result = $this->useCase->execute();
+
+        $this->assertSame(1, $result->fetched);
+        $this->assertSame(0, $result->saved);
+    }
+
+    #[Test]
+    public function execute_completes_without_api_call_when_every_sku_is_rejected(): void
+    {
+        $this->productRepository->shouldReceive('getAllSkus')->once()->andReturn(['R&D-01', 'A&B']);
+
+        $this->reviewsIoClient->shouldNotReceive('getProductRatingBatch');
+        $this->ratingRepository->shouldNotReceive('saveMany');
+
+        $this->logger->shouldReceive('info')->with('Starting Reviews.io ratings sync', ['total_skus' => 2]);
+        $this->logger->shouldReceive('warning')->once()->with('Skipping SKUs rejected by Reviews.io client', [
+            'skipped_count' => 2,
+            'skipped_skus' => ['R&D-01', 'A&B'],
+        ]);
+        $this->logger->shouldReceive('info')->with('Ratings sync completed', Mockery::type('array'));
+
+        $result = $this->useCase->execute();
+
+        $this->assertSame(0, $result->fetched);
+        $this->assertSame(0, $result->saved);
+        $this->assertSame(0, $result->failed);
+    }
+
+    #[Test]
+    public function execute_caps_logged_skipped_skus_at_fifty(): void
+    {
+        $rejected = \array_map(static fn(int $i) => "BAD&{$i}", \range(1, 60));
+
+        $this->productRepository->shouldReceive('getAllSkus')->once()->andReturn($rejected);
+
+        $this->logger->shouldReceive('info');
+        $this->logger->shouldReceive('warning')->once()->with('Skipping SKUs rejected by Reviews.io client', [
+            'skipped_count' => 60,
+            'skipped_skus' => \array_slice($rejected, 0, 50),
+        ]);
+
+        $this->useCase->execute();
     }
 }
