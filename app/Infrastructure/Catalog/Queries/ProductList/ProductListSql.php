@@ -80,7 +80,7 @@ final class ProductListSql
     public const string NO_FRAGMENT_JOIN = 'LEFT JOIN catalog.product_list_fragments f ON false';
 
     private const string SHARED_INPUTS = <<<'SQL'
-        SELECT (SELECT coalesce(json_agg(d ORDER BY d.external_id), '[]'::json)
+        SELECT (SELECT coalesce(json_agg(d ORDER BY d.item_type, d.sort_order, d.name, d.external_id), '[]'::json)
                 FROM (SELECT {definition_columns} FROM shopwired.custom_field_definitions c) d) AS custom_field_definitions
         SQL;
 

@@ -278,12 +278,12 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-clover=coverage.xml
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-html=coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing

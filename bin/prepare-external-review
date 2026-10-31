@@ -103,7 +103,7 @@ rmdir "$target/docs/reports" || die "docs/reports is not empty"
 cut_block README.md '^### Linting and tooling$' 'schema-qualified.*Custom PHPStan rule'
 subst README.md 's/\n\n\n+(### HTTP surfaces)/\n\n$1/'
 cut_block docs/architecture-overview.md '^\*\*Rules:\*\* Domain depends on nothing\.' '^$'
-subst docs/adr/0008-product-search-whole-word-tsquery.md 's{\n\nConsequence: the GIN index lives on the materialized view[^\n]*\n}{\n}'
+subst docs/adr/0008-product-search-whole-word-tsquery.md 's{\n\nConsequence: the GIN index lives on the base table[^\n]*\n}{\n}'
 subst database/migrations/2026_07_05_100000_add_title_search_gin_index_to_catalog_products_view.php \
     's{ \*\n \* Future DROP/CREATE MATERIALIZED VIEW catalog\.products_view migrations must recreate\n \* both idx_catalog_products_view_id and this index\.\n}{}'
 subst database/migrations/2026_06_21_100000_convert_catalog_products_view_to_materialized.php \
