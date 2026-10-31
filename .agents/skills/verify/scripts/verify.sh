@@ -239,9 +239,7 @@ app_json() {
 
 build_run_env() {
     local db_password="$1" redis_password="$2" bypass="$3" supabase_port="$4"
-    local sale_category entry key mode
-    sale_category="$(sed -n 's/^SHOPWIRED_SALE_CATEGORY_ID=//p' "$REPO/.env.example" | head -1)"
-    [ -n "$sale_category" ] || die 1 ".env.example sets no SHOPWIRED_SALE_CATEGORY_ID"
+    local entry key mode
 
     ENV_LINES=()
     set_env APP_ENV local
@@ -265,7 +263,6 @@ build_run_env() {
     set_env SUPABASE_URL "http://127.0.0.1:$supabase_port"
     set_env SUPABASE_LOCAL_TEST_EMAIL dev@alzadmin.test
     set_env EMAIL_PRIMARY verify@example.invalid
-    set_env SHOPWIRED_SALE_CATEGORY_ID "$sale_category"
     set_env AWS_SHARED_CREDENTIALS_FILE /dev/null
     set_env AWS_CONFIG_FILE /dev/null
     set_env AWS_EC2_METADATA_DISABLED true
