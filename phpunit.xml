@@ -42,6 +42,10 @@
         <testsuite name="DevTools">
             <directory>tests/Unit/DevTools</directory>
         </testsuite>
+        <testsuite name="Database">
+            <directory>tests/Unit/Database</directory>
+            <directory>tests/Unit/Static</directory>
+        </testsuite>
     </testsuites>
     <coverage>
         <report>

@@ -20,23 +20,25 @@ use App\Infrastructure\Jobs\Shopwired\SyncShopwiredProductsJob;
 use Illuminate\Console\Command;
 
 /**
- * Dispatch all sync jobs to populate a fresh local database.
+ * Dispatch all sync jobs to pull production data into the local database. Opt-in: the default
+ * local data is the synthetic seed from `dev:seed-fake`.
  *
- * Local environment only. Safe to re-run — jobs are idempotent.
+ * Local environment only. Safe to re-run — jobs are idempotent, but they only upsert: run it after
+ * `make db-reset-full-pii`, never on top of the seed, or the seed's reserved-range rows stay beside prod rows.
  *
  * Note: Many sync jobs implement ShouldBeUnique, which acquires a Redis lock before
  * queuing. If jobs appear to dispatch successfully but never appear in the queue,
  * check for stranded unique locks: `redis-cli KEYS "*laravel_unique_job*"` and
  * delete any with no TTL (`TTL -2`).
  */
-final class SeedLocalDatabaseCommand extends Command
+final class SyncFromProdCommand extends Command
 {
-    protected $signature = 'dev:seed-sync
+    protected $signature = 'dev:sync-from-prod
         {--incl-pii : Also dispatch PII-containing sync jobs (customers, orders)}
         {--pii-only : Only dispatch PII jobs, skip core}
         {--dry-run : Show what would be dispatched without dispatching}';
 
-    protected $description = 'Dispatch all sync jobs to seed a fresh local database';
+    protected $description = 'Dispatch all sync jobs to pull production data into the local database (opt-in)';
 
     /**
      * @var list<array{class-string, string}>
@@ -87,7 +89,7 @@ final class SeedLocalDatabaseCommand extends Command
 
     private function seedDatabase(bool $dryRun, bool $inclPii, bool $piiOnly): int
     {
-        $this->info('Seed Local Database' . ($dryRun ? ' (dry run)' : '') . ' — Dispatching sync jobs to queue');
+        $this->info('Sync From Prod' . ($dryRun ? ' (dry run)' : '') . ' — Dispatching sync jobs to queue');
         $this->newLine();
 
         $dispatched = 0;

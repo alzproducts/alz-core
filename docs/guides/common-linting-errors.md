@@ -26,6 +26,10 @@ This is intentional PHPStan v2 behavior. See [PHPStan Issue #12153](https://gith
 **References:**
 - [PHPStan Ignoring Errors](https://phpstan.org/user-guide/ignoring-errors)
 
+### Symplify Naming Rules Cover `database/`
+
+Seeders and factories are analysed too: an interface lives in a `Contracts` namespace with an `Interface` suffix, and an abstract class takes an `Abstract` prefix.
+
 ---
 
 ## shipmonk.checkedExceptionInCallable

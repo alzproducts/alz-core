@@ -54,4 +54,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Synthetic Products Seed
+    |--------------------------------------------------------------------------
+    |
+    | Read by ProductSliceSeeder. `dev:seed-fake` overrides the whole key per
+    | run; the defaults keep a direct `db:seed` from truncating anything.
+    |
+    */
+
+    'seed' => [
+        'faker_seed' => env('SEED_FAKER_SEED'),
+        'fresh' => false,
+        'dry_run' => false,
+    ],
+
 ];

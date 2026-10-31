@@ -145,14 +145,15 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 
 ### Quick Reference
 ```bash
-make db-reset-full                # Full DB reset (Supabase + Laravel migrations) — see database/AGENTS.md
+make db-reset-full                # Full DB reset (Supabase + migrations + synthetic seed via dev:seed-fake) — see database/AGENTS.md
+make db-reset-full-pii            # Opt-in: reset + prod data via dev:sync-from-prod --incl-pii
 make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations
 php artisan octane:start --watch  # Dev server with hot reload
 make test-quick                   # Run unit tests (~5s, no external deps)
 make test                         # Run all tests except integration (matches CI)
-make test-integration             # Integration tests (needs local Supabase with synced data)
+make test-integration             # Integration tests (needs local Supabase seeded by make db-reset-full)
 make lint                         # Run linters
 ```
 
@@ -309,6 +310,8 @@ make deptrac      # Run Deptrac layer dependency analysis
 make check        # Full validation: lint-full + tests
 make test-ai      # Validate AI-generated tests (test + pest mutate)
 ```
+
+- **Concurrent worktrees → `make lint-sequential`.** `make lint` writes to a shared `/tmp/alz-lint`, so parallel runs from two worktrees clobber each other's output.
 
 ### Pint Style Fixes
 
