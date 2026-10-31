@@ -240,7 +240,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run test suite offline
-        run: docker run --rm --network none alz-core-dev make test
+        # intentional: the image excludes .git, so the git-listing static tests would fail closed
+        run: docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
 
   # Psalm Taint Analysis (60-90 seconds)
   taint-analysis:

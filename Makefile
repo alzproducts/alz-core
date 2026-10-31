@@ -241,7 +241,7 @@ refactor: ## Run Rector + Pint combo
 # Testing (layer-based, see tests/TestingStrategy.md)
 test: ## Run Pest test suite (all layers, excludes integration and real-Slack tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=slack --no-coverage
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=slack --no-coverage $(TEST_ARGS)
 
 test-integration: ## Run integration tests only (needs local Supabase DB with synced data; excludes real-Slack tests)
 	@echo "$(MODE)"
