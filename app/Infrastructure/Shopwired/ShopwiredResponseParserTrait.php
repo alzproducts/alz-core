@@ -132,11 +132,22 @@ trait ShopwiredResponseParserTrait
      */
     private static function parseArrayToDomain(mixed $data, string $dtoClass): array
     {
-        $dtos = self::parseArrayResponse($data, $dtoClass);
+        return self::convertToDomain(self::parseArrayResponse($data, $dtoClass));
+    }
 
+    /**
+     * Convert already-parsed DTOs to Domain objects.
+     *
+     * @template T of Data&DomainConvertibleInterface
+     *
+     * @param iterable<T> $dtos
+     *
+     * @return list<object>
+     */
+    private static function convertToDomain(iterable $dtos): array
+    {
         $result = [];
         foreach ($dtos as $dto) {
-            /** @var T $dto */
             $result[] = $dto->toDomain();
         }
 

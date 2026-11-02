@@ -14,12 +14,14 @@ use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\OrderSort;
 use App\Infrastructure\Shopwired\OrderQueryParams;
+use App\Infrastructure\Shopwired\Responses\OrderProductResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use App\Infrastructure\Shopwired\ShopwiredPaginator;
 use App\Infrastructure\Shopwired\ShopwiredQueryParams;
 use App\Infrastructure\Shopwired\ShopwiredResponseParserTrait;
 use DateTimeImmutable;
 use Generator;
+use Illuminate\Support\Facades\Log;
 
 /**
  * ShopWired Orders API Client.
@@ -173,8 +175,44 @@ final readonly class OrderClient implements OrderClientInterface
             $params->toArray(),
         );
 
+        $importable = [];
+        foreach (self::parseArrayResponse($response->json(), OrderResponse::class) as $order) {
+            if (self::hasOnlyValidProductLines($order)) {
+                $importable[] = $order;
+            }
+        }
+
         /** @var list<DomainOrder> */
-        return self::parseArrayToDomain($response->json(), OrderResponse::class);
+        return self::convertToDomain($importable);
+    }
+
+    /**
+     * One line with a non-positive product ID would fail the OrderProduct invariant and abort the whole page,
+     * so the order is skipped whole rather than stored without that line.
+     */
+    private static function hasOnlyValidProductLines(OrderResponse $order): bool
+    {
+        $invalidLines = \array_values(\array_filter(
+            $order->products ?? [],
+            static fn(OrderProductResponse $line): bool => $line->id <= 0,
+        ));
+
+        if ($invalidLines === []) {
+            return true;
+        }
+
+        Log::warning('ShopWired order has a line with a non-positive product ID - order skipped', [
+            'order_id' => $order->id,
+            'order_reference' => $order->reference,
+            'invalid_lines' => \array_map(static fn(OrderProductResponse $line): array => [
+                'product_id' => $line->id,
+                'title' => $line->title,
+                'sku' => $line->sku,
+                'quantity' => $line->quantity,
+            ], $invalidLines),
+        ]);
+
+        return false;
     }
 
     /**

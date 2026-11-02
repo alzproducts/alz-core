@@ -8,7 +8,6 @@ use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
-use App\Infrastructure\Shopwired\Responses\OrderProductResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\Response;
@@ -21,7 +20,6 @@ use Tests\TestCase;
 
 #[CoversClass(OrderClient::class)]
 #[CoversClass(OrderResponse::class)]
-#[CoversClass(OrderProductResponse::class)]
 final class OrderClientTest extends TestCase
 {
     private ShopwiredTransportInterface&MockInterface $transport;
@@ -38,25 +36,28 @@ final class OrderClientTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_a_zero_product_id_line_and_keeps_every_order_on_the_page(): void
+    public function it_skips_an_order_with_a_zero_product_id_line_and_keeps_the_rest_of_the_page(): void
     {
         $this->givenPage([
             self::order(101, 5001, [self::line(11, 'SKU-A'), self::line(0, 'MANUAL', 'Manual line')]),
-            self::order(102, 5002, [self::line(12, 'SKU-B')]),
+            self::order(102, 5002, [self::line(12, 'SKU-B'), self::line(13, 'SKU-C')]),
         ]);
 
         $orders = $this->firstPage();
 
-        self::assertSame([101, 102], \array_map(static fn(Order $o): int => $o->id, $orders));
-        self::assertSame(['SKU-A'], self::skus($orders[0]));
-        self::assertSame(['SKU-B'], self::skus($orders[1]));
+        self::assertSame([102], \array_map(static fn(Order $o): int => $o->id, $orders));
+        self::assertSame(['SKU-B', 'SKU-C'], self::skus($orders[0]));
     }
 
     #[Test]
-    public function it_logs_one_warning_with_the_order_and_line_details_for_a_skipped_line(): void
+    public function it_logs_one_warning_with_the_order_and_every_invalid_line_for_a_skipped_order(): void
     {
         $this->givenPage([
-            self::order(101, 5001, [self::line(11, 'SKU-A'), self::line(0, 'MANUAL', 'Manual line', 3)]),
+            self::order(101, 5001, [
+                self::line(0, 'MANUAL', 'Manual line', 3),
+                self::line(11, 'SKU-A'),
+                self::line(-4, 'NEG', 'Negative line', 2),
+            ]),
         ]);
 
         $this->firstPage();
@@ -66,28 +67,26 @@ final class OrderClientTest extends TestCase
             [
                 'order_id' => 101,
                 'order_reference' => 5001,
-                'product_id' => 0,
-                'title' => 'Manual line',
-                'sku' => 'MANUAL',
-                'quantity' => 3,
+                'invalid_lines' => [
+                    ['product_id' => 0, 'title' => 'Manual line', 'sku' => 'MANUAL', 'quantity' => 3],
+                    ['product_id' => -4, 'title' => 'Negative line', 'sku' => 'NEG', 'quantity' => 2],
+                ],
             ],
         );
     }
 
     #[Test]
-    public function it_skips_and_logs_a_negative_product_id_line(): void
+    public function it_skips_an_order_with_a_negative_product_id_line(): void
     {
         $this->givenPage([
             self::order(101, 5001, [self::line(-4, 'NEG'), self::line(11, 'SKU-A')]),
+            self::order(102, 5002, [self::line(12, 'SKU-B')]),
         ]);
 
         $orders = $this->firstPage();
 
-        self::assertSame(['SKU-A'], self::skus($orders[0]));
-        Log::shouldHaveReceived('warning')->once()->with(
-            Mockery::type('string'),
-            Mockery::on(static fn(array $context): bool => $context['order_id'] === 101 && $context['product_id'] === -4),
-        );
+        self::assertSame([102], \array_map(static fn(Order $o): int => $o->id, $orders));
+        Log::shouldHaveReceived('warning')->once();
     }
 
     #[Test]

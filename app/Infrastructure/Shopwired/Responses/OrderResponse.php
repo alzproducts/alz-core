@@ -151,10 +151,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         $products = $this->products !== null
             ? \array_map(
                 fn(OrderProductResponse $p): OrderProduct => $p->toDomain($this->id),
-                \array_values(\array_filter(
-                    $this->products,
-                    fn(OrderProductResponse $p): bool => $p->hasValidProductId($this->id, $this->reference),
-                )),
+                $this->products,
             )
             : null;
 
