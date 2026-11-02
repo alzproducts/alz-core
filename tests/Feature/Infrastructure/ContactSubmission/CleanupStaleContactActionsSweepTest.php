@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Application\ContactSubmission;
+namespace Tests\Feature\Infrastructure\ContactSubmission;
 
 use App\Application\ContactSubmission\UseCases\CleanupStaleContactActionsUseCase;
 use App\Application\Contracts\ContactSubmission\ContactFormDispatcherInterface;
@@ -27,7 +27,7 @@ use Tests\TestCase;
  * whole transaction, so seeded timestamps are relative to it.
  */
 #[CoversClass(CleanupStaleContactActionsUseCase::class)]
-final class CleanupStaleContactActionsUseCaseTest extends TestCase
+final class CleanupStaleContactActionsSweepTest extends TestCase
 {
     use DatabaseTransactions;
 
