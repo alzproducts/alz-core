@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\ProductVariation;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
@@ -83,6 +84,27 @@ final class OrderProductResponse extends Data
             variation: \array_map(ProductVariation::fromArray(...), $this->variation),
             customFields: $this->customFields,
         );
+    }
+
+    /**
+     * One line with a non-positive ID would otherwise fail the OrderProduct invariant and abort the whole order page.
+     */
+    public function hasValidProductId(int $orderExternalId, int $orderReference): bool
+    {
+        if ($this->id > 0) {
+            return true;
+        }
+
+        Log::warning('ShopWired order line has a non-positive product ID - skipped', [
+            'order_id' => $orderExternalId,
+            'order_reference' => $orderReference,
+            'product_id' => $this->id,
+            'title' => $this->title,
+            'sku' => $this->sku,
+            'quantity' => $this->quantity,
+        ]);
+
+        return false;
     }
 
     /**

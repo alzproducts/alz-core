@@ -15,7 +15,6 @@ use App\Infrastructure\Contracts\DomainConvertibleInterface;
 use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use DateMalformedStringException;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Data;
@@ -152,7 +151,10 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
         $products = $this->products !== null
             ? \array_map(
                 fn(OrderProductResponse $p): OrderProduct => $p->toDomain($this->id),
-                $this->productsWithValidProductId($this->products),
+                \array_values(\array_filter(
+                    $this->products,
+                    fn(OrderProductResponse $p): bool => $p->hasValidProductId($this->id, $this->reference),
+                )),
             )
             : null;
 
@@ -198,38 +200,6 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             customFields: $this->customFields,
             customerReferenceNumber: Order::extractCustomerReferenceNumber($this->comments ?? ''),
         );
-    }
-
-    /**
-     * Drop lines ShopWired returns with a non-positive product ID, logging each one.
-     *
-     * One such line would otherwise fail the OrderProduct invariant and abort the whole order page.
-     *
-     * @param list<OrderProductResponse> $products
-     *
-     * @return list<OrderProductResponse>
-     */
-    private function productsWithValidProductId(array $products): array
-    {
-        $valid = [];
-        foreach ($products as $product) {
-            if ($product->id > 0) {
-                $valid[] = $product;
-
-                continue;
-            }
-
-            Log::warning('ShopWired order line has a non-positive product ID - skipped', [
-                'order_id' => $this->id,
-                'order_reference' => $this->reference,
-                'product_id' => $product->id,
-                'title' => $product->title,
-                'sku' => $product->sku,
-                'quantity' => $product->quantity,
-            ]);
-        }
-
-        return $valid;
     }
 
     /**

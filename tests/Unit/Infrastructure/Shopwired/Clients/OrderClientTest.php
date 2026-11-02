@@ -8,6 +8,7 @@ use App\Domain\Catalog\Order\ValueObjects\Order;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Infrastructure\Shopwired\Clients\OrderClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
+use App\Infrastructure\Shopwired\Responses\OrderProductResponse;
 use App\Infrastructure\Shopwired\Responses\OrderResponse;
 use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\Response;
@@ -20,6 +21,7 @@ use Tests\TestCase;
 
 #[CoversClass(OrderClient::class)]
 #[CoversClass(OrderResponse::class)]
+#[CoversClass(OrderProductResponse::class)]
 final class OrderClientTest extends TestCase
 {
     private ShopwiredTransportInterface&MockInterface $transport;
