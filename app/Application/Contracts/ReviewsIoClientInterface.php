@@ -8,6 +8,7 @@ use App\Domain\Catalog\Product\ValueObjects\ProductRating;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Contract for Reviews.io API client.
@@ -35,6 +36,13 @@ interface ReviewsIoClientInterface
      * @throws InvalidArgumentException When provided SKUs are invalid
      */
     public function getProductRatingBatch(array|string $skus): array;
+
+    /**
+     * Whether getProductRatingBatch() would accept this SKU.
+     *
+     * @throws RuntimeException When the validator cannot be resolved
+     */
+    public function acceptsSku(string $sku): bool;
 
     /**
      * Verify API connectivity and authentication.

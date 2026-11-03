@@ -112,17 +112,17 @@ final readonly class EloquentVariationQueryRepository implements VariationQueryR
      */
     private static function applySorting(Builder $q, VariationListQueryParams $query): void
     {
-        if ($query->sortField === null) {
-            return;
+        if ($query->sortField !== null) {
+            $column = VariationSortFieldMapper::toColumn($query->sortField);
+            $direction = $query->sortDirection->value;
+
+            if ($query->sortField === VariationSortField::Popularity) {
+                $q->orderByRaw("{$column} {$direction} NULLS LAST");
+            } else {
+                $q->orderBy($column, $direction);
+            }
         }
 
-        $column = VariationSortFieldMapper::toColumn($query->sortField);
-        $direction = $query->sortDirection->value;
-
-        if ($query->sortField === VariationSortField::Popularity) {
-            $q->orderByRaw("{$column} {$direction} NULLS LAST");
-        } else {
-            $q->orderBy($column, $direction);
-        }
+        $q->orderBy('id');
     }
 }

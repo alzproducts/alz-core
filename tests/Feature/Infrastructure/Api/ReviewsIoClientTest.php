@@ -322,6 +322,28 @@ final class ReviewsIoClientTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('acceptsSkuProvider')]
+    public function it_reports_whether_sku_is_accepted(string $sku, bool $expected): void
+    {
+        $this->assertSame($expected, $this->client->acceptsSku($sku));
+    }
+
+    public static function acceptsSkuProvider(): array
+    {
+        return [
+            'plain sku' => ['FLP-01', true],
+            'all allowed special characters' => ['SKU-01_v2.0 (new)/final', true],
+            'exactly 100 characters' => [\str_repeat('Y', 100), true],
+            'ampersand' => ['R&D-01', false],
+            'plus sign' => ['ABC+10', false],
+            'hash' => ['PACK#2', false],
+            'apostrophe' => ["O'NEIL-1", false],
+            'empty string' => ['', false],
+            '101 characters' => [\str_repeat('X', 101), false],
+        ];
+    }
+
+    #[Test]
     public function it_throws_invalid_argument_exception_for_non_string_integer_sku(): void
     {
         // This tests the 'string' validation rule on 'skus.*'

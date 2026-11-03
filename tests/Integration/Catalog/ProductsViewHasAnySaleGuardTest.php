@@ -21,9 +21,9 @@ use Tests\TestCase;
  * Guard test: `catalog.products_view.has_any_sale` must equal "master SKU or any
  * variation SKU on sale", and sale-category drift detection must follow it.
  *
- * Runs against the synced catalog plus an inheritance-only fixture (variation with
- * no sale price of its own, on sale via its product's) inserted in a rolled-back
- * transaction.
+ * Runs against the seeded catalog (or opt-in synced prod data) plus an
+ * inheritance-only fixture (variation with no sale price of its own, on sale via
+ * its product's) inserted in a rolled-back transaction.
  */
 #[CoversNothing]
 #[Group('integration')]

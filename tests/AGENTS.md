@@ -69,7 +69,7 @@ When Pest Mutate reports escaped mutants:
 # Run tests
 make test-quick        # Domain tests only (~5s, no external deps)
 make test              # All tests except integration (matches CI)
-make test-integration  # Integration tests (needs local Supabase with synced data)
+make test-integration  # Integration tests (needs local Supabase seeded by make db-reset-full, i.e. dev:seed-fake; dev:sync-from-prod data also works)
 
 # Quick validation
 make test-ai           # Tests + Pest Mutate (85% threshold)
@@ -190,6 +190,12 @@ ignore:
 `ShouldBeUnique` jobs + `Queue::fake()`/`Bus::fake()` cause intermittent parallel failures. The dispatch assertion (`assertPushed`/`assertDispatched`) fails because of cache lock contention and `PendingDispatch::__destruct()` timing issues in parallel workers.
 
 Fix: use `Queue::fake()` to prevent real dispatch, but verify the happy path via Mockery expectations on the line **after** the dispatch call (e.g., a logger mock). This proves the code path completed without relying on flaky facade assertions.
+
+---
+
+## Tests that read git need `#[Group('repo-static')]`
+
+The dev-image CI job has no `.git` and excludes the `repo-static` group; a test that lists files through git (`git ls-files`) without the group fails there.
 
 ---
 
