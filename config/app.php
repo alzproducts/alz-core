@@ -2,6 +2,19 @@
 
 declare(strict_types=1);
 
+use App\Domain\Exceptions\InvalidConfigurationException;
+
+// intentional: no default — an unset APP_ENV must fail the boot, never fall back to production.
+$appEnv = env('APP_ENV');
+
+if (! is_string($appEnv) || $appEnv === '') {
+    throw new InvalidConfigurationException(
+        'APP_ENV',
+        'APP_ENV is not set; the app has no fallback environment.',
+        'APP_ENV is not set; set it to local, testing or production',
+    );
+}
+
 return [
 
     /*
@@ -28,7 +41,7 @@ return [
     |
     */
 
-    'env' => env('APP_ENV', 'production'),
+    'env' => $appEnv,
 
     /*
     |--------------------------------------------------------------------------

@@ -38,10 +38,6 @@ This runs a preflight and two steps in sequence:
 
 > Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema; step 2 creates the business tables (linnworks, shopwired, etc.) and fills the products slice.
 
-### Production data (opt-in)
-
-`make db-reset-full-pii` resets the same way but runs `php artisan dev:sync-from-prod --incl-pii` instead of the seed, pulling production data through the sync jobs. `dev:sync-from-prod` only upserts — run it after that reset, never on top of the seed.
-
 ### What Gets Wiped
 
 `make db-reset-full` destroys **all local data**: the seeded products slice, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and re-seeds the synthetic slice.

@@ -8,6 +8,17 @@ use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
 
+// intentional: config loads before providers, so this reads the env directly instead of LiveIntegrationGate.
+$slackLogLive = env('APP_ENV') === 'production'
+    || filter_var(env('SLACK_LIVE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true;
+
+$singleFileChannel = [
+    'driver' => 'single',
+    'path' => storage_path('logs/laravel.log'),
+    'level' => env('LOG_LEVEL', 'debug'),
+    'replace_placeholders' => true,
+];
+
 return [
 
     /*
@@ -61,12 +72,7 @@ return [
             'ignore_exceptions' => true,
         ],
 
-        'single' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
-        ],
+        'single' => $singleFileChannel,
 
         'daily' => [
             'driver' => 'daily',
@@ -76,14 +82,14 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'slack' => [
+        'slack' => $slackLogLive ? [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
             'username' => env('LOG_SLACK_USERNAME', 'Laravel Log'),
             'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
             'level' => env('LOG_SLACK_LEVEL', 'error'),
             'replace_placeholders' => true,
-        ],
+        ] : $singleFileChannel,
 
         'papertrail' => [
             'driver' => 'monolog',

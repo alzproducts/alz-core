@@ -38,8 +38,8 @@ log_error() {
 log_info "Starting Laravel Octane entrypoint script..."
 
 if [ -z "$APP_ENV" ]; then
-    log_warning "APP_ENV not set, defaulting to 'production'"
-    export APP_ENV=production
+    log_error "APP_ENV is not set; refusing to start (the app has no fallback environment)"
+    exit 1
 fi
 
 log_info "Environment: $APP_ENV"

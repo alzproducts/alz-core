@@ -16,8 +16,6 @@ trait SendsRoleTokens
 
     private const string ROLE_TOKEN_KID = 'role-test-kid';
 
-    private const string ROLE_TOKEN_JWKS_URL = 'https://test.supabase.co/auth/v1/.well-known/jwks.json';
-
     private string $roleTokenPrivatePem = '';
 
     protected function fakeSupabaseJwks(): void
@@ -25,7 +23,9 @@ trait SendsRoleTokens
         $keyPair = $this->generateSupabaseKeyPair(self::ROLE_TOKEN_KID);
         $this->roleTokenPrivatePem = $keyPair['private_pem'];
 
-        Http::fake([self::ROLE_TOKEN_JWKS_URL => Http::response($this->supabaseJwksBody($keyPair['jwk']))]);
+        Http::fake([
+            $this->supabaseIssuer() . '/.well-known/jwks.json' => Http::response($this->supabaseJwksBody($keyPair['jwk'])),
+        ]);
     }
 
     /**

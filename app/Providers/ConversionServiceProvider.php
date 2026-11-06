@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Infrastructure\BingAds\BingAdsConversionAdapter;
 use App\Infrastructure\Conversion\Dispatchers\QueuedConversionDispatcher;
+use App\Infrastructure\Conversion\Fakes\RecordingAdPlatformConversionAdapter;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionAdapter;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
+use App\Infrastructure\Integrations\OutboundCallRecorder;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -55,10 +60,23 @@ final class ConversionServiceProvider extends ServiceProvider implements Deferra
     {
         $this->app->singleton(
             AdPlatformAdapterResolverService::class,
-            static fn(Container $app): AdPlatformAdapterResolverService => new AdPlatformAdapterResolverService([
-                $app->make(GoogleAdsConversionAdapter::class),
-                $app->make(BingAdsConversionAdapter::class),
-            ]),
+            static function (Container $app): AdPlatformAdapterResolverService {
+                $gate = $app->make(LiveIntegrationGate::class);
+
+                return new AdPlatformAdapterResolverService([
+                    $gate->isLive(LiveIntegration::GoogleAds)
+                        ? $app->make(GoogleAdsConversionAdapter::class)
+                        : self::recordingAdapter($app, AdPlatform::Google),
+                    $gate->isLive(LiveIntegration::BingAds)
+                        ? $app->make(BingAdsConversionAdapter::class)
+                        : self::recordingAdapter($app, AdPlatform::Bing),
+                ]);
+            },
         );
+    }
+
+    private static function recordingAdapter(Container $app, AdPlatform $platform): RecordingAdPlatformConversionAdapter
+    {
+        return new RecordingAdPlatformConversionAdapter($platform, $app->make(OutboundCallRecorder::class));
     }
 }

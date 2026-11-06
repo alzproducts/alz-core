@@ -18,6 +18,8 @@ code:
   - 'deptrac.yaml'
   - 'phparkitect.php'
   - '.github/workflows/**'
+  - '.env*'
+  - 'compose.yaml'
 
 # Offline dev image (Dockerfile.dev) — rebuild/retest only when its inputs change
 dev_image:

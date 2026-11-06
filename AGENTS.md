@@ -42,13 +42,10 @@ Tests do NOT run on stop — run the relevant Pest tests yourself before declari
 
 ---
 
-## Railway CLI
+## Production Access
 
-**⚠️ Production only — never use unless the user explicitly requests a production operation.**
-
-`railway ssh -s alz-core-worker <command>` runs commands on the **production** worker. Only use when the user specifically asks to run something in prod.
-
-Note: `railway run` is local-only with env vars, not remote execution.
+- Agents read production logs only through `~/.agents/bin/railway-logs` (AGN-196).
+- Every other production operation (commands, shells, deploys, variables, data) is human-only; agents have no Railway CLI or MCP access here (`.claude/settings.json` denies both).
 
 ---
 
@@ -66,7 +63,7 @@ Note: `railway run` is local-only with env vars, not remote execution.
 
 - **Anchor to existing patterns.** When a hurdle has more than one valid resolution (a lint failure with multiple fixes, an architectural fork, a naming/layer/pattern choice, a deviation from the plan's literal spec), prefer the one that conforms to an established sibling/adjacent pattern over inventing a new one. A fix that matches what neighbouring code already does is almost always right.
 - **Default to resolving, not blocking.** Pick the best-supported option and keep moving; record the decision and its rationale in the implementation log, and surface any **new or deviated architectural pattern or approach** in the PR description so it's reviewable at the gate (the PR diff is the review gate).
-- **Escalate genuine blockers** (use `AskUserQuestion`): irreversible/destructive actions, anything touching live/production data or external mutation (see Railway / Safety rules), or a true fork with no codebase precedent and no sensible default.
+- **Escalate genuine blockers** (use `AskUserQuestion`): irreversible/destructive actions, anything touching live/production data or external mutation (see Production Access / Safety rules), or a true fork with no codebase precedent and no sensible default.
 
 ## Tool Usage
 
@@ -146,7 +143,6 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 ### Quick Reference
 ```bash
 make db-reset-full                # Full DB reset (Supabase + migrations + synthetic seed via dev:seed-fake) — see database/AGENTS.md
-make db-reset-full-pii            # Opt-in: reset + prod data via dev:sync-from-prod --incl-pii
 make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations

@@ -83,8 +83,15 @@ _Avoid_: "seed tier", which suggests a size setting rather than a domain boundar
 The committed, aggregate-only description of production's shape (counts and structural distributions, no rows, prices or names) that a **seed slice** is generated from.
 _Avoid_: "prod snapshot", "prod export", which imply copied rows.
 
-**Prod sync (local)**:
-The opt-in path that fills a local database from the real ShopWired and Linnworks APIs; the synthetic **seed slice** is the default.
+### External integrations outside production
+
+**Live opt-in**:
+The off-by-default, per-integration switch that lets one external integration make real calls outside production.
+_Avoid_: "live mode", which suggests one switch for every integration.
+
+**Recording fake**:
+The stand-in an external integration uses outside production without its **live opt-in**, recording what it would have sent instead of sending it.
+_Avoid_: "mock", which suggests a test-only double; recording fakes also run in local, verify and e2e environments.
 
 ## Relationships
 
@@ -93,6 +100,8 @@ The opt-in path that fills a local database from the real ShopWired and Linnwork
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
 - A product belongs in the ShopWired sale category exactly when it **has any sale**
 - Each **seed slice** is generated from exactly one **seed profile**; a slice's tables are seeded together or not at all
+- **Seed slices** are the only source of local data; nothing fills a local database from production or the live vendor APIs (the former "prod sync (local)" is gone)
+- Outside production, each external integration uses its **recording fake** unless its **live opt-in** is set; production always uses the real integration
 - A **tracking number** belongs to exactly one **number pool**
 - A **tracking number** is shown to at most one visitor within the **attribution window**
 - A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission

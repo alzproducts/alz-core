@@ -7,9 +7,5 @@
 # for both harnesses is .claude/settings.local.json — resolve it per the Settings
 # Vars convention in ~/.agents/GLOBAL.md.
 
-[mcp_servers.railway]
-command = "railway"
-args = ["mcp"]
-
 [shell_environment_policy]
 inherit = "core"

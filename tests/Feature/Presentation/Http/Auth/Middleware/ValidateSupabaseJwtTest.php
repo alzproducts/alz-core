@@ -26,8 +26,6 @@ final class ValidateSupabaseJwtTest extends TestCase
 
     private const string ROUTE = '/api/_test/protected-route';
 
-    private const string JWKS_URL = 'https://test.supabase.co/auth/v1/.well-known/jwks.json';
-
     private const string KID = 'current-kid';
 
     private const string BYPASS_SECRET = 'local-bypass-secret';
@@ -62,7 +60,8 @@ final class ValidateSupabaseJwtTest extends TestCase
         })->middleware(ValidateSupabaseJwtMiddleware::class);
 
         $this->keyPair = $this->generateSupabaseKeyPair(self::KID);
-        Http::fake([self::JWKS_URL => fn() => $this->jwksAvailable
+        $jwksUrl = \config()->string('services.supabase.url') . '/auth/v1/.well-known/jwks.json';
+        Http::fake([$jwksUrl => fn() => $this->jwksAvailable
             ? Http::response($this->supabaseJwksBody($this->keyPair['jwk']))
             : Http::response('upstream error', 500)]);
     }

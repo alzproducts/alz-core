@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// intentional: config loads before providers, so this reads the env directly instead of LiveIntegrationGate.
+$remoteStorageLive = env('APP_ENV') === 'production'
+    || filter_var(env('REMOTE_STORAGE_LIVE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true;
+
 return [
 
     /*
@@ -27,7 +31,7 @@ return [
     |
     */
 
-    'remote' => env('REMOTE_STORAGE_DISK', 's3'),
+    'remote' => $remoteStorageLive ? env('REMOTE_STORAGE_DISK', 's3') : 'local',
 
     /*
     |--------------------------------------------------------------------------

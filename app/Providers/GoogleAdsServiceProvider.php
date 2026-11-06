@@ -9,10 +9,14 @@ use App\Application\Contracts\Conversion\GoogleAdsConversionProbeInterface;
 use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
+use App\Infrastructure\GoogleAds\Fakes\FailClosedGoogleAdsClient;
+use App\Infrastructure\GoogleAds\Fakes\FailClosedGoogleAdsConversionProbe;
 use App\Infrastructure\GoogleAds\GoogleAdsClientFactory;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionAdapter;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionClient;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionService;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Jobs\Mixpanel\SyncCampaignLookupTableJob;
 use App\Infrastructure\Jobs\Mixpanel\SyncGoogleAdsToMixpanelJob;
 use App\Infrastructure\Mixpanel\LookupTables\CampaignLookupTableProvider;
@@ -59,7 +63,9 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             GoogleAdsClientInterface::class,
-            static fn(Container $app): GoogleAdsClientInterface => GoogleAdsClientFactory::create($app->make(TransientLogThrottle::class)),
+            static fn(Container $app): GoogleAdsClientInterface => self::isLive($app)
+                ? GoogleAdsClientFactory::create($app->make(TransientLogThrottle::class))
+                : $app->make(FailClosedGoogleAdsClient::class),
         );
     }
 
@@ -84,8 +90,15 @@ final class GoogleAdsServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             GoogleAdsConversionProbeInterface::class,
-            static fn(Container $app): GoogleAdsConversionProbeInterface => GoogleAdsClientFactory::createConversionProbe($app->make(TransientLogThrottle::class)),
+            static fn(Container $app): GoogleAdsConversionProbeInterface => self::isLive($app)
+                ? GoogleAdsClientFactory::createConversionProbe($app->make(TransientLogThrottle::class))
+                : $app->make(FailClosedGoogleAdsConversionProbe::class),
         );
+    }
+
+    private static function isLive(Container $app): bool
+    {
+        return $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::GoogleAds);
     }
 
     private function registerConversionAdapter(): void
