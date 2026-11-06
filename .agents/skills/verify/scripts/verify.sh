@@ -11,7 +11,8 @@ PLACEHOLDER='verify-placeholder-not-a-credential'
 FORBIDDEN_PORTS='54322 5432 6379 8000 8001'
 
 # Every credential key an env() call under config/ reads: KEY:mode:config.path[,config.path]
-# mode: blank (exported empty) | placeholder (non-working value) | run (run-random or run-derived)
+# mode: blank (exported empty) | blank-or-absent (exported empty; the config path may also be absent)
+#       | placeholder (non-working value) | run (run-random or run-derived)
 CREDENTIAL_KEYS=(
     'SHOPWIRED_API_KEY:blank:shopwired.api_key'
     'SHOPWIRED_API_SECRET:blank:shopwired.api_secret'
@@ -31,7 +32,7 @@ CREDENTIAL_KEYS=(
     'MIXPANEL_SERVICE_ACCOUNT_PASSWORD:blank:mixpanel.service_account_password'
     'ANALYTICS_SALT:blank:mixpanel.analytics_salt'
     'SLACK_BOT_USER_OAUTH_TOKEN:blank:services.slack.notifications.bot_user_oauth_token'
-    'LOG_SLACK_WEBHOOK_URL:blank:logging.channels.slack.url'
+    'LOG_SLACK_WEBHOOK_URL:blank-or-absent:logging.channels.slack.url'
     'AWS_ACCESS_KEY_ID:blank:services.ses.key,filesystems.disks.s3.key'
     'AWS_SECRET_ACCESS_KEY:blank:services.ses.secret,filesystems.disks.s3.secret'
     'MAIL_URL:blank:mail.mailers.smtp.url'
@@ -275,7 +276,7 @@ build_run_env() {
         mode="${entry#*:}"
         mode="${mode%%:*}"
         case "$mode" in
-            blank) set_env "$key" '' ;;
+            blank | blank-or-absent) set_env "$key" '' ;;
             placeholder) set_env "$key" "$PLACEHOLDER" ;;
             run)
                 case "$key" in
@@ -355,6 +356,7 @@ credential_check() {
             sha="$(printf '%s\n' "$json" | jq -r --arg k "$path" '.[$k].sha // ""')"
             case "$mode" in
                 blank) [ "$kind" = null ] || [ "$kind" = empty ] ;;
+                blank-or-absent) [ "$kind" = null ] || [ "$kind" = empty ] || [ "$kind" = missing ] ;;
                 placeholder) [ "$kind" = value ] && [ "$sha" = "$(sha256 "$PLACEHOLDER")" ] ;;
                 run) want="$(env_value "$key")" && [ "$kind" = value ] && [ "$sha" = "$(sha256 "$want")" ] ;;
             esac && echo "credential ok $key $path ($mode)" ||
