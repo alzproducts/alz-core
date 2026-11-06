@@ -146,7 +146,6 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 ### Quick Reference
 ```bash
 make db-reset-full                # Full DB reset (Supabase + migrations + synthetic seed via dev:seed-fake) — see database/AGENTS.md
-make db-reset-full-pii            # Opt-in: reset + prod data via dev:sync-from-prod --incl-pii
 make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
 php artisan migrate               # Run migrations

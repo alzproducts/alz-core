@@ -121,7 +121,7 @@ final class CustomFieldFactory
                 throw new MissingRequiredDataException(
                     dataType: 'custom field definitions',
                     operation: "CustomFieldFactory ({$this->itemType->value})",
-                    resolution: 'Run php artisan dev:seed-fake (synthetic) or dev:sync-from-prod (opt-in prod sync)',
+                    resolution: 'Run php artisan dev:seed-fake',
                 );
             }
 
