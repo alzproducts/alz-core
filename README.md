@@ -225,11 +225,11 @@ Every change gets its own Linear issue, branch, and pull request, and larger wor
 
 ### Local database
 
-Local data is synthetic by default: `make db-reset-full` resets Supabase, runs the migrations and seeds a production-shaped products slice with `php artisan dev:seed-fake` (no sync jobs, no external calls).
+Local data is synthetic: `make db-reset-full` resets Supabase, runs the migrations and seeds a production-shaped products slice with `php artisan dev:seed-fake` (no sync jobs, no external calls).
 
-- **Production data is opt-in:** `make db-reset-full-pii` resets and pulls production data with `php artisan dev:sync-from-prod --incl-pii` instead of the seed.
 - **Existing machines:** set `SHOPWIRED_SALE_CATEGORY_ID=2000000001` in `.env` (the seed only accepts IDs in its reserved range, see `.env.example`), then run `make db-reset-full` once after this change lands, to drop previously synced production data.
-- **Do not run `php artisan schedule:work` or a queue worker against the seed** while ShopWired or Linnworks credentials are set: scheduled syncs would write production data over the synthetic slice, and pushes could send seed data to the live services.
+- **Queue workers and the scheduler reach no live service outside production:** unless an integration's `*_LIVE` opt-in in `config/integrations.php` is true, HelpScout, Slack and the Google Ads and Bing conversion uploads bind recording fakes that log each call, and every other integration (ShopWired, Linnworks, Mixpanel and the rest) fails closed with an error naming its opt-in, so scheduled syncs and pushes fail instead of calling the vendor.
+- **Do not set an opt-in while a worker or `php artisan schedule:work` runs against the seed:** that integration's syncs would write production data over the synthetic slice, and its pushes could send seed data to the live service.
 
 ### Division of labour with AI
 

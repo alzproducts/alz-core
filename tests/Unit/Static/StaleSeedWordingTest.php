@@ -12,7 +12,7 @@ use Tests\Unit\Static\Support\StaleSeedWordingCheck;
 use Tests\Unit\Static\Support\TrackedFiles;
 
 /**
- * The prod-sync command's rename to dev:sync-from-prod left no stale command name or "synced data" wording (AC12).
+ * No stale seed command name or "synced data" wording remains (AC12), and no doc names the deleted prod-sync command.
  */
 #[CoversNothing]
 #[Group('repo-static')]
@@ -35,7 +35,7 @@ final class StaleSeedWordingTest extends TestCase
             'app/PlantedCommand.php' => 'php artisan ' . StaleSeedWordingCheck::RETIRED_COMMAND,
             '.ai/notes.md' => StaleSeedWordingCheck::RETIRED_COMMAND,
             'tests/AGENTS.md' => $reader($path) . "\nneeds local Supabase with synced data",
-            'README.md' => \str_replace('dev:sync-from-prod', 'the prod sync', $reader($path)),
+            'README.md' => $reader($path) . "\nphp artisan " . StaleSeedWordingCheck::DELETED_COMMAND,
             default => $reader($path),
         };
         $paths = [...TrackedFiles::list($root), 'app/PlantedCommand.php', '.ai/notes.md'];
@@ -43,8 +43,8 @@ final class StaleSeedWordingTest extends TestCase
         $this->assertSame(
             [
                 'retired command named in: app/PlantedCommand.php',
+                'stale phrase in README.md: ' . StaleSeedWordingCheck::DELETED_COMMAND,
                 'stale phrase in tests/AGENTS.md: needs local Supabase with synced data',
-                'doc file README.md does not mention: dev:sync-from-prod',
             ],
             StaleSeedWordingCheck::violations($paths, $planted),
         );
