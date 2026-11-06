@@ -117,7 +117,7 @@ C4Component
     Container_Boundary(presentation, "Presentation Layer") {
         Component(controllers, "Controllers", "HTTP entry points", "Webhooks, authenticated APIs, contact form, feeds, ops")
         Component(commands, "Console Commands", "CLI entry points", "Admin tasks, manual triggers")
-        Component(middleware, "Middleware", "Request pipeline", "JWT validation, HMAC verification, rate limiting")
+        Component(middleware, "Middleware", "Request pipeline", "JWT validation, approval and role-tier checks (EnsureRoleTierMiddleware), HMAC verification, rate limiting")
     }
 
     Container_Boundary(application, "Application Layer") {
