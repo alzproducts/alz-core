@@ -8,7 +8,11 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 $appEnv = env('APP_ENV');
 
 if (! is_string($appEnv) || $appEnv === '') {
-    throw new InvalidConfigurationException('APP_ENV', 'APP_ENV is not set; the app has no fallback environment.');
+    throw new InvalidConfigurationException(
+        'APP_ENV',
+        'APP_ENV is not set; the app has no fallback environment.',
+        'APP_ENV is not set; set it to local, testing or production',
+    );
 }
 
 return [

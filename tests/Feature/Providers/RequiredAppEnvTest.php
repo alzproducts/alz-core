@@ -18,6 +18,8 @@ final class RequiredAppEnvTest extends TestCase
 {
     use LoadsConfigUnderEnv;
 
+    private const string APP_ENV_MESSAGE = 'APP_ENV is not set; set it to local, testing or production';
+
     /**
      * @return iterable<string, array{array<string, string>}>
      */
@@ -38,6 +40,7 @@ final class RequiredAppEnvTest extends TestCase
             self::loadConfigUnder('app.php', ['APP_ENV'], $env);
         } catch (InvalidConfigurationException $e) {
             $this->assertSame('APP_ENV', $e->configKey);
+            $this->assertSame(self::APP_ENV_MESSAGE, $e->getMessage());
 
             return;
         }
@@ -58,11 +61,24 @@ final class RequiredAppEnvTest extends TestCase
      * intentional: an empty APP_ENV in the child's real environment shadows the .env value (Dotenv is immutable),
      * so this stays hermetic; an unset one would read .env, so the unset case is covered by the require above.
      */
+    /**
+     * @return iterable<string, array{list<string>}>
+     */
+    public static function artisanCommands(): iterable
+    {
+        yield 'boot' => [['--version']];
+        yield 'config:cache' => [['config:cache']];
+    }
+
+    /**
+     * @param list<string> $arguments
+     */
     #[Test]
-    public function config_cache_fails_on_an_empty_app_env_without_writing_a_cache(): void
+    #[DataProvider('artisanCommands')]
+    public function artisan_fails_on_an_empty_app_env_naming_app_env_without_writing_a_cache(array $arguments): void
     {
         $cachePath = \sys_get_temp_dir() . '/cor261-config-cache-' . \bin2hex(\random_bytes(4)) . '.php';
-        $process = new Process([\PHP_BINARY, \base_path('artisan'), 'config:cache'], \base_path(), [
+        $process = new Process([\PHP_BINARY, \base_path('artisan'), ...$arguments], \base_path(), [
             'APP_ENV' => '',
             'APP_CONFIG_CACHE' => $cachePath,
         ]);
@@ -74,7 +90,7 @@ final class RequiredAppEnvTest extends TestCase
 
             $this->assertFalse($process->isSuccessful());
             $this->assertStringContainsString('In app.php line', $output);
-            $this->assertStringContainsString('Required configuration is missing or invalid', $output);
+            $this->assertStringContainsString(self::APP_ENV_MESSAGE, $output);
             $this->assertFileDoesNotExist($cachePath);
         } finally {
             if (\is_file($cachePath)) {

@@ -25,12 +25,16 @@ final class InvalidConfigurationException extends LogicException
 {
     public readonly string $detail;
 
+    /**
+     * @param string $summary the console-visible message; pass only a literal, never interpolated data (Sentry grouping)
+     */
     public function __construct(
         public readonly string $configKey,
         string $message = '',
+        string $summary = 'Required configuration is missing or invalid',
     ) {
         $this->detail = $message;
-        parent::__construct('Required configuration is missing or invalid');
+        parent::__construct($summary);
     }
 
     /**
