@@ -26,6 +26,6 @@ enum LiveIntegration: string
 
     public function optInSetting(): string
     {
-        return \strtoupper($this->value) . '_LIVE';
+        return \mb_strtoupper($this->value) . '_LIVE';
     }
 }

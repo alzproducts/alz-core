@@ -20,7 +20,7 @@ final readonly class RecordingChatNotification implements ChatNotificationInterf
 
     public function sendAlert(AlertAudience $audience, AlertNotificationDataDTO $data): void
     {
-        $this->recorder->record(LiveIntegration::Slack, 'sendAlert', ['audience' => $audience->value]);
+        $this->recorder->record(LiveIntegration::Slack, 'sendAlert', ['audience' => $audience->name]);
     }
 
     public function sendPriceUpdateAlert(PriceUpdateAlertDataDTO $data): void

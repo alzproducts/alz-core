@@ -9,6 +9,7 @@ use App\Application\HelpScout\Commands\CreateCustomerConversationCommand;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Integrations\LiveIntegration;
 use App\Infrastructure\Integrations\OutboundCallRecorder;
+use Random\RandomException;
 
 final readonly class RecordingConversationWriteClient implements ConversationWriteClientInterface
 {
@@ -16,7 +17,11 @@ final readonly class RecordingConversationWriteClient implements ConversationWri
 
     public function createConversationFromCustomer(CreateCustomerConversationCommand $command): int
     {
-        $conversationId = \random_int(100_000_000, 999_999_999);
+        try {
+            $conversationId = \random_int(100_000_000, 999_999_999);
+        } catch (RandomException) {
+            $conversationId = 100_000_000;
+        }
 
         $this->recorder->record(LiveIntegration::HelpScout, 'createConversationFromCustomer', [
             'mailbox' => $command->mailbox->name,

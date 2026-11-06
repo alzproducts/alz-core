@@ -8,11 +8,11 @@ declare(strict_types=1);
  * intentional: FILTER_NULL_ON_FAILURE keeps an unparseable value null so the gate
  * fails closed on it; a (bool) cast would read any non-empty string as true.
  */
-$flag = static fn(string $name): ?bool => \filter_var(\env($name, false), \FILTER_VALIDATE_BOOL, \FILTER_NULL_ON_FAILURE);
+$flag = static fn(string $name): ?bool => filter_var(env($name, false), \FILTER_VALIDATE_BOOL, \FILTER_NULL_ON_FAILURE);
 
-$extraHosts = \array_values(\array_filter(\array_map(
+$extraHosts = array_values(array_filter(array_map(
     \trim(...),
-    \explode(',', (string) \env('LOCAL_ALLOWED_HOSTS', '')),
+    explode(',', (string) env('LOCAL_ALLOWED_HOSTS', '')),
 ), static fn(string $host): bool => $host !== ''));
 
 return [

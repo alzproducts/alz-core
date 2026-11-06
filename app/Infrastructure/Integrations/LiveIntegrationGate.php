@@ -13,7 +13,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 final readonly class LiveIntegrationGate
 {
     /**
-     * @param array<string, mixed> $optIns `integrations.live`: true, false, or null for an unparseable value
+     * @param array<mixed> $optIns `integrations.live`: true, false, or null for an unparseable value
      */
     public function __construct(
         private string $environment,

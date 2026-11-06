@@ -45,7 +45,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             LiveIntegrationGate::class,
             static fn(Application $app): LiveIntegrationGate => new LiveIntegrationGate(
-                (string) $app->environment(),
+                $app->environment(),
                 Config::array('integrations.live'),
             ),
         );

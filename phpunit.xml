@@ -20,6 +20,7 @@
         <testsuite name="Infrastructure">
             <directory>tests/Unit/Infrastructure</directory>
             <directory>tests/Feature/Infrastructure</directory>
+            <directory>tests/Feature/Integrations</directory>
         </testsuite>
         <testsuite name="Presentation">
             <directory>tests/Feature/Presentation</directory>

@@ -57,13 +57,14 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     #[Override]
     public function register(): void
     {
-        $this->registerClients();
+        $this->registerConversationClients();
+        $this->registerAccountClients();
         $this->registerContactConversationLookup();
         $this->registerSystemUserId();
         $this->registerUseCases();
     }
 
-    private function registerClients(): void
+    private function registerConversationClients(): void
     {
         $this->app->singleton(
             ConversationsClientInterface::class,
@@ -77,6 +78,10 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
                 ? HelpScoutClientFactory::createMailboxesClient($app->make(TransientLogThrottle::class))
                 : $app->make(RecordingMailboxesClient::class),
         );
+    }
+
+    private function registerAccountClients(): void
+    {
         $this->app->singleton(
             AgentsClientInterface::class,
             static fn(Application $app): AgentsClientInterface => self::isLive($app)
@@ -110,23 +115,24 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             HelpScoutSystemUserId::class,
-            static function (Application $app): HelpScoutSystemUserId {
-                if (! self::isLive($app)) {
-                    return new HelpScoutSystemUserId(IntId::from(self::PLACEHOLDER_SYSTEM_USER_ID));
-                }
-
-                $configValue = \config('helpscout.system_user_id');
-                $userId = \is_numeric($configValue) ? (int) $configValue : 0;
-
-                if ($userId <= 0) {
-                    throw new RuntimeException(
-                        'HELPSCOUT_SYSTEM_USER_ID not configured. Get ID from: Help Scout → Manage → Users → Click user → ID in URL',
-                    );
-                }
-
-                return new HelpScoutSystemUserId(IntId::from($userId));
-            },
+            static fn(Application $app): HelpScoutSystemUserId => self::isLive($app)
+                ? self::configuredSystemUserId()
+                : new HelpScoutSystemUserId(IntId::from(self::PLACEHOLDER_SYSTEM_USER_ID)),
         );
+    }
+
+    private static function configuredSystemUserId(): HelpScoutSystemUserId
+    {
+        $configValue = \config('helpscout.system_user_id');
+        $userId = \is_numeric($configValue) ? (int) $configValue : 0;
+
+        if ($userId <= 0) {
+            throw new RuntimeException(
+                'HELPSCOUT_SYSTEM_USER_ID not configured. Get ID from: Help Scout → Manage → Users → Click user → ID in URL',
+            );
+        }
+
+        return new HelpScoutSystemUserId(IntId::from($userId));
     }
 
     private function registerUseCases(): void
