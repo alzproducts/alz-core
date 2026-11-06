@@ -155,8 +155,8 @@ remove tests/Integration
 cut_block phpunit.xml '<!-- Integration tests ' '</testsuite>'
 subst Makefile 's/ test-integration / /'
 cut_block Makefile '^test-integration:' '^$'
-subst Makefile 's/ --exclude-group=integration --exclude-group=slack//'
-subst Makefile 's/ \(all layers, excludes integration and real-Slack tests; matches CI\)/ (all layers; matches CI)/'
+subst Makefile 's/ --exclude-group=integration//'
+subst Makefile 's/ excludes integration, seed-command and real-Slack tests;/ excludes seed-command and real-Slack tests;/'
 subst .github/workflows/ci.yml 's/ --exclude-group=integration//'
 
 # ── Rule comments in kept config ─────────────────────────────────────

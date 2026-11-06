@@ -280,7 +280,7 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 ## Known Limitations
 
 - **No distributed tracing.** Sentry captures errors well, but request-level tracing across queue jobs and outbound API calls is not instrumented. Error volume at this scale does not justify the cost.
-- **Integration tests run locally, not in CI.** Several assert against rows synced from production systems, which CI cannot provide. The unit and feature suites do run in CI against containerised PostgreSQL and Redis, so the gap is data availability rather than infrastructure.
+- **Integration tests run locally, not in CI.** Several assert against the synthetic data `make db-reset-full` seeds into local Supabase, which CI does not provide. The unit and feature suites do run in CI against containerised PostgreSQL and Redis, so the gap is data availability rather than infrastructure.
 
 ## What's next
 
