@@ -16,6 +16,20 @@ _Avoid_: staff dashboard, frontend application, internal dashboard
 The unauthenticated, per-IP rate-limited API routes called cross-origin from the storefront (contact form, checkout snapshot, display number).
 _Avoid_: storefront endpoints, public API
 
+### Access
+
+**Role**:
+The single access level an approved **Admin Dashboard** user holds: `guest`, `standard`, `manager` or `admin`.
+_Avoid_: "staff" as a role name (it is a **Role tier**), permission, group
+
+**Role tier**:
+A named set of **Roles** that may call a set of API routes: the **Staff tier** (`standard`, `manager`, `admin`) or the **Admin-area tier** (`manager`, `admin`). `guest` belongs to no tier.
+_Avoid_: role hierarchy, "manager and up" (tiers are explicit sets, not a ranking)
+
+**Admin-only field**:
+A custom field whose values and definition only the **Admin-area tier** may see or write.
+_Avoid_: "admin" meaning the `admin` **Role** alone — managers see admin-only fields too
+
 ### Catalog & ShopWired sync
 
 **Margin tier**:
