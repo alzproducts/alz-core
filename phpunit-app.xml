@@ -45,6 +45,19 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SHOPWIRED_LIVE" value="false" force="true"/>
+        <env name="LINNWORKS_LIVE" value="false" force="true"/>
+        <env name="HELPSCOUT_LIVE" value="false" force="true"/>
+        <env name="SLACK_LIVE" value="false" force="true"/>
+        <env name="GOOGLE_ADS_LIVE" value="false" force="true"/>
+        <env name="BING_ADS_LIVE" value="false" force="true"/>
+        <env name="MIXPANEL_LIVE" value="false" force="true"/>
+        <env name="CLICKUP_LIVE" value="false" force="true"/>
+        <env name="REVIEWSIO_LIVE" value="false" force="true"/>
+        <env name="REMOTE_STORAGE_LIVE" value="false" force="true"/>
+        <env name="DOOFINDER_LIVE" value="false" force="true"/>
+        <env name="SENTRY_LIVE" value="false" force="true"/>
+        <env name="SUPABASE_LIVE" value="false" force="true"/>
     </php>
     <extensions>
         <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>

@@ -7,7 +7,10 @@ namespace App\Providers;
 use App\Application\Contracts\ErrorReporterInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ErrorReporting\SentryErrorReporter;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Sentry\SentrySdk;
@@ -38,6 +41,14 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(ErrorReporterInterface::class, SentryErrorReporter::class);
+
+        $this->app->singleton(
+            LiveIntegrationGate::class,
+            static fn(Application $app): LiveIntegrationGate => new LiveIntegrationGate(
+                (string) $app->environment(),
+                Config::array('integrations.live'),
+            ),
+        );
 
         // Set Sentry before_send callback before Sentry initializes
         // (must be in register(), not boot(), to run before Sentry's ServiceProvider)

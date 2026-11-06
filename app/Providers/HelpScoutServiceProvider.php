@@ -14,7 +14,14 @@ use App\Application\HelpScout\Services\CachingHelpScoutService;
 use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Application\Support\EmailAliasResolver;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\HelpScout\Fakes\RecordingAgentsClient;
+use App\Infrastructure\HelpScout\Fakes\RecordingConnectivityClient;
+use App\Infrastructure\HelpScout\Fakes\RecordingContactConversationLookup;
+use App\Infrastructure\HelpScout\Fakes\RecordingConversationsClient;
+use App\Infrastructure\HelpScout\Fakes\RecordingMailboxesClient;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -36,6 +43,8 @@ use RuntimeException;
  */
 final class HelpScoutServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    private const int PLACEHOLDER_SYSTEM_USER_ID = 1;
+
     /**
      * Register HelpScout API clients.
      *
@@ -58,19 +67,27 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ConversationsClientInterface::class,
-            static fn(Application $app): ConversationsClientInterface => HelpScoutClientFactory::createConversationsClient($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): ConversationsClientInterface => self::isLive($app)
+                ? HelpScoutClientFactory::createConversationsClient($app->make(TransientLogThrottle::class))
+                : $app->make(RecordingConversationsClient::class),
         );
         $this->app->singleton(
             MailboxesClientInterface::class,
-            static fn(Application $app): MailboxesClientInterface => HelpScoutClientFactory::createMailboxesClient($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): MailboxesClientInterface => self::isLive($app)
+                ? HelpScoutClientFactory::createMailboxesClient($app->make(TransientLogThrottle::class))
+                : $app->make(RecordingMailboxesClient::class),
         );
         $this->app->singleton(
             AgentsClientInterface::class,
-            static fn(Application $app): AgentsClientInterface => HelpScoutClientFactory::createUsersClient($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): AgentsClientInterface => self::isLive($app)
+                ? HelpScoutClientFactory::createUsersClient($app->make(TransientLogThrottle::class))
+                : $app->make(RecordingAgentsClient::class),
         );
         $this->app->singleton(
             ConnectivityClientInterface::class,
-            static fn(Application $app): ConnectivityClientInterface => HelpScoutClientFactory::createConnectivityClient($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): ConnectivityClientInterface => self::isLive($app)
+                ? HelpScoutClientFactory::createConnectivityClient($app->make(TransientLogThrottle::class))
+                : $app->make(RecordingConnectivityClient::class),
         );
     }
 
@@ -78,15 +95,26 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ContactConversationLookupInterface::class,
-            static fn(Application $app): ContactConversationLookupInterface => HelpScoutClientFactory::createContactConversationLookup($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): ContactConversationLookupInterface => self::isLive($app)
+                ? HelpScoutClientFactory::createContactConversationLookup($app->make(TransientLogThrottle::class))
+                : $app->make(RecordingContactConversationLookup::class),
         );
+    }
+
+    private static function isLive(Application $app): bool
+    {
+        return $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::HelpScout);
     }
 
     private function registerSystemUserId(): void
     {
         $this->app->singleton(
             HelpScoutSystemUserId::class,
-            static function (): HelpScoutSystemUserId {
+            static function (Application $app): HelpScoutSystemUserId {
+                if (! self::isLive($app)) {
+                    return new HelpScoutSystemUserId(IntId::from(self::PLACEHOLDER_SYSTEM_USER_ID));
+                }
+
                 $configValue = \config('helpscout.system_user_id');
                 $userId = \is_numeric($configValue) ? (int) $configValue : 0;
 

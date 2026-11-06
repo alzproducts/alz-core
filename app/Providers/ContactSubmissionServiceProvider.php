@@ -14,9 +14,12 @@ use App\Application\Contracts\EmailValidationServiceInterface;
 use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
+use App\Infrastructure\HelpScout\Fakes\RecordingConversationWriteClient;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionDashboardQueryRepository;
 use App\Infrastructure\Marketing\Repositories\EloquentPotentialConversionAnnotationRepository;
 use App\Infrastructure\Validation\EmailValidationService;
@@ -84,7 +87,9 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     {
         $this->app->singleton(
             ConversationWriteClientInterface::class,
-            static fn(): ConversationWriteClientInterface => HelpScoutClientFactory::createConversationWriteClient(),
+            static fn(Application $app): ConversationWriteClientInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::HelpScout)
+                ? HelpScoutClientFactory::createConversationWriteClient()
+                : $app->make(RecordingConversationWriteClient::class),
         );
 
         $this->app->singleton(
