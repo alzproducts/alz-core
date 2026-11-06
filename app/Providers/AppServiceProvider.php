@@ -8,6 +8,7 @@ use App\Application\Contracts\ErrorReporterInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ErrorReporting\SentryErrorReporter;
 use App\Infrastructure\Integrations\LiveIntegrationGate;
+use App\Infrastructure\Integrations\LocalHostAllowlist;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Config;
@@ -31,6 +32,9 @@ use Sentry\SentrySdk;
  *
  * 3. Production Boot - validateProductionEnvironment() checks critical credentials
  *    exist before app starts. Safety net for deployment failures.
+ *
+ * 4. Local Boot - validateLocalEnvironment() fails a local or testing boot whose
+ *    database, Redis or Supabase host is neither loopback nor in LOCAL_ALLOWED_HOSTS.
  */
 final class AppServiceProvider extends ServiceProvider
 {
@@ -70,6 +74,10 @@ final class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production') && ! $isCi) {
             self::validateProductionEnvironment();
         }
+
+        if ($this->app->environment('local', 'testing')) {
+            self::validateLocalEnvironment();
+        }
     }
 
     /**
@@ -91,10 +99,34 @@ final class AppServiceProvider extends ServiceProvider
         'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
     ];
 
+    private const array GUARDED_REDIS_CONNECTIONS = ['default', 'cache', 'queue'];
+
     private static function validateProductionEnvironment(): void
     {
         self::ensureRequiredConfigsPresent();
         self::validateAppKeyFormat();
+    }
+
+    /**
+     * Keeps a local or testing app off remote databases, Redis and Supabase.
+     */
+    private static function validateLocalEnvironment(): void
+    {
+        $allowlist = new LocalHostAllowlist(Config::array('integrations.local_allowed_hosts'));
+
+        foreach (Config::array('database.connections') as $name => $connection) {
+            if (\is_array($connection) && \str_starts_with((string) $name, 'pgsql')) {
+                $allowlist->assertConnectionAllowed($connection, 'DB_HOST', 'DB_URL');
+            }
+        }
+
+        foreach (self::GUARDED_REDIS_CONNECTIONS as $name) {
+            $allowlist->assertConnectionAllowed(Config::array("database.redis.{$name}"), 'REDIS_HOST', 'REDIS_URL');
+        }
+
+        if (Config::get('integrations.live.supabase') !== true) {
+            $allowlist->assertUrlAllowed(Config::get('services.supabase.url'), 'SUPABASE_URL');
+        }
     }
 
     private static function ensureRequiredConfigsPresent(): void

@@ -39,6 +39,7 @@
         -->
         <testsuite name="Providers">
             <directory>tests/Unit/Providers</directory>
+            <directory>tests/Feature/Providers</directory>
         </testsuite>
         <testsuite name="DevTools">
             <directory>tests/Unit/DevTools</directory>
@@ -93,7 +94,7 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="SENTRY_LARAVEL_DSN" value="" force="true"/>
         <env name="HELPSCOUT_SYSTEM_USER_ID" value="999999"/>
-        <env name="SUPABASE_URL" value="https://test.supabase.co"/>
+        <env name="SUPABASE_URL" value="http://127.0.0.1:54321"/>
         <env name="SHOPWIRED_LIVE" value="false" force="true"/>
         <env name="LINNWORKS_LIVE" value="false" force="true"/>
         <env name="HELPSCOUT_LIVE" value="false" force="true"/>

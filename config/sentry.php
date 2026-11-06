@@ -3,6 +3,10 @@
 declare(strict_types=1);
 use Illuminate\Auth\AuthenticationException;
 
+// intentional: config loads before providers, so this reads the env directly instead of LiveIntegrationGate.
+$sentryLive = ! in_array(env('APP_ENV'), ['local', 'testing'], true)
+    || filter_var(env('SENTRY_LIVE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true;
+
 /**
  * Sentry Laravel SDK configuration file.
  *
@@ -10,10 +14,10 @@ use Illuminate\Auth\AuthenticationException;
  */
 return [
     // @see https://docs.sentry.io/product/sentry-basics/dsn-explainer/
-    'dsn' => env('SENTRY_LARAVEL_DSN'),
+    'dsn' => $sentryLive ? env('SENTRY_LARAVEL_DSN') : null,
 
     // When left empty or `null` the Laravel environment will be used (usually discovered from `APP_ENV` in your `.env`)
-    'environment' => env('SENTRY_ENVIRONMENT', env('APP_ENV', 'production')),
+    'environment' => env('SENTRY_ENVIRONMENT', env('APP_ENV')),
 
     // The release version of your application
     'release' => env('SENTRY_RELEASE'),

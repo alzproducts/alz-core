@@ -72,6 +72,11 @@ final class SupabaseJwtVerifierTest extends TestCase
         parent::tearDown();
     }
 
+    protected function supabaseIssuer(): string
+    {
+        return self::PROJECT_URL . '/auth/v1';
+    }
+
     #[Test]
     public function it_returns_the_claims_of_a_valid_es256_token(): void
     {

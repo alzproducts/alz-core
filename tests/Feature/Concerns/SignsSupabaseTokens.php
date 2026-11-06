@@ -64,7 +64,7 @@ trait SignsSupabaseTokens
     protected function supabaseClaims(array $overrides = []): array
     {
         return \array_merge([
-            'iss' => 'https://test.supabase.co/auth/v1',
+            'iss' => $this->supabaseIssuer(),
             'aud' => 'authenticated',
             'iat' => \time(),
             'exp' => \time() + 3600,
@@ -73,6 +73,14 @@ trait SignsSupabaseTokens
             'email' => 'test@example.com',
             'aal' => 'aal2',
         ], $overrides);
+    }
+
+    /**
+     * The `iss` of the configured Supabase project; a test that builds its own project config redefines this.
+     */
+    protected function supabaseIssuer(): string
+    {
+        return \config()->string('services.supabase.url') . '/auth/v1';
     }
 
     /**

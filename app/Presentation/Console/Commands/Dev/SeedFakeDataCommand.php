@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Presentation\Console\Commands\Dev;
 
+use App\Infrastructure\Integrations\LocalHostAllowlist;
 use Illuminate\Console\Command;
 use Throwable;
 
 /**
  * Seed the local database with a synthetic, production-shaped products slice.
  *
- * Local and testing environments against a loopback database only. No sync job is dispatched
+ * Local and testing environments against a loopback or allowlisted database only. No sync job is dispatched
  * and no external API is called.
  */
 final class SeedFakeDataCommand extends Command
@@ -23,8 +24,6 @@ final class SeedFakeDataCommand extends Command
     private const int SALE_CATEGORY_SLOT_MIN = 2_000_000_000;
 
     private const int SALE_CATEGORY_SLOT_MAX = 2_000_000_099;
-
-    private const array LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1'];
 
     private const string SEEDER = 'Database\\Seeders\\ProductSlice\\ProductSliceSeeder';
 
@@ -45,9 +44,10 @@ final class SeedFakeDataCommand extends Command
         }
 
         $connection = \config()->string('database.default');
+        $allowlist = new LocalHostAllowlist(\config()->array('integrations.local_allowed_hosts'));
 
-        if (! \in_array(\config()->get("database.connections.{$connection}.host"), self::LOOPBACK_HOSTS, true)) {
-            return 'Refusing to seed: the default database connection host is not a loopback address.';
+        if (! $allowlist->allowsConnection(\config()->array("database.connections.{$connection}"))) {
+            return 'Refusing to seed: the default database connection host is not a loopback or allowlisted address.';
         }
 
         $saleCategoryId = \config()->get('shopwired.sale_category_id');
@@ -89,7 +89,7 @@ final class SeedFakeDataCommand extends Command
 
         if ($failure !== null) {
             $this->error($failure);
-            $this->line('  Check: APP_ENV, DB_HOST and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
+            $this->line('  Check: APP_ENV, DB_HOST or DB_URL, and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
 
             return null;
         }

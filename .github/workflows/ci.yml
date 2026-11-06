@@ -13,6 +13,8 @@ concurrency:
 env:
   PHP_VERSION: '8.4'
   COMPOSER_NO_INTERACTION: 1
+  # intentional: composer install's package:discover boots the app, and config/app.php refuses an unset APP_ENV.
+  APP_ENV: testing
 
 permissions:
   contents: read

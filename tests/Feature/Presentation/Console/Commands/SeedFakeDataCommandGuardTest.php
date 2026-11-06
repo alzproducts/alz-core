@@ -32,6 +32,7 @@ final class SeedFakeDataCommandGuardTest extends TestCase
         $connection = \config()->string('database.default');
         \config([
             "database.connections.{$connection}.host" => '127.0.0.1',
+            "database.connections.{$connection}.url" => null,
             'shopwired.sale_category_id' => 2_000_000_001,
         ]);
         DB::listen(function (): void {
@@ -83,9 +84,30 @@ final class SeedFakeDataCommandGuardTest extends TestCase
         $this->setHost('db.example.supabase.co');
 
         $this->artisan('dev:seed-fake', ['--fresh' => true])
-            ->expectsOutput('Refusing to seed: the default database connection host is not a loopback address.')
+            ->expectsOutput('Refusing to seed: the default database connection host is not a loopback or allowlisted address.')
             ->assertFailed();
         $this->assertSame(0, $this->queries);
+    }
+
+    #[Test]
+    public function it_refuses_a_non_loopback_database_url_over_a_loopback_host_before_any_database_call(): void
+    {
+        $connection = \config()->string('database.default');
+        \config(["database.connections.{$connection}.url" => 'postgresql://postgres:secret@db.example.supabase.co:5432/postgres']);
+
+        $this->artisan('dev:seed-fake', ['--fresh' => true])
+            ->expectsOutput('Refusing to seed: the default database connection host is not a loopback or allowlisted address.')
+            ->assertFailed();
+        $this->assertSame(0, $this->queries);
+    }
+
+    #[Test]
+    public function it_allows_a_host_listed_in_the_local_allowlist(): void
+    {
+        $this->setHost('pgsql');
+        \config(['integrations.local_allowed_hosts' => ['127.0.0.1', 'localhost', '::1', 'pgsql']]);
+
+        $this->assertNull(SeedFakeDataCommand::guardFailure());
     }
 
     /**
