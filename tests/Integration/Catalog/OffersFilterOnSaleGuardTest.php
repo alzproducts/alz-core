@@ -52,7 +52,6 @@ final class OffersFilterOnSaleGuardTest extends TestCase
         self::assertGreaterThan(0, $saleCategoryId, 'shopwired.sale_category_id must be a positive int');
 
         $this->insertInheritanceOnlyFixture();
-        DB::statement('REFRESH MATERIALIZED VIEW catalog.products_view');
     }
 
     #[Override]

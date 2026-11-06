@@ -15,8 +15,8 @@ use App\Domain\ValueObjects\IntId;
 /**
  * Read-model queries against catalog.products_view.
  *
- * Consolidates read-only product queries that consume the pre-computed
- * view rather than the raw shopwired.products table.
+ * Consolidates read-only product queries that consume the view rather
+ * than the raw shopwired.products table.
  */
 interface ProductViewQueryRepositoryInterface
 {
@@ -77,13 +77,4 @@ interface ProductViewQueryRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function findCreditTierChanges(): array;
-
-    /**
-     * Refresh the catalog.products_view materialized view concurrently.
-     *
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    public function refreshMaterializedView(): void;
 }

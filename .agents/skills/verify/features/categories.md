@@ -27,4 +27,4 @@ Preconditions:
 
 - Not yet coverable (they write to ShopWired, whose credentials are blank in a run): `PUT /api/categories/{id}`, `PUT /api/categories/{id}/custom-fields`, `POST /api/categories/refresh`, `POST /api/categories/{id}/refresh`. HTTP fakes that make them coverable are COR-259.
 - `GET /api/categories/{id}/custom-fields` on stale custom-field data enqueues a ShopWired sync and still returns an error; the job lands on the `low` queue, which the run's worker (only `default`) never consumes.
-- The seed's sale category takes `SHOPWIRED_SALE_CATEGORY_ID` from `.env.example`; `launch --env-override SHOPWIRED_SALE_CATEGORY_ID=0` fails at the seed step.
+- The seed's sale category takes the local/testing default of `shopwired.sale_category_id`; `launch --env-override SHOPWIRED_SALE_CATEGORY_ID=0` fails at the seed step.
