@@ -12,9 +12,12 @@ use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Mixpanel\UseCases\SyncLookupTableUseCase;
 use App\Application\Mixpanel\UseCases\SyncOrdersToMixpanelUseCase;
 use App\Infrastructure\Database\DatabaseGateway;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Jobs\Mixpanel\SyncOrderLookupTableJob;
 use App\Infrastructure\Jobs\Mixpanel\SyncProductLookupTableJob;
 use App\Infrastructure\Mixpanel\Dispatchers\QueuedMixpanelSyncDispatcher;
+use App\Infrastructure\Mixpanel\Fakes\FailClosedMixpanelClient;
 use App\Infrastructure\Mixpanel\LookupTables\OrderLookupTableProvider;
 use App\Infrastructure\Mixpanel\LookupTables\ProductLookupTableProvider;
 use App\Infrastructure\Mixpanel\MixpanelClientFactory;
@@ -56,7 +59,9 @@ final class MixpanelServiceProvider extends ServiceProvider implements Deferrabl
     {
         $this->app->singleton(MixpanelSyncDispatcherInterface::class, QueuedMixpanelSyncDispatcher::class);
         $this->app->singleton(MixpanelConfig::class, static fn(): MixpanelConfig => MixpanelClientFactory::createConfig());
-        $this->app->singleton(MixpanelClientInterface::class, static fn(Container $app): MixpanelClientInterface => MixpanelClientFactory::create($app->make(TransientLogThrottle::class)));
+        $this->app->singleton(MixpanelClientInterface::class, static fn(Container $app): MixpanelClientInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::Mixpanel)
+            ? MixpanelClientFactory::create($app->make(TransientLogThrottle::class))
+            : $app->make(FailClosedMixpanelClient::class));
     }
 
     private function registerOrderSync(): void

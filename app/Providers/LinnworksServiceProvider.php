@@ -26,10 +26,13 @@ use App\Application\Contracts\Linnworks\StockItemSupplierRepositoryInterface;
 use App\Application\Contracts\Linnworks\SupplierRepositoryInterface;
 use App\Application\Contracts\LockableCacheInterface;
 use App\Infrastructure\Catalog\Repositories\EloquentCostPriceChangeLogRepository;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedCostPriceUpdateDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksBackfillDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedLinnworksSyncDispatcher;
 use App\Infrastructure\Linnworks\Dispatchers\QueuedPurchaseOrderBackfillDispatcher;
+use App\Infrastructure\Linnworks\Fakes\FailClosedConnectivityClient;
 use App\Infrastructure\Linnworks\LinnworksClientFactory;
 use App\Infrastructure\Linnworks\LinnworksConfig;
 use App\Infrastructure\Linnworks\LinnworksSessionManager;
@@ -99,7 +102,9 @@ final class LinnworksServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ConnectivityClientInterface::class,
-            static fn(): ConnectivityClientInterface => LinnworksClientFactory::createConnectivityClient(),
+            static fn(Container $app): ConnectivityClientInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::Linnworks)
+                ? LinnworksClientFactory::createConnectivityClient()
+                : $app->make(FailClosedConnectivityClient::class),
         );
         $this->app->singleton(
             StockDashboardsClientInterface::class,

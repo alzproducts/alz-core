@@ -7,6 +7,9 @@ namespace App\Providers;
 use App\Application\Contracts\ReviewsIo\ChangedRatingQueryRepositoryInterface;
 use App\Application\Contracts\ReviewsIo\ProductRatingRepositoryInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
+use App\Infrastructure\ReviewsIo\Fakes\FailClosedReviewsIoClient;
 use App\Infrastructure\ReviewsIo\Repositories\ChangedRatingQueryRepository;
 use App\Infrastructure\ReviewsIo\Repositories\EloquentProductRatingRepository;
 use App\Infrastructure\ReviewsIo\ReviewsIoClientFactory;
@@ -38,7 +41,9 @@ final class ReviewsIoServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ReviewsIoClientInterface::class,
-            static fn(Application $app): ReviewsIoClientInterface => ReviewsIoClientFactory::create($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): ReviewsIoClientInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::ReviewsIo)
+                ? ReviewsIoClientFactory::create($app->make(TransientLogThrottle::class))
+                : $app->make(FailClosedReviewsIoClient::class),
         );
 
         $this->app->scoped(

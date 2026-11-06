@@ -15,6 +15,8 @@ use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
 use App\Application\Contracts\Shopwired\StockClientInterface;
 use App\Application\Contracts\Shopwired\WebhookClientInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Shopwired\Clients\BrandClient;
 use App\Infrastructure\Shopwired\Clients\CategoryClient;
 use App\Infrastructure\Shopwired\Clients\CustomerClient;
@@ -26,6 +28,7 @@ use App\Infrastructure\Shopwired\Clients\StockClient;
 use App\Infrastructure\Shopwired\Clients\WebhookClient;
 use App\Infrastructure\Shopwired\Contracts\ShopwiredTransportInterface;
 use App\Infrastructure\Shopwired\Enums\ShopwiredLogLevel;
+use App\Infrastructure\Shopwired\Fakes\FailClosedShopwiredTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Support\Facades\Config;
 
@@ -136,6 +139,13 @@ final class ShopwiredClientFactory
      */
     public static function getTransport(TransientLogThrottle $logThrottle): ShopwiredTransportInterface
     {
+        $gate = \app(LiveIntegrationGate::class);
+
+        // intentional: decided before the static cache so a real transport is never built or kept outside production
+        if (! $gate->isLive(LiveIntegration::Shopwired)) {
+            return new FailClosedShopwiredTransport($gate);
+        }
+
         return self::$transport ??= self::createTransport($logThrottle);
     }
 

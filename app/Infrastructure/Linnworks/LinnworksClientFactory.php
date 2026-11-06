@@ -13,6 +13,8 @@ use App\Application\Contracts\Linnworks\PurchaseOrderClientInterface;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Linnworks\Clients\ConnectivityClient;
 use App\Infrastructure\Linnworks\Clients\DashboardsClient;
 use App\Infrastructure\Linnworks\Clients\InventoryClient;
@@ -25,6 +27,7 @@ use App\Infrastructure\Linnworks\Clients\PurchaseOrderClient;
 use App\Infrastructure\Linnworks\Clients\StockDashboardsClient;
 use App\Infrastructure\Linnworks\Contracts\LinnworksTransportInterface;
 use App\Infrastructure\Linnworks\Enums\LinnworksLogLevel;
+use App\Infrastructure\Linnworks\Fakes\FailClosedLinnworksTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
 use DateMalformedStringException;
 use Illuminate\Support\Facades\Config;
@@ -152,6 +155,12 @@ final class LinnworksClientFactory
      */
     public static function getAuthToken(): string
     {
+        $gate = \app(LiveIntegrationGate::class);
+
+        if (! $gate->isLive(LiveIntegration::Linnworks)) {
+            throw $gate->failClosed(LiveIntegration::Linnworks);
+        }
+
         return self::getSessionManager()->getSession()->token;
     }
 
@@ -162,6 +171,13 @@ final class LinnworksClientFactory
      */
     private static function getTransport(TransientLogThrottle $logThrottle): LinnworksTransportInterface
     {
+        $gate = \app(LiveIntegrationGate::class);
+
+        // intentional: decided before the static cache so a real transport is never built or kept outside production
+        if (! $gate->isLive(LiveIntegration::Linnworks)) {
+            return new FailClosedLinnworksTransport($gate);
+        }
+
         return self::$transport ??= self::createTransport($logThrottle);
     }
 

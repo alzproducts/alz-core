@@ -19,6 +19,10 @@ use App\Infrastructure\ClickUp\ClickUpConfig;
 use App\Infrastructure\ClickUp\ClickUpHttpTransport;
 use App\Infrastructure\ClickUp\Clients\TasksClient;
 use App\Infrastructure\ClickUp\Clients\UsersClient;
+use App\Infrastructure\ClickUp\Fakes\FailClosedTasksClient;
+use App\Infrastructure\ClickUp\Fakes\FailClosedUsersClient;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Persistence\EloquentGateway;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Foundation\Application;
@@ -97,17 +101,22 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->app->singleton(
             UsersClientInterface::class,
-            static fn(Application $app): UsersClient => new UsersClient(
-                $app->make(ClickUpHttpTransport::class),
-            ),
+            static fn(Application $app): UsersClientInterface => self::isLive($app)
+                ? new UsersClient($app->make(ClickUpHttpTransport::class))
+                : $app->make(FailClosedUsersClient::class),
         );
 
         $this->app->singleton(
             TasksClientInterface::class,
-            static fn(Application $app): TasksClient => new TasksClient(
-                $app->make(ClickUpHttpTransport::class),
-            ),
+            static fn(Application $app): TasksClientInterface => self::isLive($app)
+                ? new TasksClient($app->make(ClickUpHttpTransport::class))
+                : $app->make(FailClosedTasksClient::class),
         );
+    }
+
+    private static function isLive(Application $app): bool
+    {
+        return $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::ClickUp);
     }
 
     private function registerUseCases(): void

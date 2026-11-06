@@ -11,6 +11,9 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\Feeds\DoofinderConfig;
 use App\Infrastructure\Feeds\DoofinderFeedProcessor;
 use App\Infrastructure\Feeds\DoofinderItemTransformer;
+use App\Infrastructure\Feeds\Fakes\FailClosedProductSearchFeedProcessor;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -29,15 +32,7 @@ final class ProductSearchFeedServiceProvider extends ServiceProvider implements 
     public function register(): void
     {
         $this->app->singleton(DoofinderConfig::class, static fn(): DoofinderConfig => self::createConfig());
-
-        $this->app->singleton(
-            ProductSearchFeedProcessorInterface::class,
-            static fn(Application $app): ProductSearchFeedProcessorInterface => new DoofinderFeedProcessor(
-                storage: $app->make(RemoteStorageInterface::class),
-                logger: $app->make(LoggerInterface::class),
-                itemTransformer: new DoofinderItemTransformer($app->make(LoggerInterface::class)),
-            ),
-        );
+        $this->registerProcessor();
 
         $this->app->when(ProcessProductSearchFeedUseCase::class)
             ->needs('$sourceUrl')
@@ -46,6 +41,20 @@ final class ProductSearchFeedServiceProvider extends ServiceProvider implements 
         $this->app->when(ProcessProductSearchFeedUseCase::class)
             ->needs('$storagePath')
             ->give(static fn(Application $app): string => $app->make(DoofinderConfig::class)->storagePath);
+    }
+
+    private function registerProcessor(): void
+    {
+        $this->app->singleton(
+            ProductSearchFeedProcessorInterface::class,
+            static fn(Application $app): ProductSearchFeedProcessorInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::Doofinder)
+                ? new DoofinderFeedProcessor(
+                    storage: $app->make(RemoteStorageInterface::class),
+                    logger: $app->make(LoggerInterface::class),
+                    itemTransformer: new DoofinderItemTransformer($app->make(LoggerInterface::class)),
+                )
+                : $app->make(FailClosedProductSearchFeedProcessor::class),
+        );
     }
 
     /**

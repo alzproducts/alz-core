@@ -22,6 +22,8 @@ use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
@@ -52,6 +54,7 @@ final class TestSlackNotificationCommand extends Command
     public function __construct(
         private readonly ChatNotificationInterface $chat,
         private readonly NotificationDispatcher $dispatcher,
+        private readonly LiveIntegrationGate $gate,
     ) {
         parent::__construct();
     }
@@ -63,6 +66,11 @@ final class TestSlackNotificationCommand extends Command
 
         if ($notificationType !== null) {
             return $this->handleNotification($notificationType);
+        }
+
+        // intentional: the raw dispatcher bypasses the ChatNotificationInterface fake and the Slack log swap
+        if (! $this->gate->isLive(LiveIntegration::Slack)) {
+            throw $this->gate->failClosed(LiveIntegration::Slack);
         }
 
         return $this->handleBasicTest();

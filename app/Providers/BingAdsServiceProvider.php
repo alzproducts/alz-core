@@ -14,6 +14,9 @@ use App\Infrastructure\BingAds\BingAdsConversionAdapter;
 use App\Infrastructure\BingAds\BingAdsConversionClient;
 use App\Infrastructure\BingAds\BingAdsConversionService;
 use App\Infrastructure\BingAds\BingAdsSessionManager;
+use App\Infrastructure\BingAds\Fakes\FailClosedBingAdsClient;
+use App\Infrastructure\Integrations\LiveIntegration;
+use App\Infrastructure\Integrations\LiveIntegrationGate;
 use App\Infrastructure\Jobs\Mixpanel\SyncBingAdsToMixpanelJob;
 use App\Infrastructure\Phone\PhoneNormalisationService;
 use App\Infrastructure\Support\TransientLogThrottle;
@@ -72,10 +75,12 @@ final class BingAdsServiceProvider extends ServiceProvider implements Deferrable
     {
         $this->app->singleton(
             BingAdsClientInterface::class,
-            static fn(Container $app): BingAdsClientInterface => BingAdsClientFactory::create(
-                $app->make(BingAdsSessionManager::class),
-                $app->make(TransientLogThrottle::class),
-            ),
+            static fn(Container $app): BingAdsClientInterface => $app->make(LiveIntegrationGate::class)->isLive(LiveIntegration::BingAds)
+                ? BingAdsClientFactory::create(
+                    $app->make(BingAdsSessionManager::class),
+                    $app->make(TransientLogThrottle::class),
+                )
+                : $app->make(FailClosedBingAdsClient::class),
         );
     }
 
