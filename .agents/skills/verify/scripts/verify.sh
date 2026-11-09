@@ -94,12 +94,14 @@ die() {
 usage() {
     cat >&2 <<'USAGE'
 Usage: bash <skill>/scripts/verify.sh <verb> [args]   (cwd = the repo worktree)
-  launch  [--evidence <abs dir>] [--env-override K=V]...
+  launch  [--evidence <abs dir>] [--env-override K=V]... [--octane-workers <n|auto>]
   doctor  --evidence <dir>
   http    --evidence <dir> <METHOD> <path> [--data <json>]
   db      --evidence <dir> <sql>
   test    --evidence <dir> <pest path>
   note    --evidence <dir> <text>
+  bench-load    --evidence <dir> [--requests N] [--warmup N] [--rate N]
+  bench-writers --evidence <dir> [--runs N] [--baseline <evidence dir>]
   cleanup --evidence <dir>
 Exit: 0 ok | 1 check failed | 64 usage | 75 environment not ready
 USAGE
@@ -269,6 +271,11 @@ build_run_env() {
     set_env AWS_SHARED_CREDENTIALS_FILE /dev/null
     set_env AWS_CONFIG_FILE /dev/null
     set_env AWS_EC2_METADATA_DISABLED true
+    # xdebug and pcov off in every app process: Octane's workers inherit the env, not `php -d` flags.
+    mkdir -p "$EVIDENCE/php-ini"
+    printf '%s\n' 'xdebug.mode=off' 'pcov.enabled=0' >"$EVIDENCE/php-ini/zz-verify.ini"
+    set_env XDEBUG_MODE off
+    set_env PHP_INI_SCAN_DIR ":$EVIDENCE/php-ini"
 
     for entry in "${CREDENTIAL_KEYS[@]}"; do
         key="${entry%%:*}"
@@ -366,6 +373,17 @@ credential_check() {
 
 run_guard() { GUARD_MODE=run guard -- php artisan tinker --execute="$GUARD_PHP"; }
 
+runtime_check() {
+    local out
+    out="$(app_env -- php "$SKILL_DIR/scripts/bench.php" runtime 2>&1)" || true
+    if [ "$out" = 'uninstrumented=yes' ]; then
+        echo "runtime ok xdebug and pcov off"
+    else
+        echo "runtime FAIL xdebug or pcov active ($out)"
+        return 1
+    fi
+}
+
 # ---- processes ----
 
 proc_command() { ps -ww -o command= -p "$1" 2>/dev/null || true; }
@@ -398,10 +416,16 @@ fail_launch() {
 # ---- verbs ----
 
 cmd_launch() {
-    local evidence='' overrides=() kv key
+    local evidence='' overrides=() kv key workers=2
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --evidence) [ "$#" -ge 2 ] || usage; evidence="$2"; shift 2 ;;
+            --octane-workers)
+                [ "$#" -ge 2 ] || usage
+                [[ "$2" =~ ^([1-9][0-9]?|auto)$ ]] || die 64 "--octane-workers wants 1-99 or auto: $2"
+                workers="$2"
+                shift 2
+                ;;
             --env-override)
                 [ "$#" -ge 2 ] || usage
                 kv="$2"
@@ -503,6 +527,7 @@ cmd_launch() {
     note "guard"
     run_guard || fail_launch "isolation guard"
     credential_check || fail_launch "credential check"
+    runtime_check || fail_launch "runtime check"
 
     # 6. Migrate and seed the run's own Postgres
     note "migrate"
@@ -513,8 +538,11 @@ cmd_launch() {
         fail_launch "seed (see logs/seed.log)"
 
     # 7. Octane and the queue worker
-    local octane_pid worker_pid code='' i
-    spawn octane -- php artisan octane:start --server=swoole --host=127.0.0.1 "--port=$GUARD_OCTANE_PORT" --workers=2
+    local octane_pid worker_pid code='' i octane_args=()
+    # auto = Octane's default worker count (one per CPU), as production runs it.
+    [ "$workers" = auto ] || octane_args=("--workers=$workers")
+    note "octane workers=$workers"
+    spawn octane -- php artisan octane:start --server=swoole --host=127.0.0.1 "--port=$GUARD_OCTANE_PORT" ${octane_args[@]+"${octane_args[@]}"}
     octane_pid="$SPAWNED_PID"
     spawn worker -- php artisan queue:work redis "--name=verify-$run_id"
     worker_pid="$SPAWNED_PID"
@@ -557,6 +585,7 @@ cmd_doctor() {
     local fail=0
     run_guard || fail=1
     credential_check || fail=1
+    runtime_check || fail=1
     if [ "$fail" -eq 0 ]; then note "doctor pass"; else note "doctor FAIL"; fi
     return "$fail"
 }
@@ -640,6 +669,136 @@ cmd_test() {
     return "$rc"
 }
 
+# ---- bench journeys (features/products-perf.md) ----
+
+BENCH="$SKILL_DIR/scripts/bench.php"
+
+# bench_claim <verb>: bench writers mutate the seed and restore nothing, so each run serves one bench journey.
+bench_claim() {
+    local ran
+    ran="$(state '.benchRan // empty')"
+    [ -z "$ran" ] || die 64 "this run already served $ran; launch a fresh run for $1"
+    [ -n "$PORT_HTTP" ] || die 1 "run has no HTTP port"
+    load_run_env
+    runtime_check || die 1 "refusing $1: xdebug or pcov active"
+    state_update --arg v "$1" '.benchRan = $v'
+    mkdir -p "$EVIDENCE/bench"
+}
+
+# int_opt <name> <value>: positive whole number, else usage exit.
+int_opt() { [[ "$2" =~ ^[1-9][0-9]*$ ]] || die 64 "$1 wants a positive whole number: $2"; }
+
+cmd_bench_load() {
+    common "$@"
+    local requests=2000 warmup=100 rate=2
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --requests) [ "$#" -ge 2 ] || usage; int_opt "$1" "$2"; requests="$2"; shift 2 ;;
+            --warmup) [ "$#" -ge 2 ] || usage; int_opt "$1" "$2"; warmup="$2"; shift 2 ;;
+            --rate) [ "$#" -ge 2 ] || usage; int_opt "$1" "$2"; rate="$2"; shift 2 ;;
+            *) usage ;;
+        esac
+    done
+    bench_claim bench-load
+    local stamp dir stop deadline kind interval delay names='' fail=0 secret pid entry
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    dir="$EVIDENCE/bench/load-$stamp"
+    stop="$dir/stop"
+    mkdir -p "$dir/writers"
+    app_env -- php "$BENCH" shapes --out "$dir/shapes.json" || die 1 "could not derive the request mix from the seed"
+    note "bench-load requests=$requests warmup=$warmup rate=$rate dir=bench/load-$stamp"
+
+    # Writers outlive a dead caller by at most the run's length plus ten minutes.
+    deadline=$(($(date +%s) + (warmup + requests) / rate + 600))
+    local schedule
+    schedule="$(app_env -- php "$BENCH" writers)" || die 1 "could not list the background writers"
+    while IFS=' ' read -r kind interval delay; do
+        [ -n "$kind" ] || continue
+        spawn "bench-writer-$kind" -- php "$BENCH" writer --kind "$kind" --stop-file "$stop" --deadline "$deadline" \
+            --once-offset "$((warmup / rate))" --result "$dir/writers/$kind.json"
+        names="$names $kind:$SPAWNED_PID"
+        note "bench writer $kind every=$interval first=${delay}s"
+    done <<<"$schedule"
+
+    secret="$(env_value SUPABASE_LOCAL_BYPASS_SECRET)" || die 1 "run.env has no bypass secret"
+    echo "bench-load: ~$(((warmup + requests) / rate))s at $rate req/s; writers running"
+    # The bypass secret travels in the environment, never in argv.
+    (cd "$REPO" && exec env -i "PATH=$PATH" "HOME=$HOME" "VERIFY_BENCH_BYPASS=$secret" ${ENV_LINES[@]+"${ENV_LINES[@]}"} \
+        php "$BENCH" load --port "$PORT_HTTP" --shapes "$dir/shapes.json" --log "$EVIDENCE/logs/octane.log" \
+        --warmup "$warmup" --requests "$requests" --rate "$rate" --result "$dir/load.json") || fail=1
+
+    touch "$stop"
+    for entry in $names; do
+        pid="${entry#*:}"
+        for _ in $(seq 1 600); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+        done
+    done
+    rm -f "$stop"
+
+    [ -f "$dir/load.json" ] || { note "bench-load FAIL no result"; die 1 "load produced no result (see output above)"; }
+    local summary="$EVIDENCE/bench/load-$stamp.json" writers='{}' result
+    for entry in $names; do
+        kind="${entry%%:*}"
+        result="$dir/writers/$kind.json"
+        if [ -f "$result" ]; then
+            writers="$(jq -c --slurpfile r "$result" --arg k "$kind" \
+                '. + {($k): {writes: $r[0].writes, error: $r[0].error, max_write_ms: ($r[0].write_ms | max)}}' <<<"$writers")"
+        else
+            writers="$(jq -c --arg k "$kind" '. + {($k): {writes: 0, error: "no result file (see logs/bench-writer-\($k).log)", max_write_ms: null}}' <<<"$writers")"
+        fi
+    done
+    jq --argjson writers "$writers" '. + {writers: $writers}' "$dir/load.json" >"$summary"
+    jq -r '"p50_ms=\(.p50_ms) p95_ms=\(.p95_ms) p99_ms=\(.p99_ms) max_ms=\(.max_ms)",
+        "requests_sent=\(.requests_sent) server_lines=\(.server_lines) server_statuses=\(.server_statuses | tojson) client_statuses=\(.client_statuses | tojson)",
+        (.writers | to_entries[] | "writer \(.key) writes=\(.value.writes) max_write_ms=\(.value.max_write_ms) error=\(.value.error // "none")")' "$summary"
+    echo "result=$summary"
+
+    if [ "$(jq '[.writers[] | select(.error != null)] | length' "$summary")" != 0 ]; then
+        echo "bench-load FAIL a background writer errored"
+        fail=1
+    fi
+    if [ "$(jq '.server_lines' "$summary")" != "$requests" ] || [ "$(jq -r '.server_statuses | keys | join(",")' "$summary")" != 200 ]; then
+        echo "bench-load FAIL server lines or statuses differ from $requests x 200"
+        fail=1
+    fi
+    note "bench-load p99_ms=$(jq -r '.p99_ms' "$summary") rc=$fail"
+    return "$fail"
+}
+
+cmd_bench_writers() {
+    common "$@"
+    local runs=5 baseline=''
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --runs) [ "$#" -ge 2 ] || usage; int_opt "$1" "$2"; runs="$2"; shift 2 ;;
+            --baseline) [ "$#" -ge 2 ] || usage; baseline="$2"; shift 2 ;;
+            *) usage ;;
+        esac
+    done
+    local base_json=''
+    if [ -n "$baseline" ]; then
+        base_json="$(ls -1 "$baseline"/bench/writers-*.json 2>/dev/null | tail -1)"
+        [ -n "$base_json" ] || die 64 "--baseline holds no bench/writers-*.json: $baseline"
+    fi
+    bench_claim bench-writers
+    local out
+    out="$EVIDENCE/bench/writers-$(date -u +%Y%m%dT%H%M%SZ).json"
+    note "bench-writers runs=$runs"
+    app_env -- php "$BENCH" time-writers --runs "$runs" --result "$out" || { note "bench-writers FAIL"; return 1; }
+    jq -r '.writers | to_entries[] | "\(.key) median_ms=\(.value.median_ms) runs_ms=\(.value.runs_ms | join(","))"' "$out"
+    if [ -n "$base_json" ]; then
+        echo "baseline=$base_json"
+        jq -rn --slurpfile h "$out" --slurpfile b "$base_json" \
+            '$h[0].writers | keys[] as $k | "\($k) ratio=\(($h[0].writers[$k].median_ms / $b[0].writers[$k].median_ms * 1000 | round) / 1000) head_median_ms=\($h[0].writers[$k].median_ms) base_median_ms=\($b[0].writers[$k].median_ms)"'
+    fi
+    echo "result=$out"
+    note "bench-writers done result=bench/$(basename "$out")"
+}
+
 cmd_note() {
     common "$@"
     [ "${#ARGS[@]}" -ge 1 ] || usage
@@ -711,6 +870,8 @@ case "$verb" in
     db) cmd_db "$@" ;;
     test) cmd_test "$@" ;;
     note) cmd_note "$@" ;;
+    bench-load) cmd_bench_load "$@" ;;
+    bench-writers) cmd_bench_writers "$@" ;;
     cleanup) cmd_cleanup "$@" ;;
     *) usage ;;
 esac
