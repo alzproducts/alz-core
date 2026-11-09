@@ -81,20 +81,29 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
 
     private function registerClients(): void
     {
-        $this->app->singleton(ClickUpConfig::class, static fn(): ClickUpConfig => new ClickUpConfig(
-            baseUrl: self::configString('clickup.base_url', 'https://api.clickup.com/api/v2'),
-            timeoutSeconds: self::configInt('clickup.timeout_seconds', 15),
-        ));
-
-        $this->app->singleton(
-            ClickUpHttpTransport::class,
-            static fn(Application $app): ClickUpHttpTransport => new ClickUpHttpTransport(
-                $app->make(ClickUpConfig::class),
-                $app->make(HttpFactory::class),
-            ),
-        );
+        $this->app->singleton(ClickUpHttpTransport::class, self::makeTransport(...));
 
         $this->registerHttpClients();
+    }
+
+    /**
+     * @throws InvalidConfigurationException When ClickUp is not live
+     */
+    private static function makeTransport(Application $app): ClickUpHttpTransport
+    {
+        $gate = $app->make(LiveIntegrationGate::class);
+
+        if (! $gate->isLive(LiveIntegration::ClickUp)) {
+            throw $gate->failClosed(LiveIntegration::ClickUp);
+        }
+
+        return new ClickUpHttpTransport(
+            new ClickUpConfig(
+                baseUrl: self::configString('clickup.base_url', 'https://api.clickup.com/api/v2'),
+                timeoutSeconds: self::configInt('clickup.timeout_seconds', 15),
+            ),
+            $app->make(HttpFactory::class),
+        );
     }
 
     private function registerHttpClients(): void
@@ -197,7 +206,6 @@ final class ClickUpServiceProvider extends ServiceProvider implements Deferrable
             ApiKeyCipherInterface::class,
             UserApiKeyRepositoryInterface::class,
             ClickUpUserCacheInterface::class,
-            ClickUpConfig::class,
             ClickUpHttpTransport::class,
             UsersClientInterface::class,
             TasksClientInterface::class,

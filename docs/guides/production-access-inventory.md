@@ -75,7 +75,8 @@ Every route found from the local set-up to production (COR-261), and what was do
 | Google Ads reads and conversion probe | `app/Providers/GoogleAdsServiceProvider.php:66` | replaced: fail-closed stubs (`:66`, `:93`) |
 | Bing Ads client (live SOAP `getAccount()` at resolve) | `app/Providers/BingAdsServiceProvider.php:78` | replaced: `FailClosedBingAdsClient`; the factory is never called |
 | Mixpanel client | `app/Providers/MixpanelServiceProvider.php:62` | replaced: `FailClosedMixpanelClient` |
-| ClickUp users and tasks clients | `app/Providers/ClickUpServiceProvider.php:104` | replaced: fail-closed stubs (`:104`, `:111`) |
+| ClickUp users and tasks clients | `app/Providers/ClickUpServiceProvider.php:113` | replaced: fail-closed stubs (`:113`, `:120`) |
+| ClickUp HTTP transport resolved directly (carries the production base URL) | `app/Providers/ClickUpServiceProvider.php:84` | replaced: gate checked first, fails closed without `CLICKUP_LIVE` (`:96-97`) |
 | Reviews.io client (4-hourly schedule) | `app/Providers/ReviewsIoServiceProvider.php:44` | replaced: `FailClosedReviewsIoClient` |
 | Doofinder feed processor (`Http::get` source + S3 write) | `app/Providers/ProductSearchFeedServiceProvider.php:50` | replaced: `FailClosedProductSearchFeedProcessor` |
 | `FeedController` reads the feed from the S3 disk | `app/Presentation/Http/Controllers/FeedController.php:53` | replaced: feed disk `local` unless production or `REMOTE_STORAGE_LIVE` (`config/feeds.php:23`) |

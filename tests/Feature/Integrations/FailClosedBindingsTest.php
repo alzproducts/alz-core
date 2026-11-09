@@ -18,6 +18,7 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\ValueObjects\Guid;
 use App\Infrastructure\BingAds\Fakes\FailClosedBingAdsClient;
+use App\Infrastructure\ClickUp\ClickUpHttpTransport;
 use App\Infrastructure\ClickUp\Fakes\FailClosedTasksClient;
 use App\Infrastructure\ClickUp\Fakes\FailClosedUsersClient;
 use App\Infrastructure\Feeds\Fakes\FailClosedProductSearchFeedProcessor;
@@ -116,6 +117,28 @@ final class FailClosedBindingsTest extends TestCase
     public function linnworks_auth_token_fails_closed(): void
     {
         $this->assertFailsClosed(LiveIntegration::Linnworks, static fn(): string => LinnworksClientFactory::getAuthToken());
+    }
+
+    #[Test]
+    public function clickup_transport_resolved_directly_fails_closed(): void
+    {
+        $this->assertFailsClosed(LiveIntegration::ClickUp, fn(): mixed => $this->app->make(ClickUpHttpTransport::class));
+    }
+
+    #[Test]
+    public function clickup_transport_resolves_when_live(): void
+    {
+        $this->app['env'] = 'production';
+        $this->app->forgetInstance(LiveIntegrationGate::class);
+        $this->app->forgetInstance(ClickUpHttpTransport::class);
+
+        try {
+            $this->assertInstanceOf(ClickUpHttpTransport::class, $this->app->make(ClickUpHttpTransport::class));
+        } finally {
+            $this->app['env'] = 'testing';
+            $this->app->forgetInstance(LiveIntegrationGate::class);
+            $this->app->forgetInstance(ClickUpHttpTransport::class);
+        }
     }
 
     #[Test]
