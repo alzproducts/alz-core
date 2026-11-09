@@ -404,7 +404,9 @@ function cmdLoad(array $o): void
         'rate_per_second' => $rate,
         'server_lines' => count($durations),
         'server_statuses' => $serverStatuses,
-        'client_statuses' => array_count_values(array_map('strval', $statuses)),
+        // intentional: an object even when the only key is 0, which json_encode would otherwise emit as a list.
+        'client_statuses' => (object) array_count_values($statuses),
+        'client_transport_failures' => count(array_filter($statuses, static fn(int $s): bool => $s === 0)),
         'p50_ms' => percentile($durations, 50),
         'p95_ms' => percentile($durations, 95),
         'p99_ms' => percentile($durations, 99),

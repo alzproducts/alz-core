@@ -763,6 +763,10 @@ cmd_bench_load() {
         echo "bench-load FAIL a background writer errored"
         fail=1
     fi
+    if [ "$(jq '.client_transport_failures // 0' "$summary")" != 0 ]; then
+        echo "bench-load FAIL saturated: $(jq '.client_transport_failures' "$summary") requests timed out client-side; the server could not keep up with $rate req/s, so the percentiles are not a valid reading"
+        fail=1
+    fi
     if [ "$(jq '.server_lines' "$summary")" != "$requests" ] || [ "$(jq -r '.server_statuses | keys | join(",")' "$summary")" != 200 ]; then
         echo "bench-load FAIL server lines or statuses differ from $requests x 200"
         fail=1

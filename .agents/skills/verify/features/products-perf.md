@@ -25,7 +25,8 @@ Preconditions:
   - Every writer in `bench.php writers` runs in the background on its production-shaped schedule; the once-a-day writers fire after warm-up.
   - Latency is server-side: nearest-rank percentiles of the `/api/products` lines `logs/octane.log` gained during the measured window.
   - Prints `p50_ms= p95_ms= p99_ms= max_ms=`, request and status counts, one `writer` line per writer, and `result=<evidence>/bench/load-<stamp>.json`.
-  - Exit 1 when a writer errored, the server logged a non-200, or the server line count differs from `--requests`.
+  - Exit 1 when a writer errored, the server logged a non-200, the server line count differs from `--requests`, or any request timed out client-side (`FAIL saturated`).
+  - `FAIL saturated` means the commit cannot serve `--rate` on this machine: report it as that, never the percentiles printed beside it (they mix backlog lines from earlier requests).
   - Takes about `(warmup + requests) / rate` seconds (~18 min at the defaults): run it in the background.
 - **Writer timing.** `verify.sh bench-writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
@@ -40,4 +41,5 @@ Preconditions:
 
 - Run base and head timings back to back on the same idle machine, never concurrently.
 - Timings are local-machine numbers on synthetic data: state the machine when quoting them against a production target.
+- The run's Postgres is stock `postgres:17-alpine`: per-product-transaction writers run several times slower than on local Supabase, and a load run at the defaults can saturate while the idle list takes ~330 ms. Compare base and head on this stack, never against numbers taken elsewhere.
 - Writers that fetch from ShopWired in production (product and category webhooks) replay stored rows instead.
