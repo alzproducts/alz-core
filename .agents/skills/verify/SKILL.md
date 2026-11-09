@@ -14,13 +14,15 @@ One run is one private stack in the current worktree: Compose project `alz-verif
 ## Launch
 
 ```bash
-bash .agents/skills/verify/scripts/verify.sh launch [--evidence <abs dir>] [--env-override K=V]...
+bash .agents/skills/verify/scripts/verify.sh launch [--evidence <abs dir>] [--env-override K=V]... [--octane-workers <n|auto>]
 ```
 
 Output:
 - First stdout line `evidence=<dir>`: pass it to every later verb. Without `--evidence`, launch mints one under the run home.
 - Ready = exit 0 plus `base_url=http://127.0.0.1:<port>` (migrated, seeded, `/up` 200, worker alive). Expect 1-3 minutes in a fresh worktree.
 - `--env-override K=V` replaces one generated key (ports, seed inputs); credential keys, `APP_ENV` and every `*_LIVE` opt-in are refused (exit 64).
+- `--octane-workers <1-99|auto>` sets Octane's worker count (default 2); `auto` uses Octane's own default, as production does.
+- Every app process runs with xdebug and pcov off (`XDEBUG_MODE=off` plus a run-scoped ini dir).
 
 Failures:
 - Exit 1 at preflight: the worktree holds a `.env*` file other than a tracked `*.example`, or `bootstrap/cache/config.php`. Use a fresh worktree; never delete a developer's `.env` to get past it.
@@ -34,9 +36,10 @@ Failures:
 bash .agents/skills/verify/scripts/verify.sh doctor --evidence <dir>
 ```
 
-Run after launch and whenever anything looks off. It prints one `guard`/`credential` line per check and exits 1 on any `FAIL`:
+Run after launch and whenever anything looks off. It prints one `guard`/`credential`/`runtime` line per check and exits 1 on any `FAIL`:
 - `guard` lines: each DB and Redis connection resolves to the run's own loopback port, and `octane.port` is the run's HTTP port.
 - `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed).
+- `runtime` line: xdebug and pcov are off in an app process.
 
 ## Drive
 
@@ -72,16 +75,18 @@ bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
 
 ## Helpers
 
-`scripts/verify.sh` is the only helper (bash 3.2-safe); `scripts/compose.yaml` defines its private stack.
+`scripts/verify.sh` is the entry point (bash 3.2-safe); `scripts/compose.yaml` defines its private stack; `scripts/bench.php` is the bench verbs' PHP side.
 
 | Verb | Args | Does |
 |---|---|---|
-| `launch` | `[--evidence <abs dir>] [--env-override K=V]...` | Private stack, guard, migrate, seed, Octane, worker |
-| `doctor` | `--evidence <dir>` | Isolation guard plus credential check |
+| `launch` | `[--evidence <abs dir>] [--env-override K=V]... [--octane-workers <n\|auto>]` | Private stack, guard, migrate, seed, Octane, worker |
+| `doctor` | `--evidence <dir>` | Isolation guard, credential and runtime check |
 | `http` | `--evidence <dir> <METHOD> <path> [--data <json>]` | Bypass-authenticated request, captured under `http/` |
 | `db` | `--evidence <dir> <sql>` | Read-only psql in the run's Postgres |
 | `test` | `--evidence <dir> <pest path>` | Targeted Pest runner |
 | `note` | `--evidence <dir> <text>` | Appends a `run-notes.md` line |
+| `bench-load` | `--evidence <dir> [--requests N] [--warmup N] [--rate N]` | Product-list p99 under background writes ([products-perf](features/products-perf.md)) |
+| `bench-writers` | `--evidence <dir> [--runs N] [--baseline <evidence dir>]` | Writer medians, optional ratio to a baseline run |
 | `cleanup` | `--evidence <dir>` | Tears down the run and checks residue |
 
 - **Invocation:** `bash .agents/skills/verify/scripts/verify.sh <verb> [args]`; an extracted copy runs as `bash <extracted dir>/scripts/verify.sh <verb> [args]`, cwd = the worktree.
