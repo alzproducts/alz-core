@@ -8,7 +8,7 @@ First-time native set-up for a fresh clone, ending in a passing `make test`. Run
 
 - **PHP 8.4** (Homebrew) with the extensions `composer.json` requires, including `pdo_pgsql`, `swoole`, `soap` and `pcntl`, plus `redis` for `REDIS_CLIENT=phpredis`.
 - **Composer**, **Docker** (running), **pnpm**.
-- **`ALZ_ADMIN`** set to the absolute path of a local checkout of the `alz-admin` companion frontend repo, with its dependencies installed (`pnpm install` there). It owns the shared Supabase project, so every `make supabase-*` target runs inside it and fails with `ALZ_ADMIN not set` without it. That repo is private, so a standalone clone cannot complete this sequence.
+- **`ALZ_ADMIN`** set to the absolute path of a local checkout of the `alz-admin` companion frontend repo, with its dependencies installed (`pnpm install` there). It owns the shared Supabase project, so the `make supabase-*` targets run inside it. Without it, `supabase-start`, `supabase-reset`, `supabase-seed-users` and `supabase-functions` fail with `ALZ_ADMIN not set`, and `supabase-stop` and `supabase-status` do nothing. That repo is private, so a standalone clone cannot complete this sequence.
 
   ```bash
   echo 'export ALZ_ADMIN=/absolute/path/to/alz-admin' >> ~/.zshrc
