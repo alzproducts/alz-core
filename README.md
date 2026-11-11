@@ -16,6 +16,7 @@ Behind that sit 12 third-party integrations, 80+ queued jobs, and 60+ scheduled 
 
 ### Documentation
 
+- [`docs/guides/local-setup.md`](docs/guides/local-setup.md) for the first-time local set-up, from a fresh clone to a passing `make test`.
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) for system topology, deployment, and end-to-end data flows.
 - [`docs/adr/`](docs/adr/) for the eleven architectural decision records.
 - [`tests/TestingStrategy.md`](tests/TestingStrategy.md) for what is tested at each layer, and what is deliberately not.
