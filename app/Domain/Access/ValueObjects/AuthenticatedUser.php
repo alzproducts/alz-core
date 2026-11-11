@@ -27,7 +27,7 @@ use Webmozart\Assert\Assert;
  *
  * If you're writing code that uses AuthenticatedUser, you almost certainly
  * need to either:
- * 1. Be behind EnsureUserApprovedMiddleware (routes with 'auth.supabase' middleware)
+ * 1. Be behind EnsureUserApprovedMiddleware (declared on each approval route group in routes/api.php)
  * 2. Explicitly check hasBasicAuthorization() yourself
  * ============================================================
  */
@@ -37,7 +37,7 @@ final readonly class AuthenticatedUser
      * @param string $id User UUID from Supabase Auth (auth.users.id)
      * @param string $email User's email address
      * @param bool $isApproved Whether admin has approved this user (see class docblock)
-     * @param string|null $roleName User's assigned role (e.g., 'admin', 'staff')
+     * @param string|null $roleName User's assigned role, unparsed (a Role value such as 'standard' or 'admin'; see RoleTier::includes())
      * @param list<string>|null $departments List of department names the user belongs to
      */
     public function __construct(
