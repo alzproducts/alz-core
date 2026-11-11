@@ -226,10 +226,6 @@ Every change gets its own Linear issue, branch, and pull request, and larger wor
 
 Local data is synthetic by default: `make db-reset-full` resets Supabase, runs the migrations and seeds a production-shaped products slice with `php artisan dev:seed-fake` (no sync jobs, no external calls).
 
-- **The reset is shared with alz-admin:** alz-core and alz-admin use the same local Supabase project, and `make db-reset-full` runs alz-admin's `pnpm db:setup-local` (`supabase db reset`), so it also wipes alz-admin's local auth users and data. Afterwards, only these are re-seeded:
-  - alz-admin's regenerated `database.types.ts`;
-  - alz-admin's test users (`seed-test-users`);
-  - alz-core's synthetic products slice (`dev:seed-fake`).
 - **Production data is opt-in:** `make db-reset-full-pii` resets and pulls production data with `php artisan dev:sync-from-prod --incl-pii` instead of the seed.
 - **Existing machines:** set `SHOPWIRED_SALE_CATEGORY_ID=2000000001` in `.env` (the seed only accepts IDs in its reserved range, see `.env.example`), then run `make db-reset-full` once after this change lands, to drop previously synced production data.
 - **Do not run `php artisan schedule:work` or a queue worker against the seed** while ShopWired or Linnworks credentials are set: scheduled syncs would write production data over the synthetic slice, and pushes could send seed data to the live services.
