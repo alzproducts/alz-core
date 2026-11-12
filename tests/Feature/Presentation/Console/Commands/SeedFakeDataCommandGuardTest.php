@@ -98,6 +98,7 @@ final class SeedFakeDataCommandGuardTest extends TestCase
         yield 'remote host' => ['postgresql://user:pass@db.example.supabase.co:5432/postgres'];
         yield 'unparseable' => ['postgresql://:5432'];
         yield 'no host' => ['not a url'];
+        yield 'query host overrides a loopback authority' => ['postgresql://user:pass@localhost/postgres?host=db.remote.example'];
     }
 
     #[Test]

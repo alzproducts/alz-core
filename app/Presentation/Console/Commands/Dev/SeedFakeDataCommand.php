@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands\Dev;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\ConfigurationUrlParser;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -61,13 +63,13 @@ final class SeedFakeDataCommand extends Command
 
     private static function databaseHostFailure(): ?string
     {
-        $connection = \config()->string('database.default');
+        $connection = \config()->array('database.connections.' . \config()->string('database.default'));
 
-        if (! \in_array(\config()->get("database.connections.{$connection}.host"), self::LOOPBACK_HOSTS, true)) {
+        if (! self::isLoopback($connection['host'] ?? null)) {
             return 'Refusing to seed: the default database connection host is not a loopback address.';
         }
 
-        if (! self::urlHostIsLoopback(\config()->get("database.connections.{$connection}.url"))) {
+        if (! self::urlIsLoopback($connection['url'] ?? null)) {
             return 'Refusing to seed: the default database connection URL does not name a loopback host.';
         }
 
@@ -75,17 +77,28 @@ final class SeedFakeDataCommand extends Command
     }
 
     /**
-     * The connection URL overrides the host when set, so a blank URL passes and any other URL
-     * passes only when it parses to a loopback host.
+     * A blank URL passes. Any other URL must name a loopback host, and the host Laravel's connector
+     * resolves from it must be loopback too, since a `?host=` query option overrides the authority.
      */
-    private static function urlHostIsLoopback(mixed $url): bool
+    private static function urlIsLoopback(mixed $url): bool
     {
         if ($url === null || $url === '') {
             return true;
         }
 
-        $host = \is_string($url) ? \parse_url($url, PHP_URL_HOST) : null;
+        if (! \is_string($url) || ! self::isLoopback(\parse_url($url, PHP_URL_HOST))) {
+            return false;
+        }
 
+        try {
+            return self::isLoopback(new ConfigurationUrlParser()->parseConfiguration(['url' => $url])['host'] ?? null);
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+    }
+
+    private static function isLoopback(mixed $host): bool
+    {
         return \is_string($host) && \in_array(\mb_trim($host, '[]'), self::LOOPBACK_HOSTS, true);
     }
 
