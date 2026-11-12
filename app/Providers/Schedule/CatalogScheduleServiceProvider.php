@@ -10,21 +10,18 @@ use App\Infrastructure\Jobs\Catalog\SyncCreditTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncMarginTierLabelJob;
 use App\Infrastructure\Jobs\Catalog\SyncOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncProductSortOrdersJob;
-use App\Infrastructure\Jobs\Catalog\SyncProductsViewJob;
 use App\Infrastructure\Jobs\Catalog\SyncRatingFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncRelatedProductsJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOffersFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncShippingOptionsFiltersJob;
 use App\Infrastructure\Jobs\Catalog\SyncVatReliefFiltersJob;
+use App\Presentation\Console\Commands\CheckProductListFragmentDriftCommand;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
 /**
  * Catalog Schedule Definitions
- *
- * Materialized view refresh (every minute):
- *   - catalog.products_view refresh (pre-computes expensive join plan for API reads)
  *
  * Product-level state syncs to ShopWired product filters (three hourly + one 10-minute stock-driven):
  *   - Customer rating filter (from reviews_io.product_ratings)
@@ -41,6 +38,9 @@ use RuntimeException;
  *   - Margin-tier label (04:45, custom_label_1 four-tier band)
  *   - Credit-tier label (05:00, custom_label_0 three-tier band, credit-only)
  *
+ * Products list fragment cache (hourly):
+ *   - Drift check and orphan sweep over catalog.product_list_fragments
+ *
  * Snapshot writers live in {@see PopularitySnapshotScheduleServiceProvider}.
  */
 final class CatalogScheduleServiceProvider extends ServiceProvider
@@ -50,7 +50,6 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerProductsViewRefreshSchedule();
         $this->registerRatingFilterSchedule();
         $this->registerVatReliefFilterSchedule();
         $this->registerOffersFilterSchedule();
@@ -62,24 +61,7 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         $this->registerRelatedProductsSyncSchedule();
         $this->registerMarginTierLabelSchedule();
         $this->registerCreditTierLabelSchedule();
-    }
-
-    /**
-     * Refresh the catalog.products_view materialized view every minute.
-     *
-     * Pre-computes the expensive join plan (variation aggregation, recursive category
-     * traversal) so API reads hit a simple table scan (~5-10ms) instead of 1.1s of joins.
-     *
-     * @throws RuntimeException
-     */
-    private function registerProductsViewRefreshSchedule(): void
-    {
-        Schedule::job(new SyncProductsViewJob())
-            ->name('sync-products-view')
-            ->everyMinute()
-            ->timezone('Europe/London')
-            ->onOneServer()
-            ->withoutOverlapping(2);
+        $this->registerProductListFragmentDriftSchedule();
     }
 
     /**
@@ -283,6 +265,22 @@ final class CatalogScheduleServiceProvider extends ServiceProvider
         Schedule::job(new SyncCreditTierLabelJob())
             ->name('sync-credit-tier-label')
             ->dailyAt('05:00')
+            ->timezone('Europe/London')
+            ->onOneServer()
+            ->withoutOverlapping(30);
+    }
+
+    /**
+     * Hourly drift check on the products list fragment cache (ADR-0011 amendment): reports and
+     * deletes fragments whose body no longer matches a rebuild, and deletes orphaned fragments.
+     *
+     * @throws RuntimeException
+     */
+    private function registerProductListFragmentDriftSchedule(): void
+    {
+        Schedule::command(CheckProductListFragmentDriftCommand::class)
+            ->name('check-product-list-fragment-drift')
+            ->hourly()
             ->timezone('Europe/London')
             ->onOneServer()
             ->withoutOverlapping(30);

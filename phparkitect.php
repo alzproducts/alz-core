@@ -6,6 +6,7 @@ use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\MatchOneOfTheseNames;
+use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotHaveDependencyOutsideNamespace;
 use Arkitect\Expression\ForClasses\NotHaveNameMatching;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
@@ -698,6 +699,30 @@ return static function (Config $config): void {
                        'App\Application\*\Validators',
                    ))
                    ->because('Validators must be co-located with their concept (Domain or Application Validators/ subdirectories), not in a top-level catch-all.');
+
+    // RULE: The products list assembler and row DTOs read only their arguments
+    //
+    // WHY: A stored list fragment stays valid while the fingerprint of the `list_inputs` row
+    // matches. Any input the assembler fetches itself escapes that fingerprint and serves a
+    // stale fragment (COR-258 D6).
+    //
+    $rules[] = Rule::allClasses()
+                   ->that(new ResideInOneOfTheseNamespaces('App\Infrastructure\Catalog\Queries\ProductList'))
+                   ->andThat(new MatchOneOfTheseNames(['*Assembler', '*Row']))
+                   ->should(new NotDependsOnTheseNamespaces([
+                       'App\*Repository',
+                       'App\*Client',
+                       'App\Infrastructure\Database',
+                       'Illuminate\Config',
+                       'Illuminate\Container',
+                       'Illuminate\Contracts\Config',
+                       'Illuminate\Contracts\Container',
+                       'Illuminate\Contracts\Foundation',
+                       'Illuminate\Database',
+                       'Illuminate\Foundation',
+                       'Illuminate\Support\Facades',
+                   ]))
+                   ->because('the products list builder may read only the fingerprinted list_inputs row and shared inputs.');
 
     $config->add($classSet, ...$rules);
     /*

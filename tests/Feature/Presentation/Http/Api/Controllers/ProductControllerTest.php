@@ -6,7 +6,12 @@ namespace Tests\Feature\Presentation\Http\Api\Controllers;
 
 use App\Application\Catalog\Queries\ProductDetailQueryParams;
 use App\Application\Catalog\Queries\ProductListQueryParams;
+use App\Application\Catalog\Results\ProductListEntryDTO;
+use App\Application\Catalog\Results\ProductListFragmentDTO;
+use App\Application\Catalog\Results\ProductListPageResult;
 use App\Application\Contracts\Catalog\CustomFieldRepositoryInterface;
+use App\Application\Contracts\Catalog\ProductListFragmentStoreInterface;
+use App\Application\Contracts\Catalog\ProductListReaderInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldItemType;
 use App\Domain\Catalog\CustomFields\Enums\CustomFieldType;
@@ -26,7 +31,6 @@ use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Catalog\Product\ValueObjects\ProductViewMeta;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Shared\Pagination\Enums\SortDirection;
-use App\Domain\ValueObjects\PaginatedList;
 use App\Domain\ValueObjects\Uuid;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use DateTimeImmutable;
@@ -44,7 +48,13 @@ final class ProductControllerTest extends TestCase
 {
     use AuthenticatesAsApprovedUser;
 
+    private const string PRODUCT_UUID = '0a8f3c1e-5b7d-4e2a-9c6f-1d3b5a7e9f21';
+
     private ProductRepositoryInterface&MockInterface $productRepository;
+
+    private ProductListReaderInterface&MockInterface $listReader;
+
+    private ProductListFragmentStoreInterface&MockInterface $fragmentStore;
 
     #[Override]
     protected function setUp(): void
@@ -53,6 +63,13 @@ final class ProductControllerTest extends TestCase
 
         $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $this->app->instance(ProductRepositoryInterface::class, $this->productRepository);
+
+        $this->listReader = Mockery::mock(ProductListReaderInterface::class);
+        $this->app->instance(ProductListReaderInterface::class, $this->listReader);
+
+        $this->fragmentStore = Mockery::mock(ProductListFragmentStoreInterface::class);
+        $this->fragmentStore->shouldReceive('storeMany')->byDefault();
+        $this->app->instance(ProductListFragmentStoreInterface::class, $this->fragmentStore);
     }
 
     #[Override]
@@ -87,10 +104,10 @@ final class ProductControllerTest extends TestCase
     public function authenticated_request_returns_paginated_products_with_data_meta_links(): void
     {
         $product = $this->createProduct(id: 1, title: 'Test Product');
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 50, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 50, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -109,10 +126,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function include_variations_parameter_passes_through_to_use_case(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 500 && $q->pagination->page === 1 && $q->includes === [ProductInclude::Variations]))
             ->andReturn($dto);
@@ -131,10 +148,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function category_id_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::CategoryId->value] ?? null) === 42))
             ->andReturn($dto);
@@ -147,10 +164,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_on_sale_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsOnSale->value] ?? null) === true))
             ->andReturn($dto);
@@ -163,10 +180,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sku_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::Sku->value] ?? null) === 'ABC-123'))
             ->andReturn($dto);
@@ -179,10 +196,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_free_delivery_filter_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasFreeDelivery->value] ?? null) === true))
             ->andReturn($dto);
@@ -195,10 +212,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function omitted_filters_are_not_included_in_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => \count($q->filters) === 0))
             ->andReturn($dto);
@@ -275,10 +292,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function default_per_page_is_500_and_page_is_1(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 500 && $q->pagination->page === 1 && $q->includes === []))
             ->andReturn($dto);
@@ -295,10 +312,10 @@ final class ProductControllerTest extends TestCase
     public function pagination_links_preserve_query_string_parameters(): void
     {
         $items = \array_fill(0, 50, $this->createProduct(id: 1, title: 'Product'));
-        $dto = PaginatedList::fromPage(items: $items, total: 200, perPage: 50, currentPage: 1);
+        $dto = self::listPage(items: $items, total: 200, perPage: 50, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -319,10 +336,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_title_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Title))
             ->andReturn($dto);
@@ -335,10 +352,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_price_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Price))
             ->andReturn($dto);
@@ -351,10 +368,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_effective_price_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::EffectivePrice))
             ->andReturn($dto);
@@ -367,10 +384,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_stock_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Stock))
             ->andReturn($dto);
@@ -383,10 +400,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_profit_margin_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::ProfitMargin))
             ->andReturn($dto);
@@ -399,10 +416,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_created_at_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::CreatedAt))
             ->andReturn($dto);
@@ -415,10 +432,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_by_updated_at_passes_sort_field_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::UpdatedAt))
             ->andReturn($dto);
@@ -431,10 +448,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_direction_asc_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortDirection === SortDirection::Asc))
             ->andReturn($dto);
@@ -447,10 +464,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_direction_desc_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortDirection === SortDirection::Desc))
             ->andReturn($dto);
@@ -463,10 +480,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function default_sort_is_title_asc_when_sort_params_omitted(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Title
                 && $q->sortDirection === SortDirection::Asc))
@@ -512,10 +529,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function multiple_filters_combine_correctly(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => \count($q->filters) === 3
                     && ($q->filters[ProductFilterField::CategoryId->value] ?? null) === 42
@@ -531,10 +548,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function sort_and_filter_combine_correctly(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Price
                     && $q->sortDirection === SortDirection::Desc
@@ -549,10 +566,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function full_combination_of_sort_filter_pagination_and_include(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 25, currentPage: 3);
+        $dto = self::listPage(items: [], total: 0, perPage: 25, currentPage: 3);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::EffectivePrice
                     && $q->sortDirection === SortDirection::Asc
@@ -571,10 +588,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function kitchen_sink_all_params_at_once(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 100, currentPage: 2);
+        $dto = self::listPage(items: [], total: 0, perPage: 100, currentPage: 2);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->sortField === ProductSortField::Stock
                     && $q->sortDirection === SortDirection::Desc
@@ -602,10 +619,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_on_sale_false_passes_false_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsOnSale->value] ?? null) === false))
             ->andReturn($dto);
@@ -618,10 +635,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_free_delivery_false_passes_false_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasFreeDelivery->value] ?? null) === false))
             ->andReturn($dto);
@@ -634,10 +651,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_active_true_passes_true_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsActive->value] ?? null) === true))
             ->andReturn($dto);
@@ -650,10 +667,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function is_active_false_passes_false_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::IsActive->value] ?? null) === false))
             ->andReturn($dto);
@@ -666,10 +683,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function omitted_is_active_does_not_add_filter(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => !\array_key_exists(ProductFilterField::IsActive->value, $q->filters)))
             ->andReturn($dto);
@@ -712,10 +729,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_any_sale_true_passes_true_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasAnySale->value] ?? null) === true))
             ->andReturn($dto);
@@ -728,10 +745,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function has_any_sale_false_passes_false_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => ($q->filters[ProductFilterField::HasAnySale->value] ?? null) === false))
             ->andReturn($dto);
@@ -780,10 +797,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function per_page_minimum_boundary_accepted(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 1, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 1, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 1))
             ->andReturn($dto);
@@ -796,10 +813,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function per_page_maximum_boundary_accepted(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 1000, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 1000, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->perPage === 1000))
             ->andReturn($dto);
@@ -812,10 +829,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function page_number_passes_through_to_query(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 2);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 2);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->with(Mockery::on(static fn(ProductListQueryParams $q): bool => $q->pagination->page === 2))
             ->andReturn($dto);
@@ -845,10 +862,10 @@ final class ProductControllerTest extends TestCase
     public function response_contains_all_product_resource_fields(): void
     {
         $product = $this->createProduct(id: 42, title: 'Full Field Product');
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -893,10 +910,10 @@ final class ProductControllerTest extends TestCase
             title: 'Popular Product',
             popularity: new Popularity(rank: 3, max: 12),
         );
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -915,10 +932,10 @@ final class ProductControllerTest extends TestCase
     public function response_includes_variation_fields_when_requested(): void
     {
         $product = $this->createProductWithVariations();
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1012,10 +1029,10 @@ final class ProductControllerTest extends TestCase
             allVariations: [$variation],
         );
 
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1030,10 +1047,10 @@ final class ProductControllerTest extends TestCase
     public function variant_only_product_aggregates_stock_under_include_stock_and_exposes_common_price(): void
     {
         $product = $this->createVariantOnlyProduct(variationPrices: [12.99, 12.99], stockPerVariation: 3);
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1055,10 +1072,10 @@ final class ProductControllerTest extends TestCase
     public function variant_only_product_with_differing_prices_uses_minimum_and_reports_non_uniform(): void
     {
         $product = $this->createVariantOnlyProduct(variationPrices: [19.99, 24.99, 14.99], stockPerVariation: 2);
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1085,10 +1102,10 @@ final class ProductControllerTest extends TestCase
     public function stock_status_is_present_on_every_product_with_null_defaults(): void
     {
         $product = $this->createProduct(id: 1, title: 'Plain Product');
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1113,10 +1130,10 @@ final class ProductControllerTest extends TestCase
             preorderDate: $preorderDate,
             otherStockStatus: 'awaiting_restock',
         );
-        $dto = PaginatedList::fromPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1132,10 +1149,10 @@ final class ProductControllerTest extends TestCase
     #[Test]
     public function empty_result_set_returns_correct_structure(): void
     {
-        $dto = PaginatedList::fromPage(items: [], total: 0, perPage: 500, currentPage: 1);
+        $dto = self::listPage(items: [], total: 0, perPage: 500, currentPage: 1);
 
-        $this->productRepository
-            ->shouldReceive('paginate')
+        $this->listReader
+            ->shouldReceive('page')
             ->once()
             ->andReturn($dto);
 
@@ -1147,6 +1164,55 @@ final class ProductControllerTest extends TestCase
         $this->assertSame(0, $body['meta']['total']);
         $this->assertSame(500, $body['meta']['per_page']);
         $this->assertSame(1, $body['meta']['current_page']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Stored fragments
+    |--------------------------------------------------------------------------
+    */
+
+    #[Test]
+    public function stored_fragment_body_is_returned_verbatim_and_not_stored_again(): void
+    {
+        $cached = '{"id":7,"title":"Stored body"}';
+        $page = new ProductListPageResult(
+            total: 1,
+            perPage: 500,
+            currentPage: 1,
+            shape: 'none',
+            entries: [new ProductListEntryDTO(self::PRODUCT_UUID, 'fp-7', $cached, null)],
+        );
+        $this->listReader->shouldReceive('page')->once()->andReturn($page);
+        $this->fragmentStore->shouldNotReceive('storeMany');
+
+        $response = $this->asApprovedUser()->getJson('/api/products');
+
+        $response->assertStatus(200);
+        $this->assertStringStartsWith('{"data":[' . $cached . '],"links":', (string) $response->getContent());
+        $this->assertSame(1, $response->json('meta.total'));
+    }
+
+    #[Test]
+    public function rendered_misses_are_stored_with_their_exact_body(): void
+    {
+        $product = $this->createProduct(id: 9, title: 'Fresh');
+        $this->listReader->shouldReceive('page')->once()->andReturn(self::listPage(items: [$product], total: 1, perPage: 500, currentPage: 1, shape: 'stock'));
+
+        $stored = [];
+        $this->fragmentStore->shouldReceive('storeMany')->once()->andReturnUsing(static function (array $fragments) use (&$stored): void {
+            $stored = $fragments;
+        });
+
+        $response = $this->asApprovedUser()->getJson('/api/products?include=stock');
+
+        $response->assertStatus(200);
+        $this->assertCount(1, $stored);
+        $this->assertInstanceOf(ProductListFragmentDTO::class, $stored[0]);
+        $this->assertSame(self::PRODUCT_UUID, $stored[0]->productId);
+        $this->assertSame('stock', $stored[0]->shape);
+        $this->assertSame('fp-9', $stored[0]->fingerprint);
+        $this->assertStringStartsWith('{"data":[' . $stored[0]->body . '],', (string) $response->getContent());
     }
 
     /*
@@ -1258,6 +1324,22 @@ final class ProductControllerTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * @param list<ProductView> $items
+     */
+    private static function listPage(array $items, int $total, int $perPage, int $currentPage, string $shape = 'none'): ProductListPageResult
+    {
+        return new ProductListPageResult(
+            total: $total,
+            perPage: $perPage,
+            currentPage: $currentPage,
+            shape: $shape,
+            entries: \array_map(
+                static fn(ProductView $view): ProductListEntryDTO => new ProductListEntryDTO(self::PRODUCT_UUID, 'fp-' . $view->id->value, null, $view),
+                $items,
+            ),
+        );
+    }
 
     private function stringCustomField(string $name, string $value): StringCustomFieldValue
     {

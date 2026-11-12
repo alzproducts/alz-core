@@ -103,7 +103,10 @@ return [
     |
     */
 
-    'sale_category_id' => (int) env('SHOPWIRED_SALE_CATEGORY_ID'),
+    'sale_category_id' => (int) env(
+        'SHOPWIRED_SALE_CATEGORY_ID',
+        in_array(env('APP_ENV'), ['local', 'testing'], true) ? 2000000001 : null,
+    ),
 
     /*
     |--------------------------------------------------------------------------
