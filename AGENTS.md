@@ -44,8 +44,8 @@ Tests do NOT run on stop — run the relevant Pest tests yourself before declari
 
 ## Production Access
 
-- Agents read production logs only through `~/.agents/bin/railway-logs` (AGN-196).
-- Every other production operation (commands, shells, deploys, variables, data) is human-only; agents have no Railway CLI or MCP access here (`.claude/settings.json` denies both).
+- Production operations (logs, commands, shells, deploys, variables, data) are human-only; agents have no Railway CLI or MCP access here (`.claude/settings.json` denies both).
+- Local `.env` files hold no production credentials: a blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
 
 ---
 

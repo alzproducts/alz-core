@@ -437,7 +437,6 @@ cmd_launch() {
                     APP_ENV | PATH | HOME) die 64 "--env-override refuses $key" ;;
                 esac
                 ! is_credential_key "$key" || die 64 "--env-override refuses credential key $key"
-                [[ ! "$key" =~ _LIVE$ ]] || die 64 "--env-override refuses live opt-in $key"
                 overrides+=("$kv")
                 shift 2
                 ;;

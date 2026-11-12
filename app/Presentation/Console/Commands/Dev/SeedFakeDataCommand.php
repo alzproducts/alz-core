@@ -44,10 +44,10 @@ final class SeedFakeDataCommand extends Command
             return 'Refusing to seed: the environment is not local or testing.';
         }
 
-        $connection = \config()->string('database.default');
+        $databaseFailure = self::databaseHostFailure();
 
-        if (! \in_array(\config()->get("database.connections.{$connection}.host"), self::LOOPBACK_HOSTS, true)) {
-            return 'Refusing to seed: the default database connection host is not a loopback address.';
+        if ($databaseFailure !== null) {
+            return $databaseFailure;
         }
 
         $saleCategoryId = \config()->get('shopwired.sale_category_id');
@@ -57,6 +57,36 @@ final class SeedFakeDataCommand extends Command
         }
 
         return null;
+    }
+
+    private static function databaseHostFailure(): ?string
+    {
+        $connection = \config()->string('database.default');
+
+        if (! \in_array(\config()->get("database.connections.{$connection}.host"), self::LOOPBACK_HOSTS, true)) {
+            return 'Refusing to seed: the default database connection host is not a loopback address.';
+        }
+
+        if (! self::urlHostIsLoopback(\config()->get("database.connections.{$connection}.url"))) {
+            return 'Refusing to seed: the default database connection URL does not name a loopback host.';
+        }
+
+        return null;
+    }
+
+    /**
+     * The connection URL overrides the host when set, so a blank URL passes and any other URL
+     * passes only when it parses to a loopback host.
+     */
+    private static function urlHostIsLoopback(mixed $url): bool
+    {
+        if ($url === null || $url === '') {
+            return true;
+        }
+
+        $host = \is_string($url) ? \parse_url($url, PHP_URL_HOST) : null;
+
+        return \is_string($host) && \in_array(\mb_trim($host, '[]'), self::LOOPBACK_HOSTS, true);
     }
 
     public function handle(): int
@@ -89,7 +119,7 @@ final class SeedFakeDataCommand extends Command
 
         if ($failure !== null) {
             $this->error($failure);
-            $this->line('  Check: APP_ENV, DB_HOST and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
+            $this->line('  Check: APP_ENV, DB_HOST, DB_URL and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
 
             return null;
         }

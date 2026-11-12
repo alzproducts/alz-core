@@ -20,6 +20,8 @@
 
 **Rationale**: Every `.env` variable we reference must be set in all environments (local, CI, production). Returning null defers failure to runtime, making bugs harder to trace.
 
+**EXCEPTION — stand-ins ([ADR-0015](../../docs/adr/0015-blank-credentials-switch-integrations-off.md)):** HelpScout, Slack, Google Ads and Bing bind a stand-in when a secret in `IntegrationCredentials` is blank outside production; keep those branches. In production they still throw. No other integration gets one.
+
 ## Exceptions Used
 
 | Exception | When |

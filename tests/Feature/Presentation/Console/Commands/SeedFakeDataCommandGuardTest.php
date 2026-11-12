@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Console\Commands;
 
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Presentation\Console\Commands\Dev\SeedFakeDataCommand;
 use Illuminate\Support\Facades\DB;
 use Override;
@@ -32,6 +33,7 @@ final class SeedFakeDataCommandGuardTest extends TestCase
         $connection = \config()->string('database.default');
         \config([
             "database.connections.{$connection}.host" => '127.0.0.1',
+            "database.connections.{$connection}.url" => null,
             'shopwired.sale_category_id' => 2_000_000_001,
         ]);
         DB::listen(function (): void {
@@ -69,7 +71,7 @@ final class SeedFakeDataCommandGuardTest extends TestCase
     #[Test]
     public function it_refuses_a_production_environment_before_any_database_call(): void
     {
-        $this->app->detectEnvironment(static fn(): string => 'production');
+        $this->simulateProduction();
 
         $this->artisan('dev:seed-fake', ['--fresh' => true])
             ->expectsOutput('Refusing to seed: the environment is not local or testing.')
@@ -86,6 +88,47 @@ final class SeedFakeDataCommandGuardTest extends TestCase
             ->expectsOutput('Refusing to seed: the default database connection host is not a loopback address.')
             ->assertFailed();
         $this->assertSame(0, $this->queries);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function nonLoopbackUrls(): iterable
+    {
+        yield 'remote host' => ['postgresql://user:pass@db.example.supabase.co:5432/postgres'];
+        yield 'unparseable' => ['postgresql://:5432'];
+        yield 'no host' => ['not a url'];
+    }
+
+    #[Test]
+    #[DataProvider('nonLoopbackUrls')]
+    public function it_refuses_a_database_url_without_a_loopback_host_before_any_database_call(string $url): void
+    {
+        $this->setUrl($url);
+
+        $this->artisan('dev:seed-fake', ['--fresh' => true])
+            ->expectsOutput('Refusing to seed: the default database connection URL does not name a loopback host.')
+            ->assertFailed();
+        $this->assertSame(0, $this->queries);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function loopbackUrls(): iterable
+    {
+        yield 'IPv4' => ['postgresql://user:pass@127.0.0.1:54322/postgres'];
+        yield 'name' => ['postgresql://user:pass@localhost/postgres'];
+        yield 'IPv6' => ['postgresql://user:pass@[::1]:54322/postgres'];
+    }
+
+    #[Test]
+    #[DataProvider('loopbackUrls')]
+    public function it_allows_a_database_url_naming_a_loopback_host(string $url): void
+    {
+        $this->setUrl($url);
+
+        $this->assertNull(SeedFakeDataCommand::guardFailure());
     }
 
     /**
@@ -124,7 +167,7 @@ final class SeedFakeDataCommandGuardTest extends TestCase
     #[Test]
     public function a_direct_seeder_run_in_production_refuses_before_any_database_call(): void
     {
-        $this->app->detectEnvironment(static fn(): string => 'production');
+        $this->simulateProduction();
 
         try {
             $this->artisan('db:seed', ['--class' => self::SEEDER, '--force' => true])->run();
@@ -149,5 +192,20 @@ final class SeedFakeDataCommandGuardTest extends TestCase
     {
         $connection = \config()->string('database.default');
         \config(["database.connections.{$connection}.host" => $host]);
+    }
+
+    private function setUrl(string $url): void
+    {
+        $connection = \config()->string('database.default');
+        \config(["database.connections.{$connection}.url" => $url]);
+    }
+
+    /**
+     * A configured production: blank integration secrets would refuse to boot first (ADR-0015).
+     */
+    private function simulateProduction(): void
+    {
+        $this->app->detectEnvironment(static fn(): string => 'production');
+        \config(\array_map(static fn(): string => 'dummy-secret', IntegrationCredentials::ALL));
     }
 }

@@ -83,8 +83,9 @@ _Avoid_: "seed tier", which suggests a size setting rather than a domain boundar
 The committed, aggregate-only description of production's shape (counts and structural distributions, no rows, prices or names) that a **seed slice** is generated from.
 _Avoid_: "prod snapshot", "prod export", which imply copied rows.
 
-**Prod sync (local)**:
-The opt-in path that fills a local database from the real ShopWired and Linnworks APIs; the synthetic **seed slice** is the default.
+**Stand-in**:
+The class an integration binds in place of its real client when one of its secret credentials is blank outside production; it logs one line per call and does nothing else (HelpScout contact writes, Slack, Google Ads and Bing conversions; ADR-0015).
+_Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
 ## Relationships
 
