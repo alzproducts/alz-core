@@ -198,7 +198,7 @@ flowchart LR
     UC -->|Response| ADMIN
 ```
 
-No general-purpose cache sits in front of synced data. Caching is applied only where an external contract demands it: OAuth session tokens (Bing Ads, Linnworks), HelpScout read responses (`CachingHelpScoutService`, shown above), and transient alert throttling. See [ADR 0011](adr/0011-no-general-cache-in-front-of-synced-data.md) for the full rationale.
+No general-purpose cache sits in front of synced data. Caching is applied where an external contract demands it: OAuth session tokens (Bing Ads, Linnworks), HelpScout read responses (`CachingHelpScoutService`, shown above), and transient alert throttling. A cache over synced data is allowed only when its validity is recomputed from live data in the reading request's own snapshot; the `GET /api/products` fragment cache (`catalog.product_list_fragments`) is the one such cache. See [ADR 0011](adr/0011-no-general-cache-in-front-of-synced-data.md) and its amendment for the full rationale.
 
 ---
 

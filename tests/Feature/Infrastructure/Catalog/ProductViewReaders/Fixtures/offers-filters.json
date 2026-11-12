@@ -1,0 +1,33 @@
+[
+    {
+        "@class": "App\\Application\\Catalog\\Commands\\ProductFilterChangeCommand",
+        "productId": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481500
+        },
+        "optionNo": 14,
+        "desiredFilterValues": []
+    },
+    {
+        "@class": "App\\Application\\Catalog\\Commands\\ProductFilterChangeCommand",
+        "productId": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481501
+        },
+        "optionNo": 14,
+        "desiredFilterValues": [
+            "App\\Domain\\Catalog\\Product\\Enums\\OffersFilterValue::OnSale"
+        ]
+    },
+    {
+        "@class": "App\\Application\\Catalog\\Commands\\ProductFilterChangeCommand",
+        "productId": {
+            "@class": "App\\Domain\\ValueObjects\\IntId",
+            "value": 2147481502
+        },
+        "optionNo": 14,
+        "desiredFilterValues": [
+            "App\\Domain\\Catalog\\Product\\Enums\\OffersFilterValue::OnSale"
+        ]
+    }
+]

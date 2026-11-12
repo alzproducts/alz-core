@@ -12,6 +12,8 @@ use App\Application\Contracts\Catalog\CustomFieldGeneralSettingsRepositoryInterf
 use App\Application\Contracts\Catalog\CustomFieldProductSettingsRepositoryInterface;
 use App\Application\Contracts\Catalog\OffersFilterQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductExtraDataRepositoryInterface;
+use App\Application\Contracts\Catalog\ProductListFragmentStoreInterface;
+use App\Application\Contracts\Catalog\ProductListReaderInterface;
 use App\Application\Contracts\Catalog\ProductPopularityRankingSnapshotRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductSortOrderQueryRepositoryInterface;
 use App\Application\Contracts\Catalog\ProductViewQueryRepositoryInterface;
@@ -30,6 +32,8 @@ use App\Infrastructure\Catalog\Dispatchers\QueuedCatalogSyncDispatcher;
 use App\Infrastructure\Catalog\Product\Mappers\ProductVariationViewModelMapper;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentProductExtraDataRepository;
 use App\Infrastructure\Catalog\Product\Repositories\EloquentVariationQueryRepository;
+use App\Infrastructure\Catalog\Queries\ProductList\PostgresProductListFragmentStore;
+use App\Infrastructure\Catalog\Queries\ProductList\ProductListQueryRepository;
 use App\Infrastructure\Catalog\Repositories\BestSellersRankingStateQueryRepository;
 use App\Infrastructure\Catalog\Repositories\CreditProductPopularityRankingSnapshotRepository;
 use App\Infrastructure\Catalog\Repositories\OffersFilterQueryRepository;
@@ -56,6 +60,7 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
         $this->registerBestSellersBindings();
         $this->registerRelatedProductsRepositories();
         $this->registerCustomFieldSettingsRepositories();
+        $this->registerProductListBindings();
 
         $this->app->scoped(
             CatalogSyncDispatcherInterface::class,
@@ -87,7 +92,30 @@ final class CatalogServiceProvider extends ServiceProvider implements Deferrable
             ProductViewQueryRepositoryInterface::class,
             VariationQueryRepositoryInterface::class,
             ProductVariationViewModelMapper::class,
+            ProductListReaderInterface::class,
+            ProductListFragmentStoreInterface::class,
         ];
+    }
+
+    private function registerProductListBindings(): void
+    {
+        $this->app->scoped(ProductListReaderInterface::class, ProductListQueryRepository::class);
+        $this->app->scoped(ProductListFragmentStoreInterface::class, PostgresProductListFragmentStore::class);
+
+        $this->app->when(ProductListQueryRepository::class)
+            ->needs('$release')
+            ->give(static function (): string {
+                $release = \config('catalog.list_fragments.release');
+
+                if (! \is_string($release) || $release === '') {
+                    throw new InvalidConfigurationException(
+                        'catalog.list_fragments.release',
+                        'RAILWAY_GIT_COMMIT_SHA must be set outside local and testing environments',
+                    );
+                }
+
+                return $release;
+            });
     }
 
     private function registerRepositories(): void

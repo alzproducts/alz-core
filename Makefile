@@ -239,9 +239,9 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run Pest test suite (all layers, excludes integration, seed-command and real-Slack tests; matches CI)
+test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity and real-Slack tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=slack --no-coverage $(TEST_ARGS)
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --no-coverage $(TEST_ARGS)
 
 test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
 	@echo "$(MODE)"
@@ -278,12 +278,12 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-clover=coverage.xml
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --coverage-html=coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing

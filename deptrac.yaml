@@ -28,6 +28,12 @@ deptrac:
         - type: classLike
           value: ^App\\Presentation\\Console\\Commands\\Dev\\.*
 
+    # Local-only catalog dev tooling behind the Dev commands (snapshot, bench)
+    - name: DevToolsCatalog
+      collectors:
+        - type: classLike
+          value: ^App\\DevTools\\Catalog\\.*
+
     - name: Presentation
       collectors:
         - type: bool
@@ -216,11 +222,23 @@ deptrac:
       - Application
       - Domain
       - Infrastructure
+      - DevToolsCatalog
       - LaravelFramework
       - SpatieData
       - SymfonyHttp
       - SymfonyHttpKernel
       - SentrySdk
+      - CarbonDateTime
+
+    # Catalog dev tooling: drives the app in-process and over HTTP, and writes the local DB through repositories
+    DevToolsCatalog:
+      - Application
+      - Domain
+      - Infrastructure
+      - LaravelFramework
+      - GuzzleHttp
+      - PsrInterfaces
+      - SymfonyHttp
       - CarbonDateTime
 
     # External layers have no outbound dependencies

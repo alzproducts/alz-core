@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Tests\Integration\Catalog;
 
 use App\Application\Catalog\Queries\ProductListQueryParams;
+use App\Application\Catalog\Results\ProductListEntryDTO;
+use App\Application\Contracts\Catalog\ProductListReaderInterface;
 use App\Application\Contracts\Shopwired\ProductRepositoryInterface;
 use App\Domain\Catalog\Product\Enums\ProductFilterField;
-use App\Domain\Catalog\Product\ValueObjects\ProductView;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Domain\ValueObjects\IntId;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,6 @@ final class ProductsViewHasAnySaleGuardTest extends TestCase
         $this->saleCategoryId = $saleCategoryId;
 
         $this->insertInheritanceOnlyFixture();
-        DB::statement('REFRESH MATERIALIZED VIEW catalog.products_view');
 
         $this->repository = $this->app->make(ProductRepositoryInterface::class);
     }
@@ -150,7 +150,7 @@ final class ProductsViewHasAnySaleGuardTest extends TestCase
      */
     private function paginateFixtureSku(bool $hasAnySale): array
     {
-        $page = $this->repository->paginate(new ProductListQueryParams(
+        $page = $this->app->make(ProductListReaderInterface::class)->page(new ProductListQueryParams(
             pagination: PageRequest::from(1, 10),
             filters: [
                 ProductFilterField::Sku->value => self::PRODUCT_SKU,
@@ -158,7 +158,11 @@ final class ProductsViewHasAnySaleGuardTest extends TestCase
             ],
         ));
 
-        return \array_map(static fn(ProductView $view): int => $view->id->value, $page->items);
+        return \array_map(static function (ProductListEntryDTO $entry): int {
+            self::assertNotNull($entry->view, 'A fixture inserted in this transaction has no stored fragment');
+
+            return $entry->view->id->value;
+        }, $page->entries);
     }
 
     /**
