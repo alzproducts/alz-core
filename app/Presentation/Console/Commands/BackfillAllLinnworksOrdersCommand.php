@@ -48,7 +48,7 @@ final class BackfillAllLinnworksOrdersCommand extends Command
         OrderDashboardsClientInterface $dashboardsClient,
         LinnworksBackfillDispatcherInterface $dispatcher,
     ): int {
-        if ($this->option('queue')) {
+        if ($this->option('queue') === true) {
             return $this->dispatchToQueue($dispatcher);
         }
 
@@ -94,7 +94,7 @@ final class BackfillAllLinnworksOrdersCommand extends Command
      */
     private function confirmAndExecute(BackfillLinnworksOrdersUseCase $useCase, array $orderIds, int $count): int
     {
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') === true) {
             $this->warn('Dry run — no orders synced. Remove --dry-run to execute.');
 
             return self::SUCCESS;
@@ -132,7 +132,7 @@ final class BackfillAllLinnworksOrdersCommand extends Command
 
     private function shouldProceed(int $count): bool
     {
-        if ($this->option('force')) {
+        if ($this->option('force') === true) {
             return true;
         }
 

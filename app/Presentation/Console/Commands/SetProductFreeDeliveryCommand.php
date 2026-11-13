@@ -41,7 +41,7 @@ final class SetProductFreeDeliveryCommand extends Command
         }
 
         try {
-            $type = FreeDeliveryType::fromString((string) $this->option('type'));
+            $type = FreeDeliveryType::fromString($this->typeOption());
         } catch (ValueError) {
             $this->displayInvalidTypeError();
             return self::FAILURE;
@@ -52,8 +52,15 @@ final class SetProductFreeDeliveryCommand extends Command
 
     private function displayInvalidTypeError(): void
     {
-        $this->error('Invalid type: ' . (string) $this->option('type'));
+        $this->error('Invalid type: ' . $this->typeOption());
         $this->line('Valid types: ' . \implode(', ', \array_column(FreeDeliveryType::cases(), 'value')));
+    }
+
+    private function typeOption(): string
+    {
+        $type = $this->option('type');
+
+        return \is_string($type) ? $type : '';
     }
 
     /**
@@ -74,7 +81,7 @@ final class SetProductFreeDeliveryCommand extends Command
      */
     private function executeOrDryRun(DispatchProductFreeDeliveryJobsUseCase $dispatchUseCase, array $commands, FreeDeliveryType $type): int
     {
-        $dryRun = $this->option('dry-run');
+        $dryRun = $this->option('dry-run') === true;
         $this->info($dryRun ? 'DRY RUN - Would dispatch:' : 'Dispatching jobs...');
         $this->newLine();
         $this->table(['Items', 'Type'], [[\count($commands), $type->value]]);

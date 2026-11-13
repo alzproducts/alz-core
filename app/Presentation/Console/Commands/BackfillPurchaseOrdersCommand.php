@@ -53,7 +53,7 @@ final class BackfillPurchaseOrdersCommand extends Command
         PurchaseDashboardsClientInterface $dashboardsClient,
         PurchaseOrderBackfillDispatcherInterface $dispatcher,
     ): int {
-        if ($this->option('all')) {
+        if ($this->option('all') === true) {
             return $this->handleAllBackfill($useCase, $dashboardsClient, $dispatcher);
         }
 
@@ -72,7 +72,7 @@ final class BackfillPurchaseOrdersCommand extends Command
         PurchaseDashboardsClientInterface $dashboardsClient,
         PurchaseOrderBackfillDispatcherInterface $dispatcher,
     ): int {
-        if ($this->option('queue')) {
+        if ($this->option('queue') === true) {
             return $this->dispatchAllToQueue($dispatcher);
         }
 
@@ -110,7 +110,7 @@ final class BackfillPurchaseOrdersCommand extends Command
             return self::FAILURE;
         }
         [$from, $to] = $dates;
-        if ($this->option('queue')) {
+        if ($this->option('queue') === true) {
             return $this->dispatchDateRangeToQueue($dispatcher, $from, $to);
         }
         $ids = $this->fetchDateRangeIds($dashboardsClient, $from, $to);
@@ -201,7 +201,7 @@ final class BackfillPurchaseOrdersCommand extends Command
      */
     private function checkDryRun(array $ids): ?array
     {
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') === true) {
             $this->warn('Dry run — no POs synced. Remove --dry-run to execute.');
 
             return null;

@@ -76,8 +76,10 @@ final class ShopwiredAuditOrderSyncCommand extends Command
      */
     private function parseDateRange(): array
     {
-        $from = $this->parseDate($this->option('from'), (new DateTimeImmutable())->modify('-30 days'));
-        $to = $this->parseDate($this->option('to'), (new DateTimeImmutable())->modify('-6 hours'));
+        $fromOption = $this->option('from');
+        $toOption = $this->option('to');
+        $from = $this->parseDate(\is_string($fromOption) ? $fromOption : null, (new DateTimeImmutable())->modify('-30 days'));
+        $to = $this->parseDate(\is_string($toOption) ? $toOption : null, (new DateTimeImmutable())->modify('-6 hours'));
 
         return [$from, $to];
     }
@@ -241,7 +243,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
      */
     private function displayMissingDetails(array $apiOrders, array $missingOrderIds): void
     {
-        if (! $this->option('show-missing') || $missingOrderIds === []) {
+        if ($this->option('show-missing') !== true || $missingOrderIds === []) {
             return;
         }
 
