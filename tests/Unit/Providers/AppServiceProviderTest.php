@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Providers;
 
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Providers\AppServiceProvider;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -66,6 +67,7 @@ final class AppServiceProviderTest extends TestCase
             'sentry.dsn' => 'https://test@sentry.io/123',
             'reviewsio.api_key' => 'test-api-key',
             'reviewsio.store_id' => 'test-store',
+            ...\array_map(static fn(): string => 'dummy-secret', IntegrationCredentials::ALL),
         ];
 
         // Allow overriding specific values for failure tests
@@ -173,6 +175,14 @@ final class AppServiceProviderTest extends TestCase
             'missing horizon password' => ['horizon.auth.password', 'Horizon dashboard password (HORIZON_PASSWORD)'],
             'missing supabase url' => ['services.supabase.url', 'Supabase project URL (SUPABASE_URL)'],
             'missing sentry dsn' => ['sentry.dsn', 'Sentry DSN (SENTRY_LARAVEL_DSN)'],
+            'missing helpscout app secret' => ['helpscout.auth.appSecret', 'HELPSCOUT_APP_SECRET'],
+            'missing slack bot token' => ['services.slack.notifications.bot_user_oauth_token', 'SLACK_BOT_USER_OAUTH_TOKEN'],
+            'missing google ads developer token' => ['google-ads.developer_token', 'GOOGLE_ADS_DEVELOPER_TOKEN'],
+            'missing google ads client secret' => ['google-ads.client_secret', 'GOOGLE_ADS_CLIENT_SECRET'],
+            'missing google ads refresh token' => ['google-ads.refresh_token', 'GOOGLE_ADS_REFRESH_TOKEN'],
+            'missing bing client secret' => ['bing-ads.client_secret', 'BING_ADS_CLIENT_SECRET'],
+            'missing bing refresh token' => ['bing-ads.refresh_token', 'BING_ADS_REFRESH_TOKEN'],
+            'missing bing developer token' => ['bing-ads.developer_token', 'BING_ADS_DEVELOPER_TOKEN'],
         ];
     }
 

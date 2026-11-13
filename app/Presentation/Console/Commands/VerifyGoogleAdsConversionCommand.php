@@ -20,7 +20,7 @@ use Throwable;
  * ⚠️ PRODUCTION ONLY: This command talks to the LIVE Google Ads API using production
  * credentials. The canonical post-deploy usage is:
  *
- *   railway ssh -s alz-core-worker php artisan verify:googleads-conversions
+ *   php artisan verify:googleads-conversions   (run by a human on the production worker)
  *
  * Sanctioned exception — running this locally before merge is explicitly allowed.
  * The request is `validate_only` and carries a fabricated gclid, so Google validates

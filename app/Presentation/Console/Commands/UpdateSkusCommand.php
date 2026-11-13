@@ -23,11 +23,11 @@ use ValueError;
  * The audit trail (operations.sku_changes) is critical for tracking changes
  * used in historic sales reports. Running locally writes audit records to your
  * local database while making REAL changes to production systems - leaving no
- * traceable record in production. Always run via `railway ssh` in production.
+ * traceable record in production. A human always runs it in production.
  *
  * Examples:
- *   railway ssh -s alz-core 'php artisan inventory:update-skus ABC123:XYZ789 --reason=fix_sku_mismatch'
- *   railway ssh -s alz-core 'php artisan inventory:update-skus OLD-SKU:generate --reason=shorten_long_sku'
+ *   php artisan inventory:update-skus ABC123:XYZ789 --reason=fix_sku_mismatch
+ *   php artisan inventory:update-skus OLD-SKU:generate --reason=shorten_long_sku
  */
 final class UpdateSkusCommand extends Command
 {

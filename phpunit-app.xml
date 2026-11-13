@@ -45,6 +45,15 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Blank secrets switch HelpScout, Slack, Google Ads and Bing to stand-ins (ADR-0015) -->
+        <env name="HELPSCOUT_APP_SECRET" value="" force="true"/>
+        <env name="SLACK_BOT_USER_OAUTH_TOKEN" value="" force="true"/>
+        <env name="GOOGLE_ADS_DEVELOPER_TOKEN" value="" force="true"/>
+        <env name="GOOGLE_ADS_CLIENT_SECRET" value="" force="true"/>
+        <env name="GOOGLE_ADS_REFRESH_TOKEN" value="" force="true"/>
+        <env name="BING_ADS_CLIENT_SECRET" value="" force="true"/>
+        <env name="BING_ADS_REFRESH_TOKEN" value="" force="true"/>
+        <env name="BING_ADS_DEVELOPER_TOKEN" value="" force="true"/>
     </php>
     <extensions>
         <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>

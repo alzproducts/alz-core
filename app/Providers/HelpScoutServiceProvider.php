@@ -15,6 +15,8 @@ use App\Application\HelpScout\UseCases\GetEscalationsUseCase;
 use App\Application\Support\EmailAliasResolver;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
+use App\Infrastructure\HelpScout\StandIns\StandInContactConversationLookup;
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -36,6 +38,8 @@ use RuntimeException;
  */
 final class HelpScoutServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    private const int PLACEHOLDER_SYSTEM_USER_ID = 1;
+
     /**
      * Register HelpScout API clients.
      *
@@ -78,7 +82,9 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             ContactConversationLookupInterface::class,
-            static fn(Application $app): ContactConversationLookupInterface => HelpScoutClientFactory::createContactConversationLookup($app->make(TransientLogThrottle::class)),
+            static fn(Application $app): ContactConversationLookupInterface => IntegrationCredentials::areSet(IntegrationCredentials::HELPSCOUT)
+                ? HelpScoutClientFactory::createContactConversationLookup($app->make(TransientLogThrottle::class))
+                : $app->make(StandInContactConversationLookup::class),
         );
     }
 
@@ -86,19 +92,24 @@ final class HelpScoutServiceProvider extends ServiceProvider implements Deferrab
     {
         $this->app->singleton(
             HelpScoutSystemUserId::class,
-            static function (): HelpScoutSystemUserId {
-                $configValue = \config('helpscout.system_user_id');
-                $userId = \is_numeric($configValue) ? (int) $configValue : 0;
-
-                if ($userId <= 0) {
-                    throw new RuntimeException(
-                        'HELPSCOUT_SYSTEM_USER_ID not configured. Get ID from: Help Scout → Manage → Users → Click user → ID in URL',
-                    );
-                }
-
-                return new HelpScoutSystemUserId(IntId::from($userId));
-            },
+            static fn(): HelpScoutSystemUserId => IntegrationCredentials::areSet(IntegrationCredentials::HELPSCOUT)
+                ? self::configuredSystemUserId()
+                : new HelpScoutSystemUserId(IntId::from(self::PLACEHOLDER_SYSTEM_USER_ID)),
         );
+    }
+
+    private static function configuredSystemUserId(): HelpScoutSystemUserId
+    {
+        $configValue = \config('helpscout.system_user_id');
+        $userId = \is_numeric($configValue) ? (int) $configValue : 0;
+
+        if ($userId <= 0) {
+            throw new RuntimeException(
+                'HELPSCOUT_SYSTEM_USER_ID not configured. Get ID from: Help Scout → Manage → Users → Click user → ID in URL',
+            );
+        }
+
+        return new HelpScoutSystemUserId(IntId::from($userId));
     }
 
     private function registerUseCases(): void

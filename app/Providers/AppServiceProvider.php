@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Application\Contracts\ErrorReporterInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ErrorReporting\SentryErrorReporter;
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -78,6 +79,7 @@ final class AppServiceProvider extends ServiceProvider
         'horizon.auth.password' => 'Horizon dashboard password (HORIZON_PASSWORD)',
         'services.supabase.url' => 'Supabase project URL (SUPABASE_URL)',
         'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
+        ...IntegrationCredentials::ALL,
     ];
 
     private static function validateProductionEnvironment(): void
