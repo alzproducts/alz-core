@@ -7,6 +7,7 @@ namespace App\DevTools\Catalog\ProductList;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Process\Factory as ProcessFactory;
+use Illuminate\Process\FakeInvokedProcess;
 use Illuminate\Process\InvokedProcess;
 use RuntimeException;
 
@@ -19,7 +20,7 @@ final class OctaneBenchServer
 
     private const string COMMAND = 'exec "$BENCH_PHP" artisan octane:start --server=swoole --host=127.0.0.1 --port="$BENCH_PORT" >> "$BENCH_LOG" 2>&1';
 
-    private ?InvokedProcess $server = null;
+    private InvokedProcess|FakeInvokedProcess|null $server = null;
 
     public function __construct(
         private readonly ProcessFactory $process,

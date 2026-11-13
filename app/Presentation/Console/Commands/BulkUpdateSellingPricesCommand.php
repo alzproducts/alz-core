@@ -43,13 +43,13 @@ final class BulkUpdateSellingPricesCommand extends Command
      */
     public function handle(DispatchBulkSellingPriceJobsUseCase $useCase, SellingPriceCsvParser $parser): int
     {
-        $file = $this->argument('file');
-        if (! \is_file($file) || ! \is_readable($file)) {
-            $this->error("CSV file not found or not readable: {$file}");
+        $path = $this->csvPath();
+        if (! \is_file($path) || ! \is_readable($path)) {
+            $this->error("CSV file not found or not readable: {$path}");
             return self::FAILURE;
         }
 
-        [$commands, $errors] = $parser->parse($file);
+        [$commands, $errors] = $parser->parse($path);
         if ($errors !== []) {
             $this->reportRowErrors($errors);
             return self::FAILURE;
@@ -63,6 +63,13 @@ final class BulkUpdateSellingPricesCommand extends Command
         return $this->dispatchOrPreview($useCase, $commands);
     }
 
+    private function csvPath(): string
+    {
+        $file = $this->argument('file');
+
+        return \is_string($file) ? $file : '';
+    }
+
     /**
      * @param non-empty-list<UpdatePriceCommand> $commands
      *
@@ -71,7 +78,7 @@ final class BulkUpdateSellingPricesCommand extends Command
      */
     private function dispatchOrPreview(DispatchBulkSellingPriceJobsUseCase $useCase, array $commands): int
     {
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') === true) {
             $this->renderPreview($commands);
 
             return self::SUCCESS;
