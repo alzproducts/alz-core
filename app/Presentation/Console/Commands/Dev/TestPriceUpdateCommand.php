@@ -45,7 +45,7 @@ final class TestPriceUpdateCommand extends Command
         try {
             $saleSettings = $this->buildSaleSettings();
         } catch (DateMalformedStringException) {
-            $this->error('Invalid date format: ' . ($this->option('end-date') ?? '(null)') . ' (expected Y-m-d)');
+            $this->error('Invalid date format: ' . $this->endDateForDisplay() . ' (expected Y-m-d)');
             return self::FAILURE;
         }
 
@@ -54,6 +54,13 @@ final class TestPriceUpdateCommand extends Command
         $this->info("Updating SKU {$sku} → sale price £{$salePrice}");
 
         return $this->executePriceUpdate($useCase, Sku::fromTrusted($sku), $salePrice, $saleSettings);
+    }
+
+    private function endDateForDisplay(): string
+    {
+        $endDate = $this->option('end-date');
+
+        return \is_string($endDate) ? $endDate : '(null)';
     }
 
     /**

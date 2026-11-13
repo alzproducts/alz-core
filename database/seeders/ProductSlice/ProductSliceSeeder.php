@@ -27,6 +27,7 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use JsonException;
+use LogicException;
 use RuntimeException;
 
 /**
@@ -102,7 +103,6 @@ final class ProductSliceSeeder extends Seeder
             }
 
             $this->write($rows);
-            $this->database->runSql('REFRESH MATERIALIZED VIEW catalog.products_view');
         });
 
         $this->printCounts($rows, 'Seeded rows');
@@ -113,9 +113,11 @@ final class ProductSliceSeeder extends Seeder
      */
     private function generator(): SliceGeneratorInterface
     {
-        if ($this->container->bound(SliceGeneratorInterface::class)) {
+        $container = $this->container ?? throw new LogicException('ProductSliceSeeder has no container; run it through db:seed or Seeder::call().');
+
+        if ($container->bound(SliceGeneratorInterface::class)) {
             /** @var SliceGeneratorInterface */
-            return $this->container->make(SliceGeneratorInterface::class);
+            return $container->make(SliceGeneratorInterface::class);
         }
 
         return new ProfileSliceGenerator();
@@ -188,8 +190,10 @@ final class ProductSliceSeeder extends Seeder
 
     private function printCounts(SliceRows $rows, string $heading): void
     {
-        $this->command->info($heading);
-        $this->command->table(
+        $command = $this->command ?? throw new LogicException('ProductSliceSeeder has no console command; run it through db:seed or Seeder::call().');
+
+        $command->info($heading);
+        $command->table(
             ['Table', 'Rows'],
             \array_map(static fn(string $table): array => [$table, $rows->count($table)], SliceTables::INSERT_ORDER),
         );

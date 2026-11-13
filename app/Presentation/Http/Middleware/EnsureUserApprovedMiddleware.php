@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * MUST run AFTER ValidateSupabaseJwtMiddleware (requires authenticated_user).
  *
- * Usage: Apply middleware group 'auth.supabase' to routes.
+ * Usage: Declare on each approval route group in routes/api.php, followed by EnsureRoleTierMiddleware.
  * ============================================================
  */
 final class EnsureUserApprovedMiddleware

@@ -52,7 +52,7 @@ final class VerifyGoogleAdsConversionCommand extends Command
 
     public function handle(): int
     {
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') === true) {
             return $this->displayDryRun();
         }
 

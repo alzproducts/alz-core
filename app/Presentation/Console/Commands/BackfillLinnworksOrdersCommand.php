@@ -59,7 +59,7 @@ final class BackfillLinnworksOrdersCommand extends Command
 
         [$from, $to] = $dates;
 
-        if ($this->option('queue')) {
+        if ($this->option('queue') === true) {
             return $this->dispatchToQueue($dispatcher, $from, $to);
         }
 
@@ -171,7 +171,7 @@ final class BackfillLinnworksOrdersCommand extends Command
     {
         $this->info('Found ' . \count($orderIds) . ' orders in date range.');
 
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') === true) {
             $this->warn('Dry run — no orders synced. Remove --dry-run to execute.');
 
             return self::SUCCESS;

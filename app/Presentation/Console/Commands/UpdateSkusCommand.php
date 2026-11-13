@@ -48,7 +48,7 @@ final class UpdateSkusCommand extends Command
             return self::FAILURE;
         }
 
-        $dryRun = $this->option('dry-run');
+        $dryRun = $this->option('dry-run') === true;
         $this->displaySummary($commands, $dryRun);
 
         return $dryRun ? $this->displayDryRunNotice() : $this->dispatchSkuJobs($dispatchUseCase, $commands);
@@ -67,7 +67,8 @@ final class UpdateSkusCommand extends Command
             $this->error('At least one SKU mapping is required. Format: old_sku:new_sku or old_sku:generate');
             return null;
         }
-        $reason = $this->parseReason((string) $this->option('reason'));
+        $reasonOption = $this->option('reason');
+        $reason = $this->parseReason(\is_string($reasonOption) ? $reasonOption : '');
         if ($reason === null) {
             return null;
         }

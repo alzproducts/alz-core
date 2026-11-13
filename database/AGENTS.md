@@ -46,6 +46,11 @@ This runs a preflight and two steps in sequence:
 
 `make db-reset-full` destroys **all local data**: the seeded products slice, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and re-seeds the synthetic slice.
 
+**Information only — the reset also covers alz-admin (`${FRONTEND_APP}`).** Running `make db-reset-full` is fine; this note just explains its full scope. Both projects use the same local Supabase project, and step 1 runs alz-admin's `supabase db reset`, so alz-admin's local auth users and data are reset as well. Afterwards, only these are re-seeded:
+- alz-admin's `database.types.ts` (regenerated)
+- alz-admin's test users (`seed-test-users`)
+- alz-core's synthetic products slice (`dev:seed-fake`)
+
 **Do NOT use for incremental schema changes.** For a column change on a feature branch table, use a direct SQL statement or rollback just that migration:
 
 ```bash

@@ -63,17 +63,22 @@ final class SyncFromProdCommand extends Command
             return self::FAILURE;
         }
 
-        if ($this->option('incl-pii') && $this->option('pii-only')) {
+        if ($this->flag('incl-pii') && $this->flag('pii-only')) {
             $this->error('--incl-pii and --pii-only are mutually exclusive.');
 
             return self::FAILURE;
         }
 
-        $dryRun = $this->option('dry-run');
+        $dryRun = $this->flag('dry-run');
 
         $this->runMigrations($dryRun);
 
-        return $this->seedDatabase($dryRun, $this->option('incl-pii'), $this->option('pii-only'));
+        return $this->seedDatabase($dryRun, $this->flag('incl-pii'), $this->flag('pii-only'));
+    }
+
+    private function flag(string $name): bool
+    {
+        return $this->option($name) === true;
     }
 
     private function runMigrations(bool $dryRun): void

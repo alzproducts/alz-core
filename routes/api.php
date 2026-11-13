@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Access\Enums\RoleTier;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Infrastructure\Sentry\SentryUserContextMiddleware;
 use App\Presentation\Http\Api\Controllers\BrandController;
@@ -32,6 +33,7 @@ use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
 use App\Presentation\Http\HelpScout\Controllers\ProfileController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
+use App\Presentation\Http\Middleware\EnsureRoleTierMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
 use App\Presentation\Http\Middleware\VerifyShopwiredWebhookSignatureMiddleware;
@@ -150,7 +152,11 @@ Route::middleware([
     | DetectRefreshMiddleware converts HTTP verb to forceRefresh attribute.
     |
     */
-    Route::prefix('helpscout')->middleware([HandleHelpScoutExceptionsMiddleware::class, EnsureUserApprovedMiddleware::class])->group(static function (): void {
+    Route::prefix('helpscout')->middleware([
+        HandleHelpScoutExceptionsMiddleware::class,
+        EnsureUserApprovedMiddleware::class,
+        EnsureRoleTierMiddleware::using(RoleTier::Staff),
+    ])->group(static function (): void {
         Route::prefix('conversations')->middleware(DetectRefreshMiddleware::class)->group(static function (): void {
             Route::match(['get', 'post'], 'assigned', [ConversationsController::class, 'assigned']);
             Route::match(['get', 'post'], 'todos', [ConversationsController::class, 'todos']);
@@ -183,7 +189,13 @@ Route::middleware([
 |
 */
 
-Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddleware::class, 'throttle:api', SentryUserContextMiddleware::class])
+Route::middleware([
+    ValidateSupabaseJwtMiddleware::class,
+    EnsureUserApprovedMiddleware::class,
+    'throttle:api',
+    EnsureRoleTierMiddleware::using(RoleTier::Staff),
+    SentryUserContextMiddleware::class,
+])
     ->group(static function (): void {
         // Product endpoints
         Route::get('products', [ProductController::class, 'index']);
@@ -258,9 +270,11 @@ Route::middleware([ValidateSupabaseJwtMiddleware::class, EnsureUserApprovedMiddl
         Route::get('catalog/custom-field-definitions/{definitionId}', [CustomFieldDefinitionController::class, 'show'])
             ->whereNumber('definitionId');
         Route::put('catalog/custom-field-definitions/{definitionUuid}/general-settings', CustomFieldGeneralSettingsController::class)
-            ->whereUuid('definitionUuid');
+            ->whereUuid('definitionUuid')
+            ->middleware(EnsureRoleTierMiddleware::using(RoleTier::AdminArea));
         Route::put('catalog/custom-field-definitions/{definitionUuid}/product-settings', CustomFieldProductSettingsController::class)
-            ->whereUuid('definitionUuid');
+            ->whereUuid('definitionUuid')
+            ->middleware(EnsureRoleTierMiddleware::using(RoleTier::AdminArea));
 
         // Checkout endpoints
         Route::get('checkout/basket-recovery', BasketRecoveryController::class);
