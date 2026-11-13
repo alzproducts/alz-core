@@ -42,7 +42,7 @@ final class BackfillShopwiredOrdersCommand extends Command
         }
 
         $now = CarbonImmutable::now();
-        $dryRun = $this->option('dry-run');
+        $dryRun = $this->option('dry-run') === true;
         $this->info($dryRun ? 'DRY RUN - Would dispatch:' : "Dispatching {$months} monthly sync jobs...");
         $this->newLine();
         $this->table(['#', 'From', 'To', 'Period'], $this->buildJobTable($now, $months, $offset));

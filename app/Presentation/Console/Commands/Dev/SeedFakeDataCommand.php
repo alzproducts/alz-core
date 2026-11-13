@@ -110,7 +110,7 @@ final class SeedFakeDataCommand extends Command
             return self::FAILURE;
         }
 
-        $dryRun = $this->option('dry-run');
+        $dryRun = $this->option('dry-run') === true;
 
         if (! $dryRun && $this->call('migrate') !== self::SUCCESS) {
             $this->error('Migrations failed; nothing was seeded.');

@@ -78,15 +78,15 @@ final class GenerateVariantSkusCommand extends Command
         $this->info("Generating variant SKUs for product {$productId->value}");
         $this->line("  Template: {$templateSku->value}");
 
-        if ($this->option('copy-mpn')) {
+        if ($this->option('copy-mpn') === true) {
             $this->line('  MPN Source: template supplier code (--copy-mpn)');
         }
 
-        if ($this->option('no-supplier')) {
+        if ($this->option('no-supplier') === true) {
             $this->line('  Supplier: skipped (--no-supplier)');
         }
 
-        if ($this->option('is-standard-sign')) {
+        if ($this->option('is-standard-sign') === true) {
             $this->line('  Pricing: standard sign matching (--is-standard-sign)');
         }
 
@@ -98,9 +98,9 @@ final class GenerateVariantSkusCommand extends Command
         return new UseCaseCommand(
             $productId,
             $templateSku,
-            copyParentMpn: $this->option('copy-mpn'),
-            noSupplier: $this->option('no-supplier'),
-            isStandardSign: $this->option('is-standard-sign'),
+            copyParentMpn: $this->option('copy-mpn') === true,
+            noSupplier: $this->option('no-supplier') === true,
+            isStandardSign: $this->option('is-standard-sign') === true,
         );
     }
 

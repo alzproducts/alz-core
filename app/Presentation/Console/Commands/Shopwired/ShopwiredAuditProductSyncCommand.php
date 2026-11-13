@@ -180,7 +180,7 @@ final class ShopwiredAuditProductSyncCommand extends Command
         array $missingProductIds,
         array $missingVariationIds,
     ): void {
-        if (! $this->option('show-missing') || ($missingProductIds === [] && $missingVariationIds === [])) {
+        if ($this->option('show-missing') !== true || ($missingProductIds === [] && $missingVariationIds === [])) {
             return;
         }
 
