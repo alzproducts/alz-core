@@ -53,13 +53,6 @@ bash .agents/skills/verify/scripts/verify.sh db --evidence <dir> 'select count(*
 - Take ids from a list response, never hard-code them.
 - Follow the matching feature file; when the seed lacks a journey's precondition, report the failure and the reason, never a weakened check.
 
-### Contact and lead journeys
-
-Every vendor secret is blank in a run, so HelpScout, Slack, Google Ads and Bing answer through stand-ins that log one `Integration stand-in swallowed a call` line per call to `storage/logs/laravel.log` (ADR-0015). Payloads and gotchas: [`features/contact-lead.md`](features/contact-lead.md).
-
-- Contact: `http POST /api/contact` with `gclid` and `msclkid` in `attribution` → `status=200` with an `id`; a `db` read of `customer_service.contact_submission_actions` shows the `helpscout` row `completed` with a numeric `external_id`; the log holds `helpscout`/`createConversationFromCustomer` and `slack`/`sendContactFormProcessed` lines.
-- Lead: `http POST /api/conversions/lead` with that `id` → `status=202`; `lead_received` rows for `bing` and `google`, both `completed`; the log gains `google_ads`/`upload` and `bing_ads`/`upload` lines.
-
 ## Evidence
 
 The evidence dir (caller's `--evidence`, else the one launch minted) is outside every work tree and survives cleanup.

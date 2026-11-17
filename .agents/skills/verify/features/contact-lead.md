@@ -24,7 +24,7 @@ bash .agents/skills/verify/scripts/verify.sh db --evidence <dir> "select action_
 grep 'Integration stand-in swallowed a call' storage/logs/laravel.log
 ```
 
-- Pass: [SKILL.md §Contact and lead journeys](../SKILL.md#contact-and-lead-journeys), contact bullet.
+- Pass: `status=200` with an `id`; the `helpscout` row is `completed` with a numeric `external_id`; the log holds `helpscout`/`createConversationFromCustomer` and `slack`/`sendContactFormProcessed` stand-in lines.
 
 Lead (on a submission made as above):
 
@@ -33,7 +33,7 @@ bash .agents/skills/verify/scripts/verify.sh http --evidence <dir> POST /api/con
 bash .agents/skills/verify/scripts/verify.sh db --evidence <dir> "select ad_platform, status from customer_service.contact_submission_actions where contact_submission_id = '<submission id>' and action_type = 'lead_received' order by ad_platform"
 ```
 
-- Pass: [SKILL.md §Contact and lead journeys](../SKILL.md#contact-and-lead-journeys), lead bullet.
+- Pass: `status=202`; `lead_received` rows for `bing` and `google`, both `completed`; the log gains `google_ads`/`upload` and `bing_ads`/`upload` lines.
 - Repeat on a fresh contact submission carrying `gclid` only, then one carrying `msclkid` only: exactly one row each, `google` and `bing` respectively.
 
 ## Gotchas
