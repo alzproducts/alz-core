@@ -10,7 +10,7 @@ The maintained source for verifying alz-core's HTTP API. Read this index, then u
 ## Driving conventions
 
 - Drive every journey with `verify.sh http` and `verify.sh db` against the launched run; never against port 8000/8001.
-- Journeys that write to an external API are not yet coverable; each feature's `Gotchas` names them.
+- Journeys that write to an external API are coverable only where a stand-in answers with credentials blank (contact and lead, ADR-0015); each other feature's `Gotchas` names its uncoverable ones.
 
 ## Feature entry contract
 
@@ -21,4 +21,5 @@ Each feature file has an H1 title, one paragraph on the user-visible behaviour, 
 - [Auth smoke](./auth-smoke.md): the authenticated-user endpoint resolves the bypass persona.
 - [Products](./products.md): product list and product detail reads.
 - [Categories](./categories.md): category list and category detail reads.
+- [Contact and lead](./contact-lead.md): contact submission and lead conversion against the integration stand-ins.
 - [Products performance](./products-perf.md): product-list p99 under write load, and writer timings against a baseline commit.

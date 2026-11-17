@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\Conversion\ConversionDispatcherInterface;
+use App\Application\Conversion\Enums\AdPlatform;
 use App\Application\Conversion\Services\AdPlatformAdapterResolverService;
 use App\Infrastructure\BingAds\BingAdsConversionAdapter;
 use App\Infrastructure\Conversion\Dispatchers\QueuedConversionDispatcher;
+use App\Infrastructure\Conversion\StandIns\StandInAdPlatformConversionAdapter;
 use App\Infrastructure\GoogleAds\GoogleAdsConversionAdapter;
+use App\Infrastructure\Integrations\IntegrationCredentials;
+use App\Infrastructure\Integrations\StandInCallLogger;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -56,9 +60,18 @@ final class ConversionServiceProvider extends ServiceProvider implements Deferra
         $this->app->singleton(
             AdPlatformAdapterResolverService::class,
             static fn(Container $app): AdPlatformAdapterResolverService => new AdPlatformAdapterResolverService([
-                $app->make(GoogleAdsConversionAdapter::class),
-                $app->make(BingAdsConversionAdapter::class),
+                IntegrationCredentials::areSet(IntegrationCredentials::GOOGLE_ADS)
+                    ? $app->make(GoogleAdsConversionAdapter::class)
+                    : self::standInAdapter($app, AdPlatform::Google),
+                IntegrationCredentials::areSet(IntegrationCredentials::BING_ADS)
+                    ? $app->make(BingAdsConversionAdapter::class)
+                    : self::standInAdapter($app, AdPlatform::Bing),
             ]),
         );
+    }
+
+    private static function standInAdapter(Container $app, AdPlatform $platform): StandInAdPlatformConversionAdapter
+    {
+        return new StandInAdPlatformConversionAdapter($platform, $app->make(StandInCallLogger::class));
     }
 }

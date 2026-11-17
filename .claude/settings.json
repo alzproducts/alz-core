@@ -3,12 +3,13 @@
     "permissions": {
         "allow": [
             "Bash(php artisan migrate:*)",
-            "Bash(php artisan shopwired:audit-*)",
-            "Bash(railway logs:*)",
-            "Bash(railway service list:*)",
-            "Bash(railway service:*)"
+            "Bash(php artisan shopwired:audit-*)"
         ],
         "deny": [
+            "Bash(railway *)",
+            "Bash(*/railway *)",
+            "Bash(*@railway/cli*)",
+            "mcp__railway__*",
             "Bash(*migrate:fresh*)",
             "Bash(*migrate:refresh*)",
             "Bash(*migrate:reset*)",

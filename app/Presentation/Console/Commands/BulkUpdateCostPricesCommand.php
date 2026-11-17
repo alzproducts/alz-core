@@ -19,8 +19,8 @@ use Illuminate\Console\Command;
  * a local run would use production Linnworks credentials but the local DB, stranding the audit
  * trail in the wrong database (prior incident with inventory:update-skus).
  *
- *   railway ssh -s alz-core-worker php artisan inventory:bulk-update-cost-prices storage/costs.csv --dry-run
- *   railway ssh -s alz-core-worker php artisan inventory:bulk-update-cost-prices storage/costs.csv
+ *   php artisan inventory:bulk-update-cost-prices storage/costs.csv --dry-run
+ *   php artisan inventory:bulk-update-cost-prices storage/costs.csv
  *
  * CSV format (header row required): supplier,sku,cost_price   (cost_price is net / ex-VAT).
  */

@@ -19,4 +19,4 @@ paths:
 
 ## Production Safety
 
-- DO include a "⚠️ PRODUCTION ONLY" block and `railway ssh ...` example in the class docblock when the command writes to live third-party systems. **Why**: local runs against production credentials leave the audit trail in the wrong database — prior incident with `inventory:update-skus`.
+- DO include a "⚠️ PRODUCTION ONLY — run by a human in production" block in the class docblock when the command writes to live third-party systems. **Why**: local runs against production credentials leave the audit trail in the wrong database — prior incident with `inventory:update-skus`.

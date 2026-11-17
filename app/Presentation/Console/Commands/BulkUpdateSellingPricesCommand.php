@@ -22,8 +22,8 @@ use Illuminate\Console\Command;
  * worker; a local run would use production ShopWired credentials but the local DB,
  * stranding price periods in the wrong database (prior incident with inventory:update-skus).
  *
- *   railway ssh -s alz-core-worker php artisan catalog:bulk-update-selling-prices storage/prices.csv --dry-run
- *   railway ssh -s alz-core-worker php artisan catalog:bulk-update-selling-prices storage/prices.csv
+ *   php artisan catalog:bulk-update-selling-prices storage/prices.csv --dry-run
+ *   php artisan catalog:bulk-update-selling-prices storage/prices.csv
  *
  * CSV format (header row required): sku,price   (price is gross / VAT-inclusive).
  */
