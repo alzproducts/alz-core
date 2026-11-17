@@ -31,6 +31,20 @@ make test
 - `make supabase-start` starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN`.
 - `php artisan migrate` creates the Laravel tables; `make test` needs nothing more.
 
+## Fresh git worktree
+
+A git worktree does not carry the main checkout's untracked `.env`. A worktree without a `.env` falls back to the production environment, and these refuse to boot in that state:
+
+- `composer install` (its `package:discover` step)
+- Larastan (PHPStan)
+- the pre-push gate
+
+Workaround: prefix the command with `APP_ENV=testing`.
+
+```bash
+APP_ENV=testing composer install
+```
+
 ## Next steps
 
 - **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds a production-shaped products slice (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data.
