@@ -58,6 +58,10 @@ The string `"Best Sellers"` written to `custom_label_4` for products with `popul
 The free-text `search` filter on the products list API. Matches whole words of the product **title** with English stemming ("lamp" finds "lamps"); results order by relevance unless the caller requests an explicit sort.
 _Avoid_: expecting substring or prefix behaviour — "lam" does not find "lamp". SKU lookup is the separate exact-match `sku` filter, not product search.
 
+**Read-your-writes**:
+A read that reflects every local commit made before it began, by any write path; an edit sent to ShopWired counts only once its webhook commits locally.
+_Avoid_: "real-time", "fresh within N seconds" (a lag bound is a weaker guarantee)
+
 ### Pricing & margin
 
 **Net margin (single unit)**:
@@ -102,7 +106,7 @@ _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 ## Example dialogue
 
 > **Dev:** "If we change a product's price, does its **margin tier** update right away?"
-> **Domain expert:** "No. The **margin tier** is recomputed by the daily **drift query** at 04:45. The **effective price** change is reflected in `products_view.net_margin_single_unit_min/max` immediately because it's a view, but the **drift query** only fires on the schedule — so `custom_label_1` lags by up to 24h."
+> **Domain expert:** "No. The **margin tier** is recomputed by the daily **drift query** at 04:45. The **effective price** change is reflected in `products_view.net_margin_single_unit_min/max` within about a minute, at the materialized view's next refresh, but the **drift query** only fires on the schedule — so `custom_label_1` lags by up to 24h."
 
 > **Dev:** "Can two syncs write to the same **ShopWired custom_label_N**?"
 > **Domain expert:** "By design no — we want each `custom_label_N` written by exactly one sync. We learned the hard way that these are single-select string fields; if two syncs wrote to the same field they'd clobber each other on every cycle."
@@ -183,6 +187,15 @@ _Avoid_: treating a match as deterministic — multiple orders from the same IP/
 - A **basket snapshot** captures the customer's FINAL pre-checkout intent per IP (latest write wins, one snapshot per IP within the scope window)
 - A **basket recovery match** flags per-field recovery needs: "snapshot captured X AND no matched order carries X" for delivery date, gift note, and VAT relief independently
 - The **basket recovery match** reuses `shopwired.orders_deduplicated` for order dedup (one row per reference), extracting the IP downstream
+
+### QuickBooks Online
+
+**QBO connection**:
+alz-core's consented, revocable access to one QuickBooks Online company, held per **QBO environment**.
+_Avoid_: QBO integration (the connection is auth only, not any sync built on it)
+
+**QBO environment**:
+`sandbox` (an Intuit test company, the only one non-production alz-core may reach) or `production` (the real company).
 
 ## Flagged ambiguities
 
