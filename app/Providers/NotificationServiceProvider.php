@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\ChatNotificationInterface;
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Infrastructure\Notifications\SlackChatNotificationClient;
+use App\Infrastructure\Notifications\StandIns\StandInChatNotification;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -23,7 +26,9 @@ final class NotificationServiceProvider extends ServiceProvider implements Defer
     {
         $this->app->bind(
             ChatNotificationInterface::class,
-            SlackChatNotificationClient::class,
+            static fn(Container $app): ChatNotificationInterface => IntegrationCredentials::areSet(IntegrationCredentials::SLACK)
+                ? $app->make(SlackChatNotificationClient::class)
+                : $app->make(StandInChatNotification::class),
         );
     }
 

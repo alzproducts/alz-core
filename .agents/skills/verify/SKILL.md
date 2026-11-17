@@ -20,7 +20,7 @@ bash .agents/skills/verify/scripts/verify.sh launch [--evidence <abs dir>] [--en
 Output:
 - First stdout line `evidence=<dir>`: pass it to every later verb. Without `--evidence`, launch mints one under the run home.
 - Ready = exit 0 plus `base_url=http://127.0.0.1:<port>` (migrated, seeded, `/up` 200, worker alive). Expect 1-3 minutes in a fresh worktree.
-- `--env-override K=V` replaces one generated key (ports, seed inputs); credential keys, `APP_ENV` and every `*_LIVE` opt-in are refused (exit 64).
+- `--env-override K=V` replaces one generated key (ports, seed inputs); credential keys and `APP_ENV` are refused (exit 64).
 - `--octane-workers <1-99|auto>` sets Octane's worker count (default 2); `auto` uses Octane's own default, as production does.
 - Every app process runs with xdebug and pcov off (`XDEBUG_MODE=off` plus a run-scoped ini dir).
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands\Dev;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\ConfigurationUrlParser;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -44,10 +46,10 @@ final class SeedFakeDataCommand extends Command
             return 'Refusing to seed: the environment is not local or testing.';
         }
 
-        $connection = \config()->string('database.default');
+        $databaseFailure = self::databaseHostFailure();
 
-        if (! \in_array(\config()->get("database.connections.{$connection}.host"), self::LOOPBACK_HOSTS, true)) {
-            return 'Refusing to seed: the default database connection host is not a loopback address.';
+        if ($databaseFailure !== null) {
+            return $databaseFailure;
         }
 
         $saleCategoryId = \config()->get('shopwired.sale_category_id');
@@ -57,6 +59,47 @@ final class SeedFakeDataCommand extends Command
         }
 
         return null;
+    }
+
+    private static function databaseHostFailure(): ?string
+    {
+        $connection = \config()->array('database.connections.' . \config()->string('database.default'));
+
+        if (! self::isLoopback($connection['host'] ?? null)) {
+            return 'Refusing to seed: the default database connection host is not a loopback address.';
+        }
+
+        if (! self::urlIsLoopback($connection['url'] ?? null)) {
+            return 'Refusing to seed: the default database connection URL does not name a loopback host.';
+        }
+
+        return null;
+    }
+
+    /**
+     * A blank URL passes. Any other URL must name a loopback host, and the host Laravel's connector
+     * resolves from it must be loopback too, since a `?host=` query option overrides the authority.
+     */
+    private static function urlIsLoopback(mixed $url): bool
+    {
+        if ($url === null || $url === '') {
+            return true;
+        }
+
+        if (! \is_string($url) || ! self::isLoopback(\parse_url($url, PHP_URL_HOST))) {
+            return false;
+        }
+
+        try {
+            return self::isLoopback(new ConfigurationUrlParser()->parseConfiguration(['url' => $url])['host'] ?? null);
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+    }
+
+    private static function isLoopback(mixed $host): bool
+    {
+        return \is_string($host) && \in_array(\mb_trim($host, '[]'), self::LOOPBACK_HOSTS, true);
     }
 
     public function handle(): int
@@ -89,7 +132,7 @@ final class SeedFakeDataCommand extends Command
 
         if ($failure !== null) {
             $this->error($failure);
-            $this->line('  Check: APP_ENV, DB_HOST and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
+            $this->line('  Check: APP_ENV, DB_HOST, DB_URL and SHOPWIRED_SALE_CATEGORY_ID (see .env.example)');
 
             return null;
         }

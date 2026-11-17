@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Static\Support;
 
 /**
- * Repo text no longer names the retired prod-sync seed command or describes local data as synced (AC12).
+ * Repo text no longer names the retired prod-sync seed command or describes local data as synced (AC12),
+ * and the docs no longer name the deleted prod-sync command.
  */
 final class StaleSeedWordingCheck
 {
     // intentional: built by concatenation so this file does not itself contain the retired name
     public const string RETIRED_COMMAND = 'dev:seed-' . 'sync';
+
+    // intentional: concatenated like RETIRED_COMMAND but checked per doc, not repo-wide — the production-access inventory names it
+    public const string DELETED_COMMAND = 'dev:sync-' . 'from-prod';
 
     /**
      * Paths never scanned: local AI workspaces, other worktrees and IDE state.
@@ -22,18 +26,18 @@ final class StaleSeedWordingCheck
      */
     public const array STALE_PHRASES = [
         'Makefile' => ['needs local Supabase DB with synced data'],
-        'AGENTS.md' => ['needs local Supabase with synced data', 'Full DB reset (Supabase + Laravel migrations) —'],
-        'tests/AGENTS.md' => ['needs local Supabase with synced data'],
-        'database/AGENTS.md' => ['All data must be re-synced afterwards', '**Step 2 — `make migrate`**'],
+        'README.md' => [self::DELETED_COMMAND],
+        'AGENTS.md' => ['needs local Supabase with synced data', 'Full DB reset (Supabase + Laravel migrations) —', self::DELETED_COMMAND],
+        'tests/AGENTS.md' => ['needs local Supabase with synced data', self::DELETED_COMMAND],
+        'database/AGENTS.md' => ['All data must be re-synced afterwards', '**Step 2 — `make migrate`**', self::DELETED_COMMAND],
         'app/Infrastructure/Shopwired/Factories/CustomFieldFactory.php' => ['Run SyncShopwiredCustomFieldsJob or'],
-        'app/Presentation/Console/Commands/Dev/SyncFromProdCommand.php' => ['to seed a fresh local database'],
         'tests/Integration/Catalog/OffersFilterOnSaleGuardTest.php' => ['Runs against the synced catalog'],
         'tests/Integration/Catalog/ProductsViewHasAnySaleGuardTest.php' => ['Runs against the synced catalog'],
     ];
 
     public const array DOC_FILES = ['README.md', 'AGENTS.md', 'tests/AGENTS.md', 'database/AGENTS.md'];
 
-    public const array DOC_REQUIRED_TERMS = ['dev:seed-fake', 'dev:sync-from-prod', 'make db-reset-full'];
+    public const array DOC_REQUIRED_TERMS = ['dev:seed-fake', 'make db-reset-full'];
 
     /**
      * @param list<string> $paths repo-relative paths to scan

@@ -24,6 +24,8 @@ use App\Domain\Shared\Money\ValueObjects\Money;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Notification;
@@ -49,9 +51,10 @@ final class TestSlackNotificationCommand extends Command
 
     protected $description = 'Send a test notification to Slack';
 
+    // intentional: the chat binding is resolved in chat(), not injected — artisan builds every command at start, and the binding throws in production with a blank token (ADR-0015).
     public function __construct(
-        private readonly ChatNotificationInterface $chat,
         private readonly NotificationDispatcher $dispatcher,
+        private readonly Container $container,
     ) {
         parent::__construct();
     }
@@ -60,6 +63,11 @@ final class TestSlackNotificationCommand extends Command
     {
         /** @var string|null $notificationType */
         $notificationType = $this->option('notification');
+
+        // intentional: also gates --notification, where a blank token binds the logging stand-in and would report a false success.
+        if ($this->reportMissingToken()) {
+            return self::FAILURE;
+        }
 
         if ($notificationType !== null) {
             return $this->handleNotification($notificationType);
@@ -87,18 +95,6 @@ final class TestSlackNotificationCommand extends Command
             $this->error('No channel specified and SLACK_BOT_USER_DEFAULT_CHANNEL is not set.');
             $this->line('  Usage: php artisan slack:test "#channel-name"');
             $this->line('  Or set SLACK_BOT_USER_DEFAULT_CHANNEL in .env');
-
-            return self::FAILURE;
-        }
-
-        $token = \config('services.slack.notifications.bot_user_oauth_token');
-
-        if (! \is_string($token) || $token === '') {
-            $this->error('SLACK_BOT_USER_OAUTH_TOKEN is not configured.');
-            $this->line('  1. Create a Slack app at: https://api.slack.com/apps');
-            $this->line('  2. Add OAuth scopes: chat:write, chat:write.public');
-            $this->line('  3. Install to workspace and copy the Bot User OAuth Token');
-            $this->line('  4. Add to .env: SLACK_BOT_USER_OAUTH_TOKEN=xoxb-your-token');
 
             return self::FAILURE;
         }
@@ -164,11 +160,12 @@ final class TestSlackNotificationCommand extends Command
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws ExternalServiceUnavailableException
      */
     private function sendAdminAlert(): void
     {
-        $this->chat->sendAlert(
+        $this->chat()->sendAlert(
             AlertAudience::Admin,
             new AlertNotificationDataDTO(
                 title: 'Test Admin Alert',
@@ -183,6 +180,7 @@ final class TestSlackNotificationCommand extends Command
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws ExternalServiceUnavailableException
      */
     private function sendContactFormFailed(): void
@@ -215,7 +213,7 @@ final class TestSlackNotificationCommand extends Command
             submittedAt: $submittedAt,
         );
 
-        $this->chat->sendContactFormFailed(
+        $this->chat()->sendContactFormFailed(
             submission: $submission,
             submissionId: 'test-' . \now()->format('YmdHis'),
             errorMessage: 'HelpScout API error: 503 Service Unavailable - The server is temporarily unable to handle the request.',
@@ -224,11 +222,12 @@ final class TestSlackNotificationCommand extends Command
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws ExternalServiceUnavailableException
      */
     private function sendContactFormProcessed(): void
     {
-        $this->chat->sendContactFormProcessed(
+        $this->chat()->sendContactFormProcessed(
             conversationId: IntId::from(123456789),
             customerName: 'Jane Doe',
             customerEmail: 'jane.doe@example.com',
@@ -236,6 +235,7 @@ final class TestSlackNotificationCommand extends Command
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws ExternalServiceUnavailableException
      */
     private function sendPricingUpdated(): void
@@ -245,7 +245,7 @@ final class TestSlackNotificationCommand extends Command
         /** @var string $sku */
         $sku = \config('shopwired.test_product.sku');
 
-        $this->chat->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
+        $this->chat()->sendPriceUpdateAlert(new PriceUpdateAlertDataDTO(
             productId: IntId::from($productId),
             priceChanges: [
                 new SkuPriceChange(
@@ -260,6 +260,7 @@ final class TestSlackNotificationCommand extends Command
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws ExternalServiceUnavailableException
      */
     private function sendVariantSkusGenerated(): void
@@ -269,7 +270,7 @@ final class TestSlackNotificationCommand extends Command
         /** @var string $sku */
         $sku = \config('shopwired.test_product.sku');
 
-        $this->chat->sendVariantSkusGenerated(new VariantSkuNotificationDataDTO(
+        $this->chat()->sendVariantSkusGenerated(new VariantSkuNotificationDataDTO(
             productId: $productId,
             productTitle: 'Test Product',
             created: 3,
@@ -281,6 +282,31 @@ final class TestSlackNotificationCommand extends Command
                 "{$sku}-003 - Variant C",
             ],
         ));
+    }
+
+    private function reportMissingToken(): bool
+    {
+        $token = \config('services.slack.notifications.bot_user_oauth_token');
+
+        if (\is_string($token) && $token !== '') {
+            return false;
+        }
+
+        $this->error('SLACK_BOT_USER_OAUTH_TOKEN is not configured.');
+        $this->line('  1. Create a Slack app at: https://api.slack.com/apps');
+        $this->line('  2. Add OAuth scopes: chat:write, chat:write.public');
+        $this->line('  3. Install to workspace and copy the Bot User OAuth Token');
+        $this->line('  4. Add to .env: SLACK_BOT_USER_OAUTH_TOKEN=xoxb-your-token');
+
+        return true;
+    }
+
+    /**
+     * @throws BindingResolutionException
+     */
+    private function chat(): ChatNotificationInterface
+    {
+        return $this->container->make(ChatNotificationInterface::class);
     }
 
     private function buildBasicNotification(string $message, string $channel): Notification

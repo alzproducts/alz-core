@@ -15,8 +15,10 @@ use App\Application\Contracts\HelpScout\ContactConversationLookupInterface;
 use App\Application\Contracts\HelpScout\ConversationWriteClientInterface;
 use App\Infrastructure\HelpScout\Dispatchers\QueuedContactFormDispatcher;
 use App\Infrastructure\HelpScout\HelpScoutClientFactory;
+use App\Infrastructure\HelpScout\StandIns\StandInConversationWriteClient;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionActionRepository;
 use App\Infrastructure\Ingest\ContactSubmission\Repositories\EloquentContactSubmissionRepository;
+use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Infrastructure\Marketing\Repositories\EloquentContactSubmissionDashboardQueryRepository;
 use App\Infrastructure\Marketing\Repositories\EloquentPotentialConversionAnnotationRepository;
 use App\Infrastructure\Validation\EmailValidationService;
@@ -84,7 +86,9 @@ final class ContactSubmissionServiceProvider extends ServiceProvider implements 
     {
         $this->app->singleton(
             ConversationWriteClientInterface::class,
-            static fn(): ConversationWriteClientInterface => HelpScoutClientFactory::createConversationWriteClient(),
+            static fn(Application $app): ConversationWriteClientInterface => IntegrationCredentials::areSet(IntegrationCredentials::HELPSCOUT)
+                ? HelpScoutClientFactory::createConversationWriteClient()
+                : $app->make(StandInConversationWriteClient::class),
         );
 
         $this->app->singleton(

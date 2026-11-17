@@ -37,7 +37,6 @@ use Illuminate\Console\Command;
  *
  * Examples:
  *   php artisan inventory:generate-variant-skus 5585518 WEB-15424
- *   railway ssh -s alz-core-worker 'php artisan inventory:generate-variant-skus 5585518 WEB-15424'
  */
 final class GenerateVariantSkusCommand extends Command
 {
