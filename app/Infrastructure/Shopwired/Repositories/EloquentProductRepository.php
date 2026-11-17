@@ -152,6 +152,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             product: $product,
             attributes: [...ProductModelMapper::toModelAttributes($product), ...$extra],
             shouldSyncVariations: $product->variations !== null,
+            source: 'api',
         );
     }
 
@@ -172,6 +173,7 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
             product: $product,
             attributes: [...ProductModelMapper::toWebhookAttributes($product, $presentEmbeds), ...$extra],
             shouldSyncVariations: \in_array('variations', $presentEmbeds, true) && $product->variations !== null,
+            source: 'webhook',
         );
     }
 
@@ -179,15 +181,17 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
      * Shared upsert + variation sync with error handling.
      *
      * @param array<string, mixed> $attributes Model attributes for the upsert
+     * @param 'api'|'webhook' $source
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function performUpsert(Product $product, array $attributes, bool $shouldSyncVariations): void
+    private function performUpsert(Product $product, array $attributes, bool $shouldSyncVariations, string $source): void
     {
         try {
-            $this->eloquentGateway->transact(function () use ($product, $attributes, $shouldSyncVariations): void {
+            $replaced = $this->eloquentGateway->transact(function () use ($product, $attributes, $shouldSyncVariations): ?ProductModel {
+                $replaced = ProductUpsertDiagnostic::lockStored($product->id);
                 $this->eloquentGateway->upsertOne(
                     modelClass: self::MODEL_CLASS,
                     attributes: $attributes,
@@ -197,12 +201,16 @@ final class EloquentProductRepository extends AbstractEloquentRepository impleme
                 if ($shouldSyncVariations) {
                     $this->syncVariations($product);
                 }
+
+                return $replaced;
             }, attempts: 3);
         } catch (DatabaseOperationFailedException $e) {
             $this->logCrossTableSkuConflictIfApplicable($e, $product);
 
             throw $e;
         }
+
+        ProductUpsertDiagnostic::log($product, $source, $replaced, $shouldSyncVariations);
     }
 
     /**
