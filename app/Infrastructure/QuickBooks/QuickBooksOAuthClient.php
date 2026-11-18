@@ -21,6 +21,22 @@ final readonly class QuickBooksOAuthClient implements QuickBooksOAuthClientInter
         private QuickBooksConfig $config,
     ) {}
 
+    public function authorizationUrl(string $state): string
+    {
+        return QuickBooksConfig::AUTHORIZE_URL . '?' . \http_build_query([
+            'client_id' => $this->config->clientId,
+            'response_type' => 'code',
+            'scope' => QuickBooksConfig::SCOPE,
+            'redirect_uri' => $this->config->redirectUri,
+            'state' => $state,
+        ], '', '&', \PHP_QUERY_RFC3986);
+    }
+
+    public function expectedRealmId(): string
+    {
+        return $this->config->realmId;
+    }
+
     /**
      * @throws AuthenticationExpiredException
      * @throws ExternalServiceUnavailableException

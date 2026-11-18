@@ -20,6 +20,7 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksTokenGrant;
 use Psr\Log\LoggerInterface;
+use SensitiveParameter;
 
 /**
  * Owns the QBO token lifecycle. Every refresh runs under the fail-closed token lock because Intuit
@@ -71,6 +72,30 @@ final readonly class QuickBooksTokenService
     public function forceRefresh(): ApiKeyToken
     {
         return $this->refreshUnderLock(force: true);
+    }
+
+    /**
+     * Exchanges a consent code and stores the resulting connection, under the same lock as every refresh.
+     *
+     * @throws LockAcquisitionException
+     * @throws AuthenticationExpiredException     when Intuit rejects the code
+     * @throws ExternalServiceUnavailableException
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws KeyEncryptionFailedException
+     */
+    public function connectWithCode(#[SensitiveParameter] string $code): void
+    {
+        $this->lockManager->withLock(
+            LockName::QuickBooksTokenRefresh->value,
+            self::LOCK_TIMEOUT_SECONDS,
+            function () use ($code): void {
+                $grant = $this->oauthClient->exchangeCode($code);
+                $this->connections->save($grant->connection);
+                $this->accessTokens->put($grant->accessToken, $grant->accessTokenExpiresAt);
+            },
+        );
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ErrorReporting\SentryErrorReporter;
 use App\Infrastructure\Integrations\IntegrationCredentials;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
+use App\Infrastructure\Sentry\SentryBeforeSendTransactionCallback;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Sentry\SentrySdk;
@@ -44,7 +45,10 @@ final class AppServiceProvider extends ServiceProvider
         // (must be in register(), not boot(), to run before Sentry's ServiceProvider)
         $this->app->booting(static function (): void {
             if (\class_exists(SentrySdk::class)) {
-                \config(['sentry.before_send' => new SentryBeforeSendCallback()]);
+                \config([
+                    'sentry.before_send' => new SentryBeforeSendCallback(),
+                    'sentry.before_send_transaction' => new SentryBeforeSendTransactionCallback(),
+                ]);
             }
         });
     }

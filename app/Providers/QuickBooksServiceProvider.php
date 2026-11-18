@@ -7,8 +7,10 @@ namespace App\Providers;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
+use App\Infrastructure\QuickBooks\CacheQuickBooksStateStore;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksConnectionRepository;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksConfigFactory;
@@ -36,9 +38,22 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
 
         $this->app->bind(QuickBooksConnectionRepositoryInterface::class, EloquentQuickBooksConnectionRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
+        $this->registerCacheBackedStores();
+    }
+
+    private function registerCacheBackedStores(): void
+    {
         $this->app->bind(
             QuickBooksAccessTokenCacheInterface::class,
             static fn(Application $app): QuickBooksAccessTokenCacheInterface => new CacheQuickBooksAccessTokenCache(
+                store: self::cacheStore($app),
+                config: $app->make(QuickBooksConfig::class),
+                logger: $app->make(LoggerInterface::class),
+            ),
+        );
+        $this->app->bind(
+            QuickBooksStateStoreInterface::class,
+            static fn(Application $app): QuickBooksStateStoreInterface => new CacheQuickBooksStateStore(
                 store: self::cacheStore($app),
                 config: $app->make(QuickBooksConfig::class),
                 logger: $app->make(LoggerInterface::class),
@@ -57,6 +72,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksConnectionRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,
             QuickBooksAccessTokenCacheInterface::class,
+            QuickBooksStateStoreInterface::class,
         ];
     }
 

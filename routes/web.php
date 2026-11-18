@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Presentation\Http\Controllers\FeedController;
 use App\Presentation\Http\Controllers\QueueHealthController;
 use App\Presentation\Http\Middleware\HorizonBasicAuthMiddleware;
+use App\Presentation\Http\QuickBooks\Controllers\QuickBooksCallbackController;
 use Illuminate\Support\Facades\Route;
 
 // Registered by the `then:` callback in bootstrap/app.php, outside the 'web' middleware
@@ -38,3 +39,17 @@ Route::get('feeds/{prefix}-{guid}.xml', [FeedController::class, 'show'])
 Route::get('ops/queue-health', QueueHealthController::class)
     ->middleware(HorizonBasicAuthMiddleware::class)
     ->name('ops.queue-health');
+
+/*
+|--------------------------------------------------------------------------
+| QuickBooks OAuth Callback (unauthenticated)
+|--------------------------------------------------------------------------
+|
+| Intuit redirects the browser here after consent. The single-use OAuth
+| state is the only guard; Sentry scrubs the query (it holds the code).
+|
+*/
+
+Route::get('quickbooks/callback', QuickBooksCallbackController::class)
+    ->middleware('throttle:public-default')
+    ->name('quickbooks.callback');
