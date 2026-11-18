@@ -43,21 +43,7 @@ final readonly class QuickBooksOAuthHttpTransport
      */
     public function requestToken(#[SensitiveParameter] array $form): array
     {
-        try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
-                ->asForm()
-                ->acceptJson()
-                ->withBasicAuth($this->config->clientId, $this->config->clientSecret)
-                ->post(QuickBooksConfig::TOKEN_URL, $form);
-        } catch (ConnectionException $e) {
-            throw $this->transientFailure($e, 'connection failed');
-        } catch (Exception $e) {
-            throw $this->transientFailure($e, 'unexpected error');
-        }
-
-        if (!$response->successful()) {
-            throw $this->statusFailure($response);
-        }
+        $response = $this->post(QuickBooksConfig::TOKEN_URL, $form, asJson: false);
 
         $body = $response->json();
         if (!\is_array($body)) {
@@ -69,6 +55,42 @@ final readonly class QuickBooksOAuthHttpTransport
         }
 
         return $body;
+    }
+
+    /**
+     * @throws AuthenticationExpiredException     on invalid_grant or a 401
+     * @throws ExternalServiceUnavailableException
+     */
+    public function revokeToken(#[SensitiveParameter] string $token): void
+    {
+        $this->post(QuickBooksConfig::REVOKE_URL, ['token' => $token], asJson: true);
+    }
+
+    /**
+     * @param array<string, string> $data
+     *
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function post(string $url, #[SensitiveParameter] array $data, bool $asJson): Response
+    {
+        $request = Http::timeout(self::TIMEOUT_SECONDS)
+            ->acceptJson()
+            ->withBasicAuth($this->config->clientId, $this->config->clientSecret);
+
+        try {
+            $response = ($asJson ? $request->asJson() : $request->asForm())->post($url, $data);
+        } catch (ConnectionException $e) {
+            throw $this->transientFailure($e, 'connection failed');
+        } catch (Exception $e) {
+            throw $this->transientFailure($e, 'unexpected error');
+        }
+
+        if (!$response->successful()) {
+            throw $this->statusFailure($response);
+        }
+
+        return $response;
     }
 
     private function statusFailure(Response $response): AuthenticationExpiredException|ExternalServiceUnavailableException

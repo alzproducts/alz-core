@@ -39,4 +39,12 @@ interface QuickBooksOAuthClientInterface
      * @throws InvalidApiResponseException
      */
     public function exchangeCode(#[SensitiveParameter] string $code): QuickBooksTokenGrant;
+
+    /**
+     * Revokes the grant behind the refresh token, ending the connection at Intuit.
+     *
+     * @throws AuthenticationExpiredException     on invalid_grant or a 401: the grant is already dead
+     * @throws ExternalServiceUnavailableException
+     */
+    public function revoke(#[SensitiveParameter] ApiKeyToken $refreshToken): void;
 }

@@ -65,6 +65,15 @@ final readonly class QuickBooksOAuthClient implements QuickBooksOAuthClientInter
     }
 
     /**
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function revoke(#[SensitiveParameter] ApiKeyToken $refreshToken): void
+    {
+        $this->transport->revokeToken($refreshToken->value);
+    }
+
+    /**
      * @param array<mixed> $body
      *
      * @throws InvalidApiResponseException

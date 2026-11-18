@@ -37,6 +37,7 @@ use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
 use App\Providers\Schedule\PopularitySnapshotScheduleServiceProvider;
 use App\Providers\Schedule\QueueMaintenanceScheduleServiceProvider;
+use App\Providers\Schedule\QuickBooksScheduleServiceProvider;
 use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredDefinitionScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
@@ -83,6 +84,7 @@ return [
     MixpanelScheduleServiceProvider::class,
     PopularitySnapshotScheduleServiceProvider::class,
     QueueMaintenanceScheduleServiceProvider::class,
+    QuickBooksScheduleServiceProvider::class,
     ReviewsIoScheduleServiceProvider::class,
     InventoryScheduleServiceProvider::class,
     ShopwiredDefinitionScheduleServiceProvider::class,
