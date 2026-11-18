@@ -32,4 +32,12 @@ enum LockName: string
      * with stock levels from different time windows.
      */
     case StockSync = 'stock-sync-to-shopwired';
+
+    /**
+     * Serialises every write of the QBO connection (connect, refresh, disconnect).
+     *
+     * Intuit rotates the refresh token on use, so two unlocked refreshes would
+     * strand one rotation and force a reconnect (ADR-0016).
+     */
+    case QuickBooksTokenRefresh = 'quickbooks-token-refresh';
 }
