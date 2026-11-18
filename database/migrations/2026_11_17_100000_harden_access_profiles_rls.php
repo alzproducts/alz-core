@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Hardens database authz on public.profiles, access.user_roles and public.user_profiles.
  *
- * Re-runnable: section 1 is guarded (a no-op on Supabase); functions use CREATE OR REPLACE;
- * the view, triggers and policies are dropped and re-created. Forward-only.
+ * Re-runnable: every auth-schema statement sits behind a catalog existence check, since hosted
+ * Supabase's postgres role has no CREATE on auth; functions use CREATE OR REPLACE; the view,
+ * the public.profiles trigger and policies are dropped and re-created. Forward-only.
  *
  * @see https://github.com/alzproducts/alz-admin/issues/629 (ADM-59)
  */
@@ -49,13 +50,15 @@ return new class extends Migration {
                     CREATE TYPE auth.factor_status AS ENUM ('unverified', 'verified');
                 END IF;
 
-                CREATE TABLE IF NOT EXISTS auth.mfa_factors (
-                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                    user_id uuid NOT NULL,
-                    factor_type text,
-                    status auth.factor_status NOT NULL,
-                    created_at timestamptz DEFAULT now()
-                );
+                IF to_regclass('auth.mfa_factors') IS NULL THEN
+                    CREATE TABLE auth.mfa_factors (
+                        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                        user_id uuid NOT NULL,
+                        factor_type text,
+                        status auth.factor_status NOT NULL,
+                        created_at timestamptz DEFAULT now()
+                    );
+                END IF;
 
                 IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
                     CREATE ROLE supabase_auth_admin NOLOGIN;
@@ -255,11 +258,19 @@ return new class extends Migration {
                 FOR EACH ROW EXECUTE FUNCTION utils.profile_email_from_auth()
         SQL);
 
-        DB::statement('DROP TRIGGER IF EXISTS on_auth_user_email_updated ON auth.users');
         DB::statement(<<<'SQL'
-            CREATE TRIGGER on_auth_user_email_updated
-                AFTER UPDATE OF email ON auth.users
-                FOR EACH ROW EXECUTE FUNCTION utils.sync_profile_email()
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger t
+                    WHERE t.tgrelid = 'auth.users'::regclass AND t.tgname = 'on_auth_user_email_updated'
+                ) THEN
+                    CREATE TRIGGER on_auth_user_email_updated
+                        AFTER UPDATE OF email ON auth.users
+                        FOR EACH ROW EXECUTE FUNCTION utils.sync_profile_email();
+                END IF;
+            END
+            $$
         SQL);
 
         DB::statement('UPDATE public.profiles p SET email = u.email FROM auth.users u WHERE u.id = p.id');

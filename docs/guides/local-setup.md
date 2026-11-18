@@ -1,14 +1,12 @@
 # Local Setup
 
-First-time native set-up for a fresh clone, ending in a passing `make test`. Run every command from the repo root, in order.
-
-`make install` is stale Sail tooling; do not use it.
+First-time native set-up for a fresh clone or a fresh git worktree, ending in a passing `make test`. Run every command from the repo root.
 
 ## Prerequisites
 
 - **PHP 8.4** (Homebrew) with the extensions `composer.json` requires, including `pdo_pgsql`, `swoole`, `soap` and `pcntl`, plus `redis` for `REDIS_CLIENT=phpredis`.
 - **Composer**, **Docker** (running), **pnpm**.
-- **`ALZ_ADMIN`** set to the absolute path of a local checkout of the `alz-admin` companion frontend repo, with its dependencies installed (`pnpm install` there). It owns the shared Supabase project, so the `make supabase-*` targets run inside it. Without it, `supabase-start`, `supabase-reset`, `supabase-seed-users` and `supabase-functions` fail with `ALZ_ADMIN not set`, and `supabase-stop` and `supabase-status` do nothing. That repo is private, so a standalone clone cannot complete this sequence.
+- **`ALZ_ADMIN`** set to the absolute path of a local checkout of the `alz-admin` companion frontend repo, with its dependencies installed (`pnpm install` there). It owns the shared Supabase project, so the `make supabase-*` targets run inside it. Without it, `make install`, `supabase-start`, `supabase-reset`, `supabase-seed-users` and `supabase-functions` fail with `ALZ_ADMIN not set`, and `supabase-stop` and `supabase-status` do nothing. That repo is private, so a standalone clone cannot complete this sequence.
 
   ```bash
   echo 'export ALZ_ADMIN=/absolute/path/to/alz-admin' >> ~/.zshrc
@@ -18,32 +16,28 @@ First-time native set-up for a fresh clone, ending in a passing `make test`. Run
 ## Sequence
 
 ```bash
-cp .env.example .env
-composer install
-php artisan key:generate
-make supabase-start
-make redis
-php artisan migrate
+make install
 make test
 ```
 
-- `php artisan key:generate` fills the blank `APP_KEY` that `.env.example` ships with.
-- `make supabase-start` starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN`.
-- `php artisan migrate` creates the Laravel tables; `make test` needs nothing more.
+`make install` runs these steps, in order, natively (no Sail):
+
+1. Creates `.env` when it is missing (`bin/install-env`). An existing `.env` is never overwritten.
+2. `composer install`.
+3. `php artisan key:generate`, only when `APP_KEY` is blank.
+4. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN`, or skips it when it is already running.
+5. `make redis`: starts Redis in Docker.
+6. `php artisan migrate`: forward-only migrations against the shared local database. It never resets or wipes it.
+
+Re-running it is safe: it keeps `.env` and `APP_KEY` as they are.
 
 ## Fresh git worktree
 
-A git worktree does not carry the main checkout's untracked `.env`. A worktree without a `.env` falls back to the production environment, and these refuse to boot in that state:
+A fresh git worktree uses the same command: `make install`, then `make test`.
 
-- `composer install` (its `package:discover` step)
-- Larastan (PHPStan)
-- the pre-push gate
+A worktree does not carry the main checkout's untracked `.env`, so `make install` copies the main checkout's `.env` into the worktree. The copy keeps `API_KEY_ENCRYPTION_SECRET`, the local-bypass secrets and `APP_KEY`, which the worktree needs because every checkout shares one local Supabase database and one Redis. When the main checkout has no `.env` (or you run it in the main checkout), `.env` is created from `.env.example` and gets a new `APP_KEY`.
 
-Workaround: prefix the command with `APP_ENV=testing`.
-
-```bash
-APP_ENV=testing composer install
-```
+The main checkout is the first entry of `git worktree list`.
 
 ## Next steps
 

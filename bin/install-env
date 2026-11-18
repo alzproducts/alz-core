@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Creates a missing .env for `make install` (COR-269/D1, D2). Never overwrites one.
+set -euo pipefail
+
+ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd -P)"
+ENV_FILE="$ROOT/.env"
+
+if [[ -f "$ENV_FILE" ]]; then
+    echo ".env already exists; kept"
+    exit 0
+fi
+
+WORKTREES="$(git worktree list --porcelain)"
+MAIN_LINE="${WORKTREES%%$'\n'*}"
+MAIN_CHECKOUT="${MAIN_LINE#worktree }"
+if [[ -d "$MAIN_CHECKOUT" ]]; then
+    MAIN_CHECKOUT="$(cd "$MAIN_CHECKOUT" && pwd -P)"
+fi
+
+if [[ "$MAIN_CHECKOUT" != "$ROOT" && -f "$MAIN_CHECKOUT/.env" ]]; then
+    cp "$MAIN_CHECKOUT/.env" "$ENV_FILE"
+    echo ".env copied from the main checkout ($MAIN_CHECKOUT)"
+else
+    cp "$ROOT/.env.example" "$ENV_FILE"
+    echo ".env created from .env.example"
+fi

@@ -1,5 +1,7 @@
-# Development Services (PostgreSQL + Redis)
-# PHP runs natively on macOS for performance - see README.md for setup
+# Local development services. PHP runs natively; Supabase provides PostgreSQL (see docs/guides/local-setup.md).
+# intentional: one project name for every checkout, so all git worktrees share one Redis on its host port (COR-269).
+name: alz-core
+
 services:
     pgsql:
         image: 'postgres:17-alpine'
@@ -11,9 +13,9 @@ services:
             POSTGRES_USER: '${DB_USERNAME}'
             POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
         volumes:
-            - 'sail-pgsql:/var/lib/postgresql/data'
+            - 'pgsql-data:/var/lib/postgresql/data'
         networks:
-            - sail
+            - alz-core
         healthcheck:
             test:
                 - CMD
@@ -31,9 +33,9 @@ services:
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'
         volumes:
-            - 'sail-redis:/data'
+            - 'redis-data:/data'
         networks:
-            - sail
+            - alz-core
         healthcheck:
             test:
                 - CMD
@@ -44,11 +46,14 @@ services:
         command: redis-server --appendonly yes
 
 networks:
-    sail:
+    alz-core:
         driver: bridge
 
+# intentional: explicit names keep the existing local volumes' data.
 volumes:
-    sail-pgsql:
+    pgsql-data:
+        name: alz-core_sail-pgsql
         driver: local
-    sail-redis:
+    redis-data:
+        name: alz-core_sail-redis
         driver: local

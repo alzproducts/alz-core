@@ -59,6 +59,7 @@ The evidence dir (caller's `--evidence`, else the one launch minted) is outside 
 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per step and call; add your own with `note`.
 - `http/<stamp>-<method>.txt`: request (bypass secret redacted), status, response headers and body.
+- `artisan/<stamp>-<command>.txt`: command line, output and `exit=<code>`.
 - `logs/`: composer, migrate, seed, Octane, worker and Pest output.
 - `run.env`, `verify-state.json`, `compose/`: run bookkeeping; `run.env` holds run secrets, quote nothing from it.
 - Proof standard: drive the real route a client calls, capture request and response, and back side effects with a `db` read.
@@ -84,6 +85,7 @@ bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
 | `http` | `--evidence <dir> <METHOD> <path> [--data <json>]` | Bypass-authenticated request, captured under `http/` |
 | `db` | `--evidence <dir> <sql>` | Read-only psql in the run's Postgres |
 | `test` | `--evidence <dir> <pest path>` | Targeted Pest runner |
+| `artisan` | `--evidence <dir> <command> [args]` | Artisan command under the run env, captured under `artisan/` |
 | `note` | `--evidence <dir> <text>` | Appends a `run-notes.md` line |
 | `bench-load` | `--evidence <dir> [--requests N] [--warmup N] [--rate N]` | Product-list p99 under background writes ([products-perf](features/products-perf.md)) |
 | `bench-writers` | `--evidence <dir> [--runs N] [--baseline <evidence dir>]` | Writer medians, optional ratio to a baseline run |
@@ -91,4 +93,5 @@ bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
 
 - **Invocation:** `bash .agents/skills/verify/scripts/verify.sh <verb> [args]`; an extracted copy runs as `bash <extracted dir>/scripts/verify.sh <verb> [args]`, cwd = the worktree.
 - **Targeted Pest runner:** `verify.sh test --evidence <dir> <path>` after `launch`, e.g. `verify.sh test --evidence <dir> tests/Unit/Static/StaleSeedWordingTest.php`. It runs Pest with `APP_ENV=testing` against the run's DB and Redis. Never use bare Pest or `make test` for verification: `phpunit.xml` sets no DB or Redis keys, so those hit the developer's services. In a worktree without `.env`, each test reports a `fopen(.../.env)` warning from `bypass-finals`; exit 0 is still a pass.
+- **Artisan runner:** `verify.sh artisan --evidence <dir> about --only=environment` after `launch`. `--evidence <dir>` comes first and everything after it is the command's argv; the command gets `--no-interaction` and no stdin, so a prompt takes its default. Exit 0 only when the command exits 0, its code printed as `exit=<code>`. Never run bare `php artisan` for verification: it reads the developer's services.
 - **Exit codes:** 0 ok; 1 check failed (guard, credential, residue, journey, test); 64 usage; 75 environment not ready.
