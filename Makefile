@@ -23,7 +23,6 @@ endif
 CI ?= false
 SAIL := ./vendor/bin/sail
 SAIL_CONTAINER_NAME ?= laravel.test
-COMPOSER_IMAGE ?= laravelsail/php84-composer:latest
 
 # Check if inside Docker container
 IN_DOCKER := $(shell test -f /.dockerenv && echo yes)
@@ -66,32 +65,22 @@ help: ## Show this help message
 	@echo "Mode: $(MODE)"
 
 # Installation & Setup
-install: ## First-time project setup
-	@echo "Running installation in $(MODE)"
-	@echo "$(GREEN)Installing dependencies...$(NC)"
-	@if [ ! -d "vendor" ]; then \
-		docker run --rm -u "$$(id -u):$$(id -g)" \
-			-v "$$(pwd):/var/www/html" \
-			-w /var/www/html \
-			-e REDIS_CLIENT=predis \
-			"$(COMPOSER_IMAGE)" \
-			composer install --ignore-platform-reqs || exit 1; \
+# intentional: plain composer/php, never $(COMPOSER)/$(EXEC), which resolve to Sail (COR-269).
+install: ## Set up a fresh clone or git worktree natively (.env, deps, key, Supabase, Redis, migrate)
+ifndef ALZ_ADMIN
+	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
+endif
+	@bin/install-env
+	composer install
+	@if grep -Eq "^APP_KEY=[\"']?[^\"'[:space:]]" .env; then \
+		echo "APP_KEY already set; kept"; \
+	else \
+		php artisan key:generate; \
 	fi
-	@if [ ! -f ".env" ]; then \
-		cp .env.example .env && \
-		echo "$(GREEN).env file created$(NC)"; \
-	fi
-	@if [ "$(CI)" != "true" ] && [ "$(IN_DOCKER)" != "yes" ]; then \
-		if [ ! -x "$(SAIL)" ]; then \
-			echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
-			echo "$(YELLOW)Installation may have failed. Check vendor directory.$(NC)"; \
-			exit 1; \
-		fi; \
-		$(SAIL) up -d && \
-		$(SAIL) artisan key:generate && \
-		$(SAIL) artisan migrate && \
-		echo "$(GREEN)Setup complete! Access: http://localhost$(NC)"; \
-	fi
+	@$(MAKE) supabase-start
+	@$(MAKE) redis
+	php artisan migrate
+	@echo "$(GREEN)Setup complete. Next: make test$(NC)"
 
 # Sail Container Management
 up: ## Start Sail containers
