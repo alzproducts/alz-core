@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
+use App\Infrastructure\QuickBooks\EloquentQuickBooksConnectionRepository;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksConfigFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -22,6 +24,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksConfig::class,
             static fn(): QuickBooksConfig => QuickBooksConfigFactory::create(),
         );
+
+        $this->app->bind(QuickBooksConnectionRepositoryInterface::class, EloquentQuickBooksConnectionRepository::class);
     }
 
     /**
@@ -32,6 +36,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
     {
         return [
             QuickBooksConfig::class,
+            QuickBooksConnectionRepositoryInterface::class,
         ];
     }
 }
