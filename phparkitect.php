@@ -211,6 +211,7 @@ return static function (Config $config): void {
                                'Google*',
                                'GuzzleHttp*',
                                'Microsoft*',
+                               'QuickBooksOnline*',
                                'HelpScout*',
                                'TheIconic*',
                                'libphonenumber*',

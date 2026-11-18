@@ -103,6 +103,14 @@
         <env name="BING_ADS_CLIENT_SECRET" value="" force="true"/>
         <env name="BING_ADS_REFRESH_TOKEN" value="" force="true"/>
         <env name="BING_ADS_DEVELOPER_TOKEN" value="" force="true"/>
+        <!-- QBO placeholders: tests must never inherit a developer's sandbox keys -->
+        <env name="QUICKBOOKS_ENVIRONMENT" value="sandbox" force="true"/>
+        <env name="QUICKBOOKS_CLIENT_ID" value="test-client-id" force="true"/>
+        <env name="QUICKBOOKS_CLIENT_SECRET" value="test-client-secret" force="true"/>
+        <env name="QUICKBOOKS_REDIRECT_URI" value="http://localhost/quickbooks/callback" force="true"/>
+        <env name="QUICKBOOKS_REALM_ID" value="9130000000000001" force="true"/>
+        <env name="QUICKBOOKS_CACHE_STORE" value="array" force="true"/>
+        <env name="API_KEY_ENCRYPTION_SECRET" value="000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f" force="true"/>
     </php>
     <extensions>
         <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>

@@ -23,6 +23,7 @@ use App\Providers\MixpanelServiceProvider;
 use App\Providers\NotificationServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\QueueObservabilityServiceProvider;
+use App\Providers\QuickBooksServiceProvider;
 use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
@@ -61,6 +62,7 @@ return [
     NotificationServiceProvider::class,
     QueueObservabilityServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
+    QuickBooksServiceProvider::class,
     RateLimitServiceProvider::class,
     ReviewsIoServiceProvider::class,
     RlsDatabaseServiceProvider::class,
