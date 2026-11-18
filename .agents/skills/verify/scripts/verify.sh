@@ -100,6 +100,7 @@ Usage: bash <skill>/scripts/verify.sh <verb> [args]   (cwd = the repo worktree)
   http    --evidence <dir> <METHOD> <path> [--data <json>]
   db      --evidence <dir> <sql>
   test    --evidence <dir> <pest path>
+  artisan --evidence <dir> <command> [args]
   note    --evidence <dir> <text>
   bench-load    --evidence <dir> [--requests N] [--warmup N] [--rate N]
   bench-writers --evidence <dir> [--runs N] [--baseline <evidence dir>]
@@ -157,6 +158,10 @@ check_evidence() {
     EVIDENCE="$(cd "$dir" && pwd -P)"
     if [ "$2" = new ]; then
         [ ! -e "$EVIDENCE/verify-state.json" ] || die 64 "--evidence dir already holds a run (verify-state.json): $EVIDENCE"
+    elif [ "$2" = launched ]; then
+        [ -f "$EVIDENCE/verify-state.json" ] && [ -f "$EVIDENCE/run.env" ] &&
+            [ -n "$(jq -r '.launchedAt // empty' "$EVIDENCE/verify-state.json")" ] ||
+            die 75 "--evidence dir holds no launched run (launch it first): $EVIDENCE"
     else
         [ -f "$EVIDENCE/verify-state.json" ] || die 64 "--evidence dir holds no run (verify-state.json missing): $EVIDENCE"
     fi
@@ -556,6 +561,7 @@ cmd_launch() {
     kill -0 "$worker_pid" 2>/dev/null || fail_launch "queue worker exited (see logs/worker.log)"
 
     # 8. Ready
+    state_update --arg ts "$(now_iso)" '.launchedAt = $ts'
     note "launched http://127.0.0.1:$PORT_HTTP"
     echo "base_url=http://127.0.0.1:$PORT_HTTP"
 }
@@ -666,6 +672,38 @@ cmd_test() {
     app_env -- vendor/bin/pest "${ARGS[0]}" 2>&1 | tee "$EVIDENCE/logs/test-$(date -u +%Y%m%dT%H%M%SZ).log" || rc=1
     note "test ${ARGS[0]} rc=$rc"
     return "$rc"
+}
+
+# artisan --evidence <dir> <command> [args]: everything after the dir is the command's own argv, so it may carry
+# options `common` would misparse.
+cmd_artisan() {
+    [ "$#" -ge 3 ] && [ "$1" = --evidence ] || usage
+    resolve_repo
+    check_evidence "$2" launched
+    shift 2
+    load_state
+    load_run_env
+    run_guard || { note "artisan $* refused by guard"; return 1; }
+    credential_check || { note "artisan $* refused by credential check"; return 1; }
+    local stamp name out n=0 rc=0
+    name="$(printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '-')"
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p "$EVIDENCE/artisan"
+    out="$EVIDENCE/artisan/$stamp-$name.txt"
+    while [ -e "$out" ]; do n=$((n + 1)); out="$EVIDENCE/artisan/$stamp-$n-$name.txt"; done
+    note "artisan $*"
+    app_env -- php artisan "$@" --no-interaction </dev/null >"$out.log" 2>&1 || rc=$?
+    {
+        echo "\$ php artisan $* --no-interaction"
+        echo
+        cat "$out.log"
+        echo
+        echo "exit=$rc"
+    } >"$out"
+    rm -f "$out.log"
+    note "artisan $1 exit=$rc (artisan/$(basename "$out"))"
+    sed -n '3,$p' "$out"
+    [ "$rc" -eq 0 ]
 }
 
 # ---- bench journeys (features/products-perf.md) ----
@@ -813,6 +851,7 @@ cmd_cleanup() {
     [ "${#ARGS[@]}" -eq 0 ] || usage
     [[ "$PROJECT" =~ ^alz-verify-[0-9a-z-]+$ ]] || die 1 "refusing cleanup: compose project '$PROJECT' is not a verify run"
     local n i kind pid pgid fp now fail=0 has_compose=0 port residue
+    state_update '.launchedAt = null'
     n="$(state '.resources | length')"
     i=$((n - 1))
     while [ "$i" -ge 0 ]; do
@@ -872,6 +911,7 @@ case "$verb" in
     http) cmd_http "$@" ;;
     db) cmd_db "$@" ;;
     test) cmd_test "$@" ;;
+    artisan) cmd_artisan "$@" ;;
     note) cmd_note "$@" ;;
     bench-load) cmd_bench_load "$@" ;;
     bench-writers) cmd_bench_writers "$@" ;;
