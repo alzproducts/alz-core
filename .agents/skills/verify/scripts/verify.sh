@@ -540,9 +540,6 @@ cmd_launch() {
     runtime_check || fail_launch "runtime check"
 
     # 6. Migrate and seed the run's own Postgres
-    # intentional: migrations hand objects to the Supabase/CI owner role `postgres`; the run's superuser is `verify`.
-    dc exec -T pgsql psql -v ON_ERROR_STOP=1 -U verify -d verify -c 'CREATE ROLE postgres NOLOGIN' \
-        >"$EVIDENCE/logs/roles.log" 2>&1 || fail_launch "create postgres role (see logs/roles.log)"
     note "migrate"
     app_env -- php artisan migrate --force --no-interaction >"$EVIDENCE/logs/migrate.log" 2>&1 ||
         fail_launch "migrate (see logs/migrate.log)"
