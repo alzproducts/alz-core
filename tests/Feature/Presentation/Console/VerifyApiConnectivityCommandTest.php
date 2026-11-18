@@ -9,11 +9,21 @@ use App\Application\Contracts\GoogleAdsClientInterface;
 use App\Application\Contracts\HelpScout\ConnectivityClientInterface as HelpScoutConnectivityClient;
 use App\Application\Contracts\Linnworks\ConnectivityClientInterface as LinnworksConnectivityClient;
 use App\Application\Contracts\MixpanelClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
+use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
+use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Presentation\Console\Commands\VerifyApiConnectivityCommand;
+use DateTimeImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Mockery\MockInterface;
 use Override;
@@ -30,6 +40,8 @@ use Tests\TestCase;
 #[CoversClass(VerifyApiConnectivityCommand::class)]
 final class VerifyApiConnectivityCommandTest extends TestCase
 {
+    use DatabaseTransactions;
+
     private MockInterface&ReviewsIoClientInterface $reviewsIoClient;
 
     private MockInterface&MixpanelClientInterface $mixpanelClient;
@@ -43,6 +55,8 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     private MockInterface&LinnworksConnectivityClient $linnworksClient;
 
     private MockInterface&HelpScoutConnectivityClient $helpscoutClient;
+
+    private MockInterface&QuickBooksClientInterface $quickBooksClient;
 
     #[Override]
     protected function setUp(): void
@@ -64,6 +78,45 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         $this->app->instance(ShopwiredConnectivityClient::class, $this->shopwiredClient);
         $this->app->instance(LinnworksConnectivityClient::class, $this->linnworksClient);
         $this->app->instance(HelpScoutConnectivityClient::class, $this->helpscoutClient);
+
+        $this->quickBooksClient = Mockery::mock(QuickBooksClientInterface::class);
+        $this->app->instance(QuickBooksClientInterface::class, $this->quickBooksClient);
+        $this->app->make(QuickBooksAccessTokenCacheInterface::class)
+            ->put(new ApiKeyToken('access-cached'), new DateTimeImmutable('+1 hour'));
+    }
+
+    #[Test]
+    public function it_prints_the_connected_quickbooks_company(): void
+    {
+        $this->quickBooksClient->shouldReceive('companyName')->once()->andReturn('Sandbox Company_US_1');
+
+        $this->artisan('verify:api', ['client' => 'quickbooks'])
+            ->expectsOutput('Verifying QuickBooks...')
+            ->expectsOutput('  Company: Sandbox Company_US_1')
+            ->expectsOutput('All API clients verified successfully')
+            ->assertExitCode(Command::SUCCESS);
+    }
+
+    #[Test]
+    public function an_invalid_grant_fails_quickbooks_with_the_reconnect_hint(): void
+    {
+        $this->app->make(QuickBooksAccessTokenCacheInterface::class)->forget();
+        DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
+        $this->app->make(QuickBooksConnectionRepositoryInterface::class)->save(new QuickBooksConnection(
+            refreshToken: new ApiKeyToken('refresh-revoked'),
+            refreshTokenExpiresAt: new DateTimeImmutable('+30 days'),
+            refreshTokenHardExpiresAt: null,
+        ));
+        Http::preventStrayRequests();
+        Http::fake([QuickBooksConfig::TOKEN_URL => Http::response(['error' => 'invalid_grant'], 400)]);
+        $this->quickBooksClient->shouldNotReceive('companyName');
+
+        $this->artisan('verify:api', ['client' => 'quickbooks'])
+            ->expectsOutput('Verifying QuickBooks...')
+            ->expectsOutputToContain('Authorization Failed:')
+            ->expectsOutput('  Check: reconnect with php artisan quickbooks:connect')
+            ->expectsOutput('Some API clients failed: quickbooks')
+            ->assertExitCode(Command::FAILURE);
     }
 
     #[Test]
@@ -76,6 +129,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
         $this->shopwiredClient->shouldReceive('verifyConnectivity')->once();
         $this->linnworksClient->shouldReceive('verifyConnectivity')->once();
         $this->helpscoutClient->shouldReceive('verifyConnectivity')->once();
+        $this->quickBooksClient->shouldReceive('companyName')->once()->andReturn('Sandbox Company_US_1');
 
         $this->artisan('verify:api', ['client' => 'all'])
             ->expectsOutput('Verifying Reviews.io...')
@@ -85,6 +139,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
             ->expectsOutput('Verifying Shopwired...')
             ->expectsOutput('Verifying Linnworks...')
             ->expectsOutput('Verifying HelpScout...')
+            ->expectsOutput('Verifying QuickBooks...')
             ->expectsOutput('All API clients verified successfully')
             ->assertExitCode(Command::SUCCESS);
     }
@@ -109,7 +164,7 @@ final class VerifyApiConnectivityCommandTest extends TestCase
     {
         $this->artisan('verify:api', ['client' => 'unknown'])
             ->expectsOutput('Unknown client: unknown')
-            ->expectsOutput('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, helpscout, all')
+            ->expectsOutput('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, helpscout, quickbooks, all')
             ->assertExitCode(Command::FAILURE);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
@@ -12,6 +13,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
 use App\Infrastructure\QuickBooks\CacheQuickBooksStateStore;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksConnectionRepository;
+use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksConfigFactory;
 use App\Infrastructure\QuickBooks\QuickBooksOAuthClient;
@@ -38,6 +40,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
 
         $this->app->bind(QuickBooksConnectionRepositoryInterface::class, EloquentQuickBooksConnectionRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
+        $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
         $this->registerCacheBackedStores();
     }
 
@@ -71,6 +74,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksConfig::class,
             QuickBooksConnectionRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,
+            QuickBooksClientInterface::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Exceptions;
 
 use LogicException;
+use Throwable;
 
 /**
  * Thrown when required configuration is missing or invalid.
@@ -28,9 +29,10 @@ final class InvalidConfigurationException extends LogicException
     public function __construct(
         public readonly string $configKey,
         string $message = '',
+        ?Throwable $previous = null,
     ) {
         $this->detail = $message;
-        parent::__construct('Required configuration is missing or invalid');
+        parent::__construct('Required configuration is missing or invalid', previous: $previous);
     }
 
     /**
