@@ -5,7 +5,7 @@ description: Verify alz-core's HTTP API end to end in a private, throwaway stack
 
 # Verify alz-core
 
-One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (Postgres + Redis), migrated and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank, so third-party APIs are unreachable.
+One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (Postgres + Redis), migrated and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank or a non-working placeholder, so third-party APIs are unreachable.
 
 - Covers the HTTP API only; the dashboard and storefront live in alz-admin.
 - Journeys live in the feature map, [`features/README.md`](features/README.md).

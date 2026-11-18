@@ -44,7 +44,8 @@ CREDENTIAL_KEYS=(
     'SENTRY_LARAVEL_DSN:blank:sentry.dsn'
     'APP_KEY:run:app.key'
     'APP_PREVIOUS_KEYS:blank:app.previous_keys'
-    'API_KEY_ENCRYPTION_SECRET:blank:app.api_key_encryption_secret'
+    'QUICKBOOKS_CLIENT_SECRET:placeholder:quickbooks.client_secret'
+    'API_KEY_ENCRYPTION_SECRET:run:app.api_key_encryption_secret'
     'SUPABASE_LOCAL_BYPASS_SECRET:run:services.supabase.local_bypass_secret'
     'HORIZON_USER:run:horizon.auth.username'
     'HORIZON_PASSWORD:run:horizon.auth.password'
@@ -271,6 +272,10 @@ build_run_env() {
     set_env SUPABASE_URL "http://127.0.0.1:$supabase_port"
     set_env SUPABASE_LOCAL_TEST_EMAIL dev@alzadmin.test
     set_env EMAIL_PRIMARY verify@example.invalid
+    set_env QUICKBOOKS_ENVIRONMENT sandbox
+    set_env QUICKBOOKS_CLIENT_ID verify-client-id
+    set_env QUICKBOOKS_REALM_ID 9130000000000001
+    set_env QUICKBOOKS_REDIRECT_URI "http://127.0.0.1:$PORT_HTTP/quickbooks/callback"
     set_env AWS_SHARED_CREDENTIALS_FILE /dev/null
     set_env AWS_CONFIG_FILE /dev/null
     set_env AWS_EC2_METADATA_DISABLED true
@@ -296,6 +301,7 @@ build_run_env() {
                     SUPABASE_LOCAL_BYPASS_SECRET) set_env "$key" "$bypass" ;;
                     HORIZON_USER) set_env "$key" "verify-$(openssl rand -hex 4)" ;;
                     HORIZON_PASSWORD) set_env "$key" "$(openssl rand -hex 24)" ;;
+                    API_KEY_ENCRYPTION_SECRET) set_env "$key" "$(openssl rand -hex 32)" ;;
                     *) die 1 "no run value defined for $key" ;;
                 esac
                 ;;
@@ -534,6 +540,9 @@ cmd_launch() {
     runtime_check || fail_launch "runtime check"
 
     # 6. Migrate and seed the run's own Postgres
+    # intentional: migrations hand objects to the Supabase/CI owner role `postgres`; the run's superuser is `verify`.
+    dc exec -T pgsql psql -v ON_ERROR_STOP=1 -U verify -d verify -c 'CREATE ROLE postgres NOLOGIN' \
+        >"$EVIDENCE/logs/roles.log" 2>&1 || fail_launch "create postgres role (see logs/roles.log)"
     note "migrate"
     app_env -- php artisan migrate --force --no-interaction >"$EVIDENCE/logs/migrate.log" 2>&1 ||
         fail_launch "migrate (see logs/migrate.log)"
