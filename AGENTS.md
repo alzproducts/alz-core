@@ -140,8 +140,11 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 
 **Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`. EXCEPTION: resets and seeding (`make db-reset-full`, `make supabase-reset`) need the user's go-ahead.
 
+**Fresh worktree → run `make install` first.** It copies the main checkout's `.env`, installs dependencies, starts Supabase and Redis and migrates. NEVER run `composer install` or an `APP_ENV` override by hand. Guide: [`docs/guides/local-setup.md`](docs/guides/local-setup.md).
+
 ### Quick Reference
 ```bash
+make install                      # Set up a fresh clone or worktree (idempotent; forward-only migrate)
 make db-reset-full                # Full DB reset (Supabase + migrations + synthetic seed via dev:seed-fake) — see database/AGENTS.md
 make supabase-seed-users          # Seed test users only (no DB reset)
 make redis                        # Start Redis (Docker)
