@@ -1,4 +1,4 @@
-.PHONY: help install up down shell migrate db-reset-full seed-fake pint pint-test testtest-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install migrate db-reset-full seed-fake pint pint-test testtest-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -21,8 +21,6 @@ endif
 
 # Configuration
 CI ?= false
-SAIL := ./vendor/bin/sail
-SAIL_CONTAINER_NAME ?= laravel.test
 
 # Check if inside Docker container
 IN_DOCKER := $(shell test -f /.dockerenv && echo yes)
@@ -46,16 +44,11 @@ else ifneq ($(DOCKER_AVAILABLE),yes)
 	EXEC = php
 	COMPOSER = composer
 	MODE = $(YELLOW)[Native Mode - Docker unavailable]$(NC)
-else ifeq ($(shell docker ps -q -f name=$(SAIL_CONTAINER_NAME) 2>/dev/null),)
-	# Sail not running - use native commands (fallback)
+else
+	# Local host with Docker available - use native commands
 	EXEC = php
 	COMPOSER = composer
-	MODE = $(YELLOW)[Native Mode - Sail not running]$(NC)
-else
-	# Sail is running - use Sail commands
-	EXEC = $(SAIL) php
-	COMPOSER = $(SAIL) composer
-	MODE = $(GREEN)[Sail Mode]$(NC)
+	MODE = $(GREEN)[Native Mode]$(NC)
 endif
 
 help: ## Show this help message
@@ -65,7 +58,7 @@ help: ## Show this help message
 	@echo "Mode: $(MODE)"
 
 # Installation & Setup
-# intentional: plain composer/php, never $(COMPOSER)/$(EXEC), which resolve to Sail (COR-269).
+# intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
 install: ## Set up a fresh clone or git worktree natively (.env, deps, key, Supabase, Redis, migrate)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
@@ -81,46 +74,6 @@ endif
 	@$(MAKE) redis
 	php artisan migrate
 	@echo "$(GREEN)Setup complete. Next: make test$(NC)"
-
-# Sail Container Management
-up: ## Start Sail containers
-	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
-		echo "$(YELLOW)Cannot start Sail from CI or inside container$(NC)"; \
-		exit 1; \
-	fi
-	@if [ ! -x "$(SAIL)" ]; then \
-		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
-		echo "$(YELLOW)Run 'make install' first$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(MODE)"
-	$(SAIL) up -d
-
-down: ## Stop Sail containers
-	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
-		echo "$(YELLOW)Cannot stop Sail from CI or inside container$(NC)"; \
-		exit 1; \
-	fi
-	@if [ ! -x "$(SAIL)" ]; then \
-		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
-		echo "$(YELLOW)Run 'make install' first$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(MODE)"
-	$(SAIL) down
-
-shell: ## Access container shell
-	@if [ "$(CI)" = "true" ] || [ "$(IN_DOCKER)" = "yes" ]; then \
-		echo "$(YELLOW)Already in shell or CI environment$(NC)"; \
-		exit 1; \
-	fi
-	@if [ ! -x "$(SAIL)" ]; then \
-		echo "$(YELLOW)Error: Sail not found at $(SAIL)$(NC)"; \
-		echo "$(YELLOW)Run 'make install' first$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(MODE)"
-	$(SAIL) shell
 
 # Code Quality Commands
 pint: ## Auto-fix code style with Pint
