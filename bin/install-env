@@ -10,7 +10,8 @@ if [[ -f "$ENV_FILE" ]]; then
     exit 0
 fi
 
-MAIN_LINE="$(git worktree list --porcelain | head -n 1)"
+WORKTREES="$(git worktree list --porcelain)"
+MAIN_LINE="${WORKTREES%%$'\n'*}"
 MAIN_CHECKOUT="${MAIN_LINE#worktree }"
 if [[ -d "$MAIN_CHECKOUT" ]]; then
     MAIN_CHECKOUT="$(cd "$MAIN_CHECKOUT" && pwd -P)"
