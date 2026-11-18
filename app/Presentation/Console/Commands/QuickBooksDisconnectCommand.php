@@ -34,7 +34,7 @@ final class QuickBooksDisconnectCommand extends Command
         } catch (AuthenticationExpiredException|ExternalServiceUnavailableException $e) {
             return $this->failWith('Intuit did not revoke the grant: ' . $e->getMessage(), 'Intuit is reachable, or rerun with --force to delete the connection anyway');
         } catch (CorruptApiKeyException $e) {
-            return $this->failWith('The stored connection is unreadable: ' . $e->getMessage(), 'API_KEY_ENCRYPTION_KEY matches the key the connection was stored with, or rerun with --force');
+            return $this->failWith('The stored connection is unreadable: ' . $e->getMessage(), 'API_KEY_ENCRYPTION_SECRET matches the key the connection was stored with, or rerun with --force');
         } catch (LockAcquisitionException|DatabaseOperationFailedException|DuplicateRecordException $e) {
             return $this->failWith('Could not disconnect QuickBooks: ' . $e->getMessage(), 'the database and the QuickBooks cache store are reachable, then rerun');
         }

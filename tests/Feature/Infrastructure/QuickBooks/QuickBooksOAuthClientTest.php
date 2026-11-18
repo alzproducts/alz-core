@@ -58,6 +58,7 @@ final class QuickBooksOAuthClientTest extends TestCase
             return $request->method() === 'POST'
                 && $request->url() === QuickBooksConfig::TOKEN_URL
                 && $request->hasHeader('Authorization', $basic)
+                && $request->hasHeader('x-include-refresh-token-hard-expires-in', 'true')
                 && $request->data() === ['grant_type' => 'refresh_token', 'refresh_token' => 'old-refresh'];
         });
         $this->assertSame('new-access', $grant->accessToken->value);

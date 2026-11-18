@@ -26,6 +26,9 @@ final readonly class QuickBooksOAuthHttpTransport
 
     private const int TIMEOUT_SECONDS = 15;
 
+    /** Intuit omits `x_refresh_token_hard_expires_in` from token responses unless asked. */
+    private const string HARD_EXPIRY_HEADER = 'x-include-refresh-token-hard-expires-in';
+
     public function __construct(
         private QuickBooksConfig $config,
         private TransientLogThrottle $logThrottle,
@@ -43,7 +46,7 @@ final readonly class QuickBooksOAuthHttpTransport
      */
     public function requestToken(#[SensitiveParameter] array $form): array
     {
-        $response = $this->post(QuickBooksConfig::TOKEN_URL, $form, asJson: false);
+        $response = $this->post(QuickBooksConfig::TOKEN_URL, $form, asJson: false, headers: [self::HARD_EXPIRY_HEADER => 'true']);
 
         $body = $response->json();
         if (!\is_array($body)) {
@@ -68,14 +71,16 @@ final readonly class QuickBooksOAuthHttpTransport
 
     /**
      * @param array<string, string> $data
+     * @param array<string, string> $headers
      *
      * @throws AuthenticationExpiredException
      * @throws ExternalServiceUnavailableException
      */
-    private function post(string $url, #[SensitiveParameter] array $data, bool $asJson): Response
+    private function post(string $url, #[SensitiveParameter] array $data, bool $asJson, array $headers = []): Response
     {
         $request = Http::timeout(self::TIMEOUT_SECONDS)
             ->acceptJson()
+            ->withHeaders($headers)
             ->withBasicAuth($this->config->clientId, $this->config->clientSecret);
 
         try {
