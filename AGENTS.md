@@ -158,7 +158,7 @@ make lint                         # Run linters
 Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
 - Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
 - Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
-- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (per-worktree, in `.claude/settings.local.json` → `env`). Each worktree binds Octane to its own port — main = 8000, `alz-core-two` = 8001. On Codex they are NOT in the shell env — read the values from `.claude/settings.local.json` and substitute literals.
+- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (per-worktree, in `.claude/settings.local.json` → `env`). Each worktree binds Octane to its own port (main = 8000). On Codex they are NOT in the shell env — read the values from `.claude/settings.local.json` and substitute literals.
 - ALWAYS curl with `${API_PORT:-8000}`, never a hardcoded port: `curl -H "X-Local-Bypass: $API_BYPASS_SECRET" "http://127.0.0.1:${API_PORT:-8000}/..."`
 
 ### Debugging & Logs
