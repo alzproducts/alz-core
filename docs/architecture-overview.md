@@ -226,4 +226,3 @@ Infrastructure catches SDK exceptions, logs technical details, and translates to
 - [README](../README.md) — Project overview, conventions, enforced invariants
 - [tests/TestingStrategy.md](../tests/TestingStrategy.md) — What to test per layer
 - [docs/guides/critical-pitfalls.md](guides/critical-pitfalls.md) — Date range and sync pitfalls
-- [docs/deployment/railway-octane-setup.md](deployment/railway-octane-setup.md) — Railway deployment details
