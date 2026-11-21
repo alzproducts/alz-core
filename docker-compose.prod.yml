@@ -2,7 +2,7 @@
 # Docker Compose for Production-like Testing
 # ==============================================================================
 # Purpose: Test production Dockerfile locally before Railway deployment
-# Usage: export BASELINE_DB_PASSWORD first (any random string), then
+# Usage: export BASELINE_DB_PASSWORD=$(openssl rand -hex 16) first (Auth puts it in a URL unescaped), then
 #        docker compose -f docker-compose.prod.yml up --build
 # The database is the Supabase baseline (database/baseline/, ADR-0016).
 # ==============================================================================
