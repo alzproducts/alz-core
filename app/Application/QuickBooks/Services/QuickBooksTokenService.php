@@ -24,7 +24,7 @@ use SensitiveParameter;
 
 /**
  * Owns the QBO token lifecycle. Every refresh runs under the fail-closed token lock because Intuit
- * rotates the refresh token on use (ADR-0016).
+ * rotates the refresh token on use (ADR-0017).
  */
 final readonly class QuickBooksTokenService
 {

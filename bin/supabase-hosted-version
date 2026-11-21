@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Prints the hosted Supabase project's Postgres version, for bumping database/baseline/versions.env.
+# Usage: bin/supabase-hosted-version <frontend root>  (a Supabase-linked checkout; needs your Supabase login)
+set -euo pipefail
+
+usage() {
+    echo "usage: $(basename "$0") <frontend root>  (needs <root>/supabase/.temp/project-ref and <root>/node_modules/.bin/supabase)" >&2
+    exit 2
+}
+
+[[ $# -eq 1 ]] || usage
+ROOT="$(cd "$1" 2>/dev/null && pwd)" || usage
+REF_FILE="$ROOT/supabase/.temp/project-ref"
+CLI="$ROOT/node_modules/.bin/supabase"
+[[ -f "$REF_FILE" && -x "$CLI" ]] || usage
+
+REF="$(tr -d '[:space:]' < "$REF_FILE")"
+[[ -n "$REF" ]] || usage
+
+if ! PROJECTS="$("$CLI" projects list -o json --workdir "$ROOT")"; then
+    echo "supabase projects list failed" >&2
+    exit 1
+fi
+
+VERSION="$(jq -r --arg ref "$REF" '.[] | select(.ref == $ref or .id == $ref) | .database.version' <<< "$PROJECTS")"
+if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+    echo "linked project not listed" >&2
+    exit 1
+fi
+
+echo "$VERSION"

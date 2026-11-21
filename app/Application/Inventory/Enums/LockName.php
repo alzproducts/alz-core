@@ -37,7 +37,7 @@ enum LockName: string
      * Serialises every write of the QBO connection (connect, refresh, disconnect).
      *
      * Intuit rotates the refresh token on use, so two unlocked refreshes would
-     * strand one rotation and force a reconnect (ADR-0016).
+     * strand one rotation and force a reconnect (ADR-0017).
      */
     case QuickBooksTokenRefresh = 'quickbooks-token-refresh';
 }

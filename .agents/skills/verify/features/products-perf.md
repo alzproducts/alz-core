@@ -32,7 +32,7 @@ Preconditions:
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
   - Prints `<writer> median_ms= runs_ms=` and `result=<evidence>/bench/writers-<stamp>.json`; with `--baseline`, also `<writer> ratio=<head/base> head_median_ms= base_median_ms=` against that dir's latest `bench/writers-*.json`.
 - **Baseline at an earlier commit.** This skill's scripts drive any commit that has the repository methods `bench.php` calls.
-  1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base).
+  1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base). A base without `database/baseline/` gets the head worktree's copy: `cp -R <head worktree>/database/baseline <abs base worktree>/database/`.
   2. With cwd = that worktree, run this skill's script by absolute path: `launch`, `bench-writers --evidence <base dir>`, `cleanup`.
   3. With cwd = the head worktree: `launch`, `bench-writers --evidence <head dir> --baseline <base dir>`, `cleanup`.
 - **Proof.** The `bench/` result JSON, the `run-notes.md` bench lines, and for a load run `logs/octane.log` plus `logs/bench-writer-*.log`.
@@ -41,5 +41,5 @@ Preconditions:
 
 - Run base and head timings back to back on the same idle machine, never concurrently.
 - Timings are local-machine numbers on synthetic data: state the machine when quoting them against a production target.
-- The run's Postgres is stock `postgres:17-alpine`: per-product-transaction writers run several times slower than on local Supabase, and a load run at the defaults can saturate while the idle list takes ~330 ms. Compare base and head on this stack, never against numbers taken elsewhere.
+- The run's Postgres is the Supabase baseline (`database/baseline/`), with Compose defaults rather than local Supabase's tuning: a load run at the defaults can saturate on a slow machine. Compare base and head on this stack, never against numbers taken elsewhere.
 - Writers that fetch from ShopWired in production (product and category webhooks) replay stored rows instead.
