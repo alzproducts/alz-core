@@ -47,7 +47,7 @@ final class ZapTextResolverTest extends TestCase
         yield 'stops at the next reference' => ['Reference PO1 reference PO2', 'PO1 '];
         yield 'nothing after reference' => ['Reference', ''];
         yield 'upper-cases the text' => ['Reference po-12a', 'PO-12A'];
-        yield 'multibyte before the first space' => ['Reference éPO 1', 'ÉPO 1'];
+        yield 'multibyte before the first space' => ['Referenceépo 1', 'ÉPO1'];
     }
 
     #[Test]
