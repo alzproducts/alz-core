@@ -75,6 +75,7 @@ use Override;
  * @property string|null $tracking_url Shipment tracking URL
  * @property string|null $invoice_url Invoice download URL
  * @property string $payment_method
+ * @property string|null $payment_method_raw RawPaymentMethod backing value; null on rows stored before it was kept
  * @property string|null $transaction_id Payment transaction ID
  * @property bool $marketing Customer opted into marketing
  * @property bool $has_vat_relief VAT relief applied

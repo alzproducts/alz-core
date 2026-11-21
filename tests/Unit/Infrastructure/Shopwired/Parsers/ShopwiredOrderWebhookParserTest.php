@@ -6,6 +6,8 @@ namespace Tests\Unit\Infrastructure\Shopwired\Parsers;
 
 use App\Application\Shopwired\DTOs\WebhookOrderRefundResultDTO;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
+use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\ValueObjects\IntId;
 use App\Infrastructure\Shopwired\Parsers\ShopwiredOrderWebhookParser;
@@ -15,6 +17,7 @@ use Mockery;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use Tests\Unit\Infrastructure\Shopwired\Fixtures\ShopwiredOrderPayload;
 
 /**
  * ShopwiredOrderWebhookParser Unit Tests.
@@ -32,6 +35,31 @@ final class ShopwiredOrderWebhookParserTest extends TestCase
         parent::setUp();
 
         $this->parser = new ShopwiredOrderWebhookParser();
+    }
+
+    // ========================================================================
+    // parseOrder — raw payment method
+    // ========================================================================
+
+    #[Test]
+    public function it_keeps_the_raw_payment_method_of_a_parsed_order(): void
+    {
+        $order = $this->parser->parseOrder(['object' => ShopwiredOrderPayload::order(9001, 'Opayo Hosted')]);
+
+        self::assertNotNull($order);
+        self::assertSame(RawPaymentMethod::OpayoHosted, $order->rawPaymentMethod);
+        self::assertSame(PaymentMethod::Card, $order->paymentMethod);
+    }
+
+    #[Test]
+    public function it_rejects_an_order_whose_payment_method_is_not_a_known_processor(): void
+    {
+        try {
+            $this->parser->parseOrder(['object' => ShopwiredOrderPayload::order(9002, 'Klarna')]);
+            self::fail('Expected InvalidApiResponseException');
+        } catch (InvalidApiResponseException $e) {
+            self::assertSame('Unknown payment method: Klarna', $e->detail);
+        }
     }
 
     // ========================================================================

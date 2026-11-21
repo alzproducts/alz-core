@@ -63,11 +63,11 @@ A read that reflects every local commit made before it began, by any write path;
 _Avoid_: "real-time", "fresh within N seconds" (a lag bound is a weaker guarantee)
 
 **Raw payment method**:
-The exact processor string ShopWired gives an order (`PayPal`, `Opayo Hosted`, `ShopWired Payments`, `Offline`, …), kept as given; ShopWired can add new values at any time.
+The exact processor string ShopWired gives an order (`PayPal`, `Opayo Hosted`, `ShopWired Payments`, `Offline`, …), stored only when it is one of the values alz-core recognises; an order with any other value is rejected at ingest and never stored.
 _Avoid_: "payment method" alone — it means the grouped **Payment method**
 
 **Payment method**:
-The business grouping of a **Raw payment method** (`card`, `paypal`, `credit`, `admin`, `unknown`), which merges Opayo, Sagepay and ShopWired Payments into `card`; `unknown` covers `Offline` and any raw value not yet recognised.
+The business grouping of a **Raw payment method** (`card`, `paypal`, `credit`, `admin`, `unknown`), which merges Opayo, Sagepay and ShopWired Payments into `card`; `unknown` covers `Offline`.
 
 ### Pricing & margin
 
