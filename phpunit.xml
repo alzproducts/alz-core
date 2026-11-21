@@ -103,6 +103,8 @@
         <env name="BING_ADS_CLIENT_SECRET" value="" force="true"/>
         <env name="BING_ADS_REFRESH_TOKEN" value="" force="true"/>
         <env name="BING_ADS_DEVELOPER_TOKEN" value="" force="true"/>
+        <!-- Parallel workers share the migrated baseline database: per-worker copies come from template1, with no auth schema (ADR-0016) -->
+        <server name="LARAVEL_PARALLEL_TESTING_WITHOUT_DATABASES" value="1"/>
     </php>
     <extensions>
         <bootstrap class="DG\BypassFinals\PHPUnitExtension"/>

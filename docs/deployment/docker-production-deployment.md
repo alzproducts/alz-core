@@ -253,13 +253,14 @@ OCTANE_MAX_REQUESTS=500
 
 Local production-like testing environment:
 - Laravel app (built from `Dockerfile`)
-- PostgreSQL 16
+- The Supabase baseline (`database/baseline/compose.yaml`, [ADR-0016](../adr/0016-migrate-on-the-supabase-baseline.md)): Supabase Postgres plus the Auth migrations, migrated as `postgres`
 - Redis 7
 - Health checks for all services
 
-**Usage:**
+**Usage** (Compose v2, for `include`; the baseline's password comes from the shell):
 ```bash
-docker-compose -f docker-compose.prod.yml up --build
+export BASELINE_DB_PASSWORD=$(openssl rand -hex 16)
+docker compose -f docker-compose.prod.yml up --build
 ```
 
 ---
@@ -289,13 +290,13 @@ Copy the generated key to your `.env` file.
 
 ```bash
 # Build production image
-docker-compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml build
 
 # Start services
-docker-compose -f docker-compose.prod.yml up
+docker compose -f docker-compose.prod.yml up
 
 # Watch logs
-docker-compose -f docker-compose.prod.yml logs -f app
+docker compose -f docker-compose.prod.yml logs -f app
 ```
 
 ### Step 3: Verify Health
@@ -307,7 +308,7 @@ curl http://localhost:8000/up
 
 **Check Octane status:**
 ```bash
-docker-compose -f docker-compose.prod.yml exec app php artisan octane:status
+docker compose -f docker-compose.prod.yml exec app php artisan octane:status
 ```
 
 **Access Horizon dashboard:**
@@ -321,10 +322,10 @@ Password: secret
 
 ```bash
 # Send SIGTERM (simulates Railway restart)
-docker-compose -f docker-compose.prod.yml stop app
+docker compose -f docker-compose.prod.yml stop app
 
 # Check logs for graceful shutdown
-docker-compose -f docker-compose.prod.yml logs app | grep -i "shutdown"
+docker compose -f docker-compose.prod.yml logs app | grep -i "shutdown"
 ```
 
 **Expected output:**
@@ -338,10 +339,10 @@ docker-compose -f docker-compose.prod.yml logs app | grep -i "shutdown"
 
 ```bash
 # Stop and remove containers
-docker-compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 
 # Remove volumes (⚠️ deletes database data)
-docker-compose -f docker-compose.prod.yml down -v
+docker compose -f docker-compose.prod.yml down -v
 ```
 
 ---

@@ -432,7 +432,6 @@ php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000
 
 - **Octane config**: `config/octane.php`
 - **Environment variables**: `.env` (OCTANE_*)
-- **Railway deployment**: `docs/deployment/railway-octane-setup.md`
 
 ### Getting Help
 

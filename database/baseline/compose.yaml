@@ -1,0 +1,41 @@
+# Supabase baseline: hosted Supabase's Postgres and Auth images at the versions in versions.env (ADR-0016).
+# Callers pass versions.env's lines, BASELINE_DB_PASSWORD and BASELINE_DIR; see database/AGENTS.md.
+# intentional: no .env interpolation and no fixed host ports (COR-255 P13).
+services:
+    pgsql:
+        image: 'supabase/postgres:${SUPABASE_POSTGRES_VERSION:?}'
+        ports:
+            - '127.0.0.1::5432'
+        environment:
+            POSTGRES_PASSWORD: '${BASELINE_DB_PASSWORD:?}'
+        volumes:
+            - '${BASELINE_DIR:-.}/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro'
+        # intentional: overrides the image's ~20 s healthcheck, which marks a slow first boot unhealthy.
+        healthcheck:
+            test:
+                - CMD
+                - pg_isready
+                - '-U'
+                - postgres
+                - '-h'
+                - localhost
+            start_period: 120s
+            interval: 2s
+            timeout: 5s
+            retries: 30
+    auth-migrate:
+        image: 'supabase/auth:${SUPABASE_AUTH_VERSION:?}'
+        command:
+            - auth
+            - migrate
+        restart: 'no'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        environment:
+            GOTRUE_DB_DRIVER: postgres
+            GOTRUE_DB_DATABASE_URL: 'postgres://supabase_auth_admin:${BASELINE_DB_PASSWORD:?}@pgsql:5432/postgres'
+            # intentional: migrate signs nothing; Auth refuses to start without a secret.
+            GOTRUE_JWT_SECRET: baseline-migrate-placeholder-secret-not-used
+            API_EXTERNAL_URL: 'http://localhost:9999'
+            GOTRUE_SITE_URL: 'http://localhost:3000'

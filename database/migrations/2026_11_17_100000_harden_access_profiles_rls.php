@@ -8,16 +8,16 @@ use Illuminate\Support\Facades\DB;
 /**
  * Hardens database authz on public.profiles, access.user_roles and public.user_profiles.
  *
- * Re-runnable: every auth-schema statement sits behind a catalog existence check, since hosted
- * Supabase's postgres role has no CREATE on auth; functions use CREATE OR REPLACE; the view,
- * the public.profiles trigger and policies are dropped and re-created. Forward-only.
+ * Re-runnable: the auth.users email trigger is created only when pg_trigger has none, since the
+ * postgres role holds TRIGGER on auth.users but does not own it, so cannot drop it; functions use
+ * CREATE OR REPLACE; the view, access.get_user_profiles, the public.profiles trigger and policies
+ * are dropped and re-created. Forward-only.
  *
  * @see https://github.com/alzproducts/alz-admin/issues/629 (ADM-59)
  */
 return new class extends Migration {
     public function up(): void
     {
-        $this->createAuthStandIns();
         $this->createUtilsFunctions();
         $this->addProfilesEmail();
         $this->recreateUserProfilesView();
@@ -27,45 +27,6 @@ return new class extends Migration {
     public function down(): void
     {
         throw new LogicException('forward-only');
-    }
-
-    private function createAuthStandIns(): void
-    {
-        DB::statement(<<<'SQL'
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
-                    WHERE n.nspname = 'auth' AND p.proname = 'jwt'
-                ) THEN
-                    CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $f$
-                        SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb
-                    $f$;
-                END IF;
-
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid
-                    WHERE n.nspname = 'auth' AND t.typname = 'factor_status'
-                ) THEN
-                    CREATE TYPE auth.factor_status AS ENUM ('unverified', 'verified');
-                END IF;
-
-                IF to_regclass('auth.mfa_factors') IS NULL THEN
-                    CREATE TABLE auth.mfa_factors (
-                        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                        user_id uuid NOT NULL,
-                        factor_type text,
-                        status auth.factor_status NOT NULL,
-                        created_at timestamptz DEFAULT now()
-                    );
-                END IF;
-
-                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
-                    CREATE ROLE supabase_auth_admin NOLOGIN;
-                END IF;
-            END
-            $$
-        SQL);
     }
 
     private function createUtilsFunctions(): void

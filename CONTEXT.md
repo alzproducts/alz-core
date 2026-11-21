@@ -91,6 +91,14 @@ _Avoid_: "prod snapshot", "prod export", which imply copied rows.
 The class an integration binds in place of its real client when one of its secret credentials is blank outside production; it logs one line per call and does nothing else (HelpScout contact writes, Slack, Google Ads and Bing conversions; ADR-0015).
 _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
+**Supabase baseline**:
+The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production.
+_Avoid_: "Supabase stack", which names the full Supabase CLI stack in local development.
+
+**Supabase look-alike**:
+An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, or a Supabase role).
+_Avoid_: "stand-in", which names the integration class of ADR-0015.
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
@@ -98,6 +106,7 @@ _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
 - A product belongs in the ShopWired sale category exactly when it **has any sale**
 - Each **seed slice** is generated from exactly one **seed profile**; a slice's tables are seeded together or not at all
+- A database on the **Supabase baseline** already holds every Supabase-owned object, so no migration needs a **Supabase look-alike**
 - A **tracking number** belongs to exactly one **number pool**
 - A **tracking number** is shown to at most one visitor within the **attribution window**
 - A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission
@@ -197,8 +206,31 @@ _Avoid_: QBO integration (the connection is auth only, not any sync built on it)
 **QBO environment**:
 `sandbox` (an Intuit test company, the only one non-production alz-core may reach) or `production` (the real company).
 
+**Order sync**:
+The obligation to post one ShopWired order **reference** to one QBO company exactly once, as an invoice or a sales receipt, tracked as one row.
+_Avoid_: sync job, sync run (a run is one trigger that processes many order syncs)
+
+**Sync outcome**:
+What one trigger did for one **reference**: `synced`, `already_synced`, `skipped`, `failed` or `not_attempted`.
+_Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_attempted` are outcomes only)
+
+**Changed after sync**:
+A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.
+
+**Mapping key**:
+A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
+_Avoid_: calling a mapping key a QBO ID (committed text never holds one)
+
+## Relationships (QuickBooks order sync)
+
+- A ShopWired order **reference** has at most one **order sync** per QBO company
+- An **order sync** records at most one posted document (an unrecorded post can repeat: ADR-0019)
+- One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
+
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
 - "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
+- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled or unmapped-payment order gets `skipped` with no row written.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
+- "stand-in" was used for both the ADR-0015 integration class and objects migrations create to imitate Supabase's — resolved (COR-291): **Stand-in** keeps the ADR-0015 meaning; the migration objects are **Supabase look-alikes**.

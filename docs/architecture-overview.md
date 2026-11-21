@@ -57,6 +57,7 @@ C4Context
 
 **Key relationships:**
 - **Shared database** — alz-core and the Admin Dashboard share the same Supabase PostgreSQL. Supabase manages `auth.*`; Laravel manages `shopwired.*` and `public.*`.
+- **Production-matched databases** — every database alz-core migrates outside production runs the pinned Supabase baseline images, with migrations run as the non-superuser `postgres` role ([ADR-0016](adr/0016-migrate-on-the-supabase-baseline.md)).
 - **Webhook-driven** — ShopWired pushes real-time events via HMAC-signed webhooks. alz-core saves the partial payload, then dispatches a job to re-fetch the full entity from the API.
 - **Analytics pipeline** — Order and ad spend data flow into Mixpanel via scheduled jobs.
 
@@ -200,6 +201,20 @@ flowchart LR
 
 No general-purpose cache sits in front of synced data. Caching is applied where an external contract demands it: OAuth session tokens (Bing Ads, Linnworks), HelpScout read responses (`CachingHelpScoutService`, shown above), and transient alert throttling. A cache over synced data is allowed only when its validity is recomputed from live data in the reading request's own snapshot; the `GET /api/products` fragment cache (`catalog.product_list_fragments`) is the one such cache. See [ADR 0011](adr/0011-no-general-cache-in-front-of-synced-data.md) and its amendment for the full rationale.
 
+### QuickBooks Order Sync (staff-triggered)
+
+```mermaid
+flowchart LR
+    STAFF["Staff sync page"] -->|"Range or references"| QAPI["QuickBooks sync endpoints"]
+    QAPI -->|"Range: queued run"| QRUN["Range sync run"]
+    QAPI -->|"References: in request"| QUC["Order sync use case"]
+    QRUN --> QUC
+    QUC -->|"Lease, then outcome"| QROWS[("Order sync rows")]
+    QUC -->|"Customer query and batch create"| QBO["QuickBooks Online"]
+```
+
+Staff post ShopWired orders to QuickBooks Online by date range or by order reference; each reference's recorded post is never repeated within a QuickBooks company (an unrecorded post is the known exception), and failures land in a failed list for retry. The flow, the claim-call-record steps and the parity table against the replaced Zapier flow are in [QuickBooks Order Sync](architecture/quickbooks-order-sync.md).
+
 ---
 
 ## 5. Exception Flow
@@ -226,4 +241,3 @@ Infrastructure catches SDK exceptions, logs technical details, and translates to
 - [README](../README.md) — Project overview, conventions, enforced invariants
 - [tests/TestingStrategy.md](../tests/TestingStrategy.md) — What to test per layer
 - [docs/guides/critical-pitfalls.md](guides/critical-pitfalls.md) — Date range and sync pitfalls
-- [docs/deployment/railway-octane-setup.md](deployment/railway-octane-setup.md) — Railway deployment details
