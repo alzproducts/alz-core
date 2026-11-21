@@ -47,6 +47,9 @@ rector.php
 .ai/
 docs/
 
+# Local seed profiles hold real production price tuples (ADR-0013)
+/examples
+
 # ------------------------------------------------------------------------------
 # IDE & Editor Files
 # ------------------------------------------------------------------------------

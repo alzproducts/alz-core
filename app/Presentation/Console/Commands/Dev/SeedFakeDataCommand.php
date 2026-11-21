@@ -10,7 +10,7 @@ use InvalidArgumentException;
 use Throwable;
 
 /**
- * Seed the local database with a synthetic, production-shaped products slice.
+ * Seed the local database with synthetic, production-shaped products and orders slices.
  *
  * Local and testing environments against a loopback database only. No sync job is dispatched
  * and no external API is called.
@@ -28,14 +28,15 @@ final class SeedFakeDataCommand extends Command
 
     private const array LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1'];
 
-    private const string SEEDER = 'Database\\Seeders\\ProductSlice\\ProductSliceSeeder';
+    private const string SEEDER = 'Database\\Seeders\\FakeDataSeeder';
 
     protected $signature = 'dev:seed-fake
         {--fresh : Truncate the slice tables before seeding}
-        {--dry-run : Generate the slice and print per-table counts without writing}
-        {--seed= : Faker seed (defaults to SEED_FAKER_SEED, then a fixed seed)}';
+        {--dry-run : Generate the slices and print per-table counts without writing}
+        {--seed= : Faker seed (defaults to SEED_FAKER_SEED, then a fixed seed)}
+        {--profile= : Orders profile JSON that shapes the bulk orders; without it, synthetic ranges}';
 
-    protected $description = 'Seed a synthetic production-shaped products slice into the local database';
+    protected $description = 'Seed synthetic production-shaped products and orders slices into the local database';
 
     /**
      * The reason seeding is refused here, or null when it may run.
@@ -118,9 +119,21 @@ final class SeedFakeDataCommand extends Command
             return self::FAILURE;
         }
 
-        \config(['local-development.seed' => ['faker_seed' => $seed, 'fresh' => $this->option('fresh'), 'dry_run' => $dryRun]]);
+        $this->configureSeed($seed, $dryRun);
 
         return $this->runSeeder();
+    }
+
+    private function configureSeed(int $seed, bool $dryRun): void
+    {
+        $profile = $this->option('profile');
+
+        \config(['local-development.seed' => [
+            'faker_seed' => $seed,
+            'fresh' => $this->option('fresh'),
+            'dry_run' => $dryRun,
+            'profile' => \is_string($profile) && $profile !== '' ? $profile : null,
+        ]]);
     }
 
     /**
