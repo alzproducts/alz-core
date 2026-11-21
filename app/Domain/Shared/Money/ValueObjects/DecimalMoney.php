@@ -9,7 +9,7 @@ use RoundingMode;
 use Webmozart\Assert\Assert;
 
 /**
- * Exact decimal money for the QuickBooks sync path (ADR-0020): no float ever enters or leaves it.
+ * Exact decimal money for the QuickBooks sync path (ADR-0022): no float ever enters or leaves it.
  */
 final readonly class DecimalMoney
 {

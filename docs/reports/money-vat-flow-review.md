@@ -1,6 +1,6 @@
 # Money and VAT flow review for the QuickBooks order sync (COR-295)
 
-Scope: ShopWired order ingest to the order read models the QBO sync reads (`shopwired.orders_deduplicated`, `shopwired.order_products_resolved`), the M1 line rules, a VAT replay of the as-built Zap against M1, and the float paths left for COR-308. Decision record: [ADR-0020](../adr/0020-decimal-money-value-object.md).
+Scope: ShopWired order ingest to the order read models the QBO sync reads (`shopwired.orders_deduplicated`, `shopwired.order_products_resolved`), the M1 line rules, a VAT replay of the as-built Zap against M1, and the float paths left for COR-308. Decision record: [ADR-0022](../adr/0022-decimal-money-value-object.md).
 
 ## 1. Float steps from ShopWired ingest to the sync-source read models
 
@@ -15,7 +15,7 @@ No step does arithmetic on money until the read side. The losses come from repre
 | 5 | Read casts | `OrderModel.php:113-119` (`total`, `sub_total_net`, `shipping_total_net`, `original_shipping_total_net`, `tax_value`, `shipping_charge_net`, `shipping_vat_rate` → `'float'`); `OrderProductModel.php:69-75` (`price`, `price_vat`, `total`, `total_vat`, `original_price`, `cost_price`, `vat_rate` → `'float'`); `OrderDiscountModel.php:56`, `OrderRefundModel.php:56` (`value` → `'float'`) | exact `numeric` → `float` | The exact stored decimal becomes the nearest double again, so every later computation in PHP starts inexact. |
 | 6 | Read mapper fallbacks | `OrderModelMapper.php:251-252` | `NULL` → `0.0` | This is not a precision loss. When an order has a shipping method, a NULL `shipping_charge_net` and a NULL `shipping_vat_rate` both read back as `0.0`, so an unknown shipping rate becomes a 0% rate. An order with no shipping method gets no shipping object at all (`:244-246`). |
 
-For the sync, the database values are the last exact form. The M1 sync path reads them as decimal strings into `DecimalMoney` and `VatMultiplier` (ADR-0020), never through steps 5 and 6.
+For the sync, the database values are the last exact form. The M1 sync path reads them as decimal strings into `DecimalMoney` and `VatMultiplier` (ADR-0022), never through steps 5 and 6.
 
 ## 2. M1 line rules
 

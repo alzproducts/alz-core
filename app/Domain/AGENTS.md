@@ -38,7 +38,7 @@ All new domain code MUST use native domain types instead of primitives. Existing
 |---------|------------|-----------|-----|
 | Entity/external IDs | `IntId` | `App\Domain\ValueObjects` | `int` |
 | UUID identifiers | `Guid` | `App\Domain\ValueObjects` | `string` |
-| Monetary values | `Money`; QuickBooks sync money: `DecimalMoney`, built from decimal strings only (ADR-0020). All other code keeps `Money` until COR-308 | `App\Domain\Shared\Money\ValueObjects` | `float` |
+| Monetary values | `Money`; QuickBooks sync money: `DecimalMoney`, built from decimal strings only (ADR-0022). All other code keeps `Money` until COR-308 | `App\Domain\Shared\Money\ValueObjects` | `float` |
 | Product identifiers | `Sku` | `App\Domain\Catalog\Product\ValueObjects` | `string` |
 | Barcodes | `Gtin` | `App\Domain\Catalog\Product\ValueObjects` | `string` |
 | Weight | `Weight` | `App\Domain\Inventory\ValueObjects` | `float` |
