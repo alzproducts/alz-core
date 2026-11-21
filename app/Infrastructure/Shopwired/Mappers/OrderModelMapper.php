@@ -16,6 +16,7 @@ use App\Domain\Catalog\Order\ValueObjects\OrderShipping;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatus;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
+use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Infrastructure\Concerns\EnumLogContext;
 use App\Infrastructure\Concerns\MapperHelperTrait;
 use App\Infrastructure\Shopwired\Models\OrderAdminCommentModel;
@@ -130,6 +131,11 @@ final class OrderModelMapper
             products: $products,
             customFields: $model->custom_fields,
             customerReferenceNumber: $model->customer_reference_number,
+            rawPaymentMethod: self::buildNullableEnum(
+                RawPaymentMethod::class,
+                $model->payment_method_raw,
+                new EnumLogContext($model->external_id, 'payment_method_raw'),
+            ),
         );
     }
 
@@ -195,6 +201,7 @@ final class OrderModelMapper
             'tracking_url' => $order->trackingUrl,
             'invoice_url' => $order->invoiceUrl,
             'payment_method' => $order->paymentMethod->value,
+            'payment_method_raw' => $order->rawPaymentMethod?->value,
             'transaction_id' => $order->transactionId,
             'delivery_date' => $order->deliveryDate,
             'marketing' => $order->marketing,
