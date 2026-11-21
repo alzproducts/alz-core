@@ -23,6 +23,8 @@ final class ZapTextResolverTest extends TestCase
         yield 'first semicolon only' => ['A;B;C', 'AB;C'];
         yield 'first of each' => ['A:B;C:D;E', 'ABC:D;E'];
         yield 'empty' => ['', ''];
+        yield 'multibyte before the colon' => ['Café: Bar', 'Café Bar'];
+        yield 'multibyte before the semicolon' => ['Zoë Smith; Sons', 'Zoë Smith Sons'];
     }
 
     #[Test]
@@ -45,6 +47,7 @@ final class ZapTextResolverTest extends TestCase
         yield 'stops at the next reference' => ['Reference PO1 reference PO2', 'PO1 '];
         yield 'nothing after reference' => ['Reference', ''];
         yield 'upper-cases the text' => ['Reference po-12a', 'PO-12A'];
+        yield 'multibyte before the first space' => ['Reference éPO 1', 'ÉPO 1'];
     }
 
     #[Test]

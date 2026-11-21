@@ -51,6 +51,8 @@ final class ZapTextResolver
     {
         $position = \mb_strpos($value, $needle);
 
-        return $position === false ? $value : \substr_replace($value, '', $position, \mb_strlen($needle));
+        return $position === false
+            ? $value
+            : \mb_substr($value, 0, $position) . \mb_substr($value, $position + \mb_strlen($needle));
     }
 }
