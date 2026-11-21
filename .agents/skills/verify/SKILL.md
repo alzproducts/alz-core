@@ -40,7 +40,7 @@ bash .agents/skills/verify/scripts/verify.sh doctor --evidence <dir>
 
 Run after launch and whenever anything looks off. It prints one `guard`/`credential`/`runtime` line per check and exits 1 on any `FAIL`:
 - `guard` lines: each DB and Redis connection resolves to the run's own loopback port, and `octane.port` is the run's HTTP port.
-- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed).
+- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed). An `-or-absent` mode also passes when the config path does not exist.
 - `runtime` line: xdebug and pcov are off in an app process.
 
 ## Drive
