@@ -44,6 +44,7 @@ use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
 use App\Providers\ShopwiredServiceProvider;
 use App\Providers\StorageServiceProvider;
 use App\Providers\TelescopeServiceProvider;
+use Laravel\Telescope\TelescopeApplicationServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -90,5 +91,6 @@ return [
     ShopwiredDefinitionScheduleServiceProvider::class,
     ShopwiredScheduleServiceProvider::class,
 
-    ...app()->environment('local') ? [TelescopeServiceProvider::class] : [],
+    // intentional: the runtime image installs --no-dev, so Telescope's parent class is absent there (ADR-0020).
+    ...app()->environment('local') && class_exists(TelescopeApplicationServiceProvider::class) ? [TelescopeServiceProvider::class] : [],
 ];

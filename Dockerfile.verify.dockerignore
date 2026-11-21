@@ -1,0 +1,5 @@
+# Allowlist for Dockerfile.verify: everything else already sits in the runtime image (ADR-0020).
+*
+!tests/
+!phpunit.xml
+!pest.xml

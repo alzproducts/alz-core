@@ -1,99 +1,118 @@
 ---
 name: verify
-description: Verify alz-core's HTTP API end to end in a private, throwaway stack (own Postgres, Redis, Octane and queue worker per run) driven with verify.sh. Use when proving an issue's runtime acceptance criteria, smoke-testing an API journey, or running a targeted Pest file against a migrated, seeded database without touching the developer's Supabase, Redis or Octane.
+description: Verify alz-core's HTTP API end to end in a private, throwaway Compose stack per worktree (the production runtime image for Octane and Horizon, its own Postgres and Redis, and a test sidecar), driven with .agents/skills/verify/verify. Use when proving an issue's runtime acceptance criteria, smoke-testing an API journey, or running a targeted Pest file against a migrated, seeded database without touching the developer's Supabase, Redis or Octane.
 ---
 
 # Verify alz-core
 
-One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (the Supabase baseline's Postgres and Auth migrations from `database/baseline/`, plus Redis), migrated as role `postgres` on database `postgres` and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank or a non-working placeholder, so third-party APIs are unreachable.
+One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)), project `alz-verify-<slug>-<hash8>` (the worktree basename plus a hash of its path). It covers the HTTP API only; the dashboard and storefront live in alz-admin. Journeys live in the feature map, [`features/README.md`](features/README.md). Run every verb with cwd = the worktree under test; nothing here runs PHP, Octane or a queue worker on the host.
 
-- Covers the HTTP API only; the dashboard and storefront live in alz-admin.
-- Journeys live in the feature map, [`features/README.md`](features/README.md).
-- Run every verb with cwd = the worktree under test.
+**Stack:**
+- `up` builds the `runtime` image from `git archive HEAD`, so uncommitted changes are not in the run; commit first.
+- The app (Octane) and the worker (`horizon --environment=production`) run that image unchanged.
+- A one-shot seed service migrates and runs `dev:seed-fake` from the `Dockerfile.verify` image.
+- Postgres is the Supabase-baseline image. Redis gets no host port.
 
-## Launch
+**Env:**
+- The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run.
+- The stack sets its own DB, Redis and app keys, so the env file can never point the run at other services, and fills the keys a run needs when the env file leaves them blank ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md) lists both).
+- The network allows outbound calls, so any integration key the env file sets is live. Blank it with `--env-override KEY=` when a journey must not reach the vendor.
+
+## Verbs
+
+`.agents/skills/verify/verify <verb> --evidence <abs dir> [args]`. `--evidence` may sit anywhere before `--`. `<verb> --help` prints one line.
+
+| Verb | Args | Does |
+|---|---|---|
+| `up` | `[--env-override KEY=VALUE]...` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
+| `down` | | Removes the run's containers, volumes, networks and images; checks residue |
+| `doctor` | | Pass/FAIL report under `doctor/` |
+| `http` | `<METHOD> <path> [--data <json>] [--expect <code>]` | One request from inside the app container, as the X-Local-Bypass test user |
+| `exec` | `[<service>] [--] <argv>...` | Runs argv in `app` (default), `worker`, `pgsql` or `redis`; stdin passes through |
+| `artisan` | `<command> [args]` | `php artisan … --no-interaction` in the app container |
+| `logs` | `[<service>]` | Container stdout, then the `<evidence>/logs/<service>/` files |
+| `db` | `<sql>` | Read-only psql as `postgres` in the run's Postgres |
+| `test` | `<paths>...` | Pest in the test sidecar, always with `--exclude-group=repo-static` |
+| `note` | `<text>` | Appends a `run-notes.md` line |
+| `browser` | | Not supported: exits 69 |
+
+Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status ≥ 400); 64 usage; 69 not supported; 75 environment not ready.
+
+## Up
 
 ```bash
-bash .agents/skills/verify/scripts/verify.sh launch [--evidence <abs dir>] [--env-override K=V]... [--octane-workers <n|auto>]
+.agents/skills/verify/verify up --evidence <abs dir outside every work tree> [--env-override KEY=VALUE]...
 ```
 
-Output:
-- First stdout line `evidence=<dir>`: pass it to every later verb. Without `--evidence`, launch mints one under the run home.
-- Ready = exit 0 plus `base_url=http://127.0.0.1:<port>` (migrated, seeded, `/up` 200, worker alive). Expect 1-3 minutes in a fresh worktree.
-- `--env-override K=V` replaces one generated key (ports, seed inputs); credential keys and `APP_ENV` are refused (exit 64).
-- `--octane-workers <1-99|auto>` sets Octane's worker count (default 2); `auto` uses Octane's own default, as production does.
-- Every app process runs with xdebug and pcov off (`XDEBUG_MODE=off` plus a run-scoped ini dir).
-
-Failures:
-- Exit 1 at preflight: the worktree holds a `.env*` file other than a tracked `*.example`, or `bootstrap/cache/config.php`. Use a fresh worktree; never delete a developer's `.env` to get past it.
-- Exit 75: Docker is down, or Octane already runs from this worktree.
-- Exit 1 at `auth migrate`: the baseline's Auth migrations failed; read `logs/auth-migrate.log`.
-- An evidence dir launched before the baseline move has a `compose.env` today's `cleanup` cannot read: clean it up from a checkout older than the move.
-- Exit 1 at the isolation guard happens before any database write (`run-notes.md` has no `migrate` line).
-- Any failure after Compose up keeps the run record: run `cleanup` on its evidence dir.
+- Ready = exit 0 plus `base_url=http://127.0.0.1:<port>`: migrated, seeded, the app's `/up` healthy and `horizon:status` passing. A first build takes several minutes: run `up` in the background.
+- The evidence dir must be new, or an empty dir outside every git work tree.
+- `--env-override KEY=VALUE` is repeatable and replaces one env-file key for the run.
+  - It refuses (exit 64) `APP_ENV`, `PATH`, `HOME` and every stack-owned key.
+  - A credential key may only be blanked (`KEY=`), never set.
+- Exit 75: Docker is down, or this worktree already has a run up (run `down` on it first).
+- Exit 1: a build log under `build/` or `logs/compose-up.log` names the failure. Run `down` to clean up.
 
 ## Doctor
 
 ```bash
-bash .agents/skills/verify/scripts/verify.sh doctor --evidence <dir>
+.agents/skills/verify/verify doctor --evidence <dir>
 ```
 
-Run after launch and whenever anything looks off. It prints one `guard`/`credential`/`runtime` line per check and exits 1 on any `FAIL`:
-- `guard` lines: each DB and Redis connection resolves to the run's own loopback port, and `octane.port` is the run's HTTP port.
-- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed). An `-or-absent` mode also passes when the config path does not exist.
-- `runtime` line: xdebug and pcov are off in an app process.
+Run it after `up` and whenever anything looks off. It writes `doctor/<stamp>-report.txt` and exits 1 on any `FAIL`. The report covers:
+- the git SHA and runtime image digest, and that app and worker run that image;
+- the env file path, or one line saying it is missing;
+- DB and Redis hosts (`pgsql:5432`, `redis:6379`) for every connection, and `queue.default` and `cache.default` = `redis`;
+- every `env()` credential call under the image's `config/` with a non-empty default (FAIL);
+- the names of non-blank credential keys in the app, never their values.
 
 ## Drive
 
 ```bash
-bash .agents/skills/verify/scripts/verify.sh http --evidence <dir> GET /api/user
-bash .agents/skills/verify/scripts/verify.sh db --evidence <dir> 'select count(*) from shopwired.products'
+.agents/skills/verify/verify http --evidence <dir> GET /api/user
+.agents/skills/verify/verify db --evidence <dir> 'select count(*) from shopwired.products'
+.agents/skills/verify/verify exec --evidence <dir> worker -- ps aux
+.agents/skills/verify/verify artisan --evidence <dir> about --only=environment
 ```
 
-- `http <METHOD> <path> [--data <json>]` authenticates with the run's `X-Local-Bypass` secret as persona `dev@alzadmin.test` (admin, approved). It prints `status=<code>` and the body; exit 0 on 2xx/3xx, else 1.
-- `db <sql>` runs psql as `postgres` in a read-only transaction in the run's Postgres; use it to prove stored state. Its trusted container loopback proves nothing about the password.
+- `http` authenticates as `SUPABASE_LOCAL_TEST_EMAIL` (`dev@alzadmin.test` in a blank run: admin, approved). The bypass secret stays inside the container.
+  - It prints `status=<code>` and the body.
+- `db` runs in a read-only transaction, so a write exits non-zero. Use it to prove stored state.
 - Take ids from a list response, never hard-code them.
-- Follow the matching feature file; when the seed lacks a journey's precondition, report the failure and the reason, never a weakened check.
+- Follow the matching feature file. When the seed lacks a journey's precondition, report the failure and the reason, never a weakened check.
+
+## Targeted tests
+
+```bash
+.agents/skills/verify/verify test --evidence <dir> tests/Feature/Infrastructure/Access/EloquentUserApiKeyRepositoryTest.php
+```
+
+- The sidecar is the `Dockerfile.verify` image (runtime plus dev deps and `tests/`). It gets the stack's DB and Redis keys and a fresh `APP_KEY` and `API_KEY_ENCRYPTION_SECRET` on each call, and no env file, so `phpunit.xml`'s defaults apply.
+- `repo-static` tests need `.git` and never run here.
+- Never use bare Pest or `make test` for verification: they hit the developer's services.
 
 ## Evidence
 
-The evidence dir (caller's `--evidence`, else the one launch minted) is outside every work tree and survives cleanup.
+The evidence dir is outside every work tree and survives `down`.
 
-- `run-notes.md`: one `- <ISO-8601> <text>` line per step and call; add your own with `note`.
-- `http/<stamp>-<method>.txt`: request (bypass secret redacted), status, response headers and body.
-- `artisan/<stamp>-<command>.txt`: command line, output and `exit=<code>`.
-- `logs/`: compose, auth-migrate, composer, migrate, seed, Octane, worker and Pest output.
-- `run.env`, `verify-state.json`, `compose/`: run bookkeeping; `run.env` holds run secrets, quote nothing from it.
-- Proof standard: drive the real route a client calls, capture request and response, and back side effects with a `db` read.
+- `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
+- `http/`, `exec/`, `artisan/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call. `http/` captures redact the bypass secret.
+- `logs/<service>/`: each PHP service's `storage/logs`, e.g. `logs/app/laravel.log`, `logs/worker/laravel.log`. Also `logs/compose-up.log`, `logs/compose-down.log` and `logs/<stamp>-<service>.txt` from `logs`.
+- `build/` holds the image build logs; `.verify/` the run bookkeeping, where `compose.env` and `run.env` hold run secrets, so quote nothing from them.
 
-## Cleanup
+Proof standard: drive the real route a client calls, capture request and response, and back side effects with a `db` read.
+
+## Down
 
 ```bash
-bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
+.agents/skills/verify/verify down --evidence <dir>
 ```
 
-- Always run it, also after a failed launch or journey; it is idempotent.
-- It stops only what the run recorded and removes the run's own Compose project and volumes; the evidence dir stays.
-- Exit 1 with `cleanup FAIL` lines means residue (a container, volume or listener on a run port) remains: report it, never kill by name.
+- Always run it, also after a failed `up` or journey. It is idempotent and exits 0 with no prior `up`.
+- It removes only resources labelled with this worktree's project.
+- Exit 1 with `down FAIL` lines means residue remains: report it, never remove containers by name.
 
-## Helpers
+## Files
 
-`scripts/verify.sh` is the entry point (bash 3.2-safe); `scripts/compose.yaml` adds Redis to the repo's `database/baseline/compose.yaml` for its private stack; `scripts/bench.php` is the bench verbs' PHP side.
-
-| Verb | Args | Does |
-|---|---|---|
-| `launch` | `[--evidence <abs dir>] [--env-override K=V]... [--octane-workers <n\|auto>]` | Private stack, guard, migrate, seed, Octane, worker |
-| `doctor` | `--evidence <dir>` | Isolation guard, credential and runtime check |
-| `http` | `--evidence <dir> <METHOD> <path> [--data <json>]` | Bypass-authenticated request, captured under `http/` |
-| `db` | `--evidence <dir> <sql>` | Read-only psql in the run's Postgres |
-| `test` | `--evidence <dir> <pest path>` | Targeted Pest runner |
-| `artisan` | `--evidence <dir> <command> [args]` | Artisan command under the run env, captured under `artisan/` |
-| `note` | `--evidence <dir> <text>` | Appends a `run-notes.md` line |
-| `bench-load` | `--evidence <dir> [--requests N] [--warmup N] [--rate N]` | Product-list p99 under background writes ([products-perf](features/products-perf.md)) |
-| `bench-writers` | `--evidence <dir> [--runs N] [--baseline <evidence dir>]` | Writer medians, optional ratio to a baseline run |
-| `cleanup` | `--evidence <dir>` | Tears down the run and checks residue |
-
-- **Invocation:** `bash .agents/skills/verify/scripts/verify.sh <verb> [args]`; an extracted copy runs as `bash <extracted dir>/scripts/verify.sh <verb> [args]`, cwd = the worktree.
-- **Targeted Pest runner:** `verify.sh test --evidence <dir> <path>` after `launch`, e.g. `verify.sh test --evidence <dir> tests/Unit/Static/StaleSeedWordingTest.php`. It runs Pest with `APP_ENV=testing` against the run's DB and Redis. Never use bare Pest or `make test` for verification: `phpunit.xml` sets no DB or Redis keys, so those hit the developer's services. In a worktree without `.env`, each test reports a `fopen(.../.env)` warning from `bypass-finals`; exit 0 is still a pass.
-- **Artisan runner:** `verify.sh artisan --evidence <dir> about --only=environment` after `launch`. `--evidence <dir>` comes first and everything after it is the command's argv; the command gets `--no-interaction` and no stdin, so a prompt takes its default. Exit 0 only when the command exits 0, its code printed as `exit=<code>`. Never run bare `php artisan` for verification: it reads the developer's services.
-- **Exit codes:** 0 ok; 1 check failed (guard, credential, residue, journey, test); 64 usage; 75 environment not ready.
+- `verify`: the entry point (bash 3.2-safe).
+- `compose.yaml`: the stack, copied into `.verify/` per run.
+- `features/`: journeys, plus `products-perf.sh` and `products-perf.php` for the bench ([products-perf](features/products-perf.md)).
