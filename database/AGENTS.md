@@ -58,6 +58,27 @@ php artisan migrate:rollback --step=1
 php artisan migrate
 ```
 
+## Supabase Baseline (ADR-0016)
+
+Every database alz-core migrates runs Supabase's images, with migrations run as database `postgres`, role `postgres` (not a superuser, as in production):
+
+| Environment | Database source |
+|-------------|-----------------|
+| Local dev | Supabase CLI stack in `${FRONTEND_APP}` (images from its re-linked `supabase/.temp/`) |
+| CI `tests` job | `database/baseline/compose.yaml`, project `baseline` |
+| Verify skill | `database/baseline/compose.yaml`, one private project per run |
+| Dev image (`Dockerfile.dev`) | the baseline images, migrated at build time |
+| `docker-compose.prod.yml` | `include` of `database/baseline/compose.yaml` |
+
+- Caller contract: `up -d --wait pgsql` → `run --rm auth-migrate` → `php artisan migrate --force`.
+- DO NOT create Supabase-owned objects (`auth` schema or objects, `anon`/`authenticated`/`service_role`/`supabase_*` roles) in a migration; a missing one must fail the migration. `SupabaseLookAlikeTest` enforces this.
+- `database/baseline/versions.env` is the only file naming the image versions; `SupabaseImagePinTest` enforces this.
+
+**Bumping the pin** (after the hosted project upgrades):
+1. `bin/supabase-hosted-version <${FRONTEND_APP} root>` prints the hosted Postgres version → `SUPABASE_POSTGRES_VERSION`.
+2. Re-link in `${FRONTEND_APP}` (`supabase link`); `supabase/.temp/gotrue-version` → `SUPABASE_AUTH_VERSION`.
+3. Edit `versions.env`; CI rebuilds the dev image from it.
+
 ## Octane Safety
 
 **Never use `static` variables in connection callbacks** - they persist across Octane requests, causing security issues. Use Laravel Context or just run the operation every time.
