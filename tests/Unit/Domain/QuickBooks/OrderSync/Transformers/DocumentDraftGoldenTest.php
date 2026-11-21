@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\QuickBooks\OrderSync\Transformers;
 
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
+use App\Domain\QuickBooks\OrderSync\Enums\BuildStatus;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\OrderSync\Enums\FailReason;
 use App\Domain\QuickBooks\OrderSync\Enums\SkipReason;
 use App\Domain\QuickBooks\OrderSync\Enums\TaxKey;
@@ -134,15 +136,15 @@ final class DocumentDraftGoldenTest extends TestCase
     }
 
     #[Test]
-    public function credit_payment_method_is_skipped(): void
+    public function credit_payment_method_posts_an_invoice(): void
     {
         $outcome = DocumentDraftTransformer::build(
             SyncOrderFixture::order(paymentMethod: RawPaymentMethod::Credit),
             DocumentRunLabels::none(),
         );
 
-        self::assertSame(SkipReason::PaymentMethodUnmapped, $outcome->skipReason);
-        self::assertNull($outcome->draft);
+        self::assertSame(BuildStatus::Built, $outcome->status);
+        self::assertSame(DocType::Invoice, $outcome->draft?->docType());
     }
 
     #[Test]

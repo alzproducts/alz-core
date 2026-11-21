@@ -21,33 +21,27 @@ use App\Domain\QuickBooks\OrderSync\ValueObjects\SyncOrderLine;
 final class DocumentDraftTransformer
 {
     /**
-     * Outcome precedence: cancelled, then an unmapped payment method, then zero lines, then an unsupported rate.
+     * Outcome precedence: cancelled, then zero lines, then an unsupported rate.
      *
      * @throws UnsupportedVatRateException
      */
     public static function build(SyncOrder $order, DocumentRunLabels $labels): DocumentBuildOutcome
     {
-        $docType = DocType::forPaymentMethod($order->paymentMethod);
-
-        if ($order->cancelled || $docType === null || $order->lines === []) {
-            return self::notBuilt($order, $docType);
+        if ($order->cancelled) {
+            return DocumentBuildOutcome::skipped(SkipReason::Cancelled);
         }
 
+        if ($order->lines === []) {
+            return DocumentBuildOutcome::failed(FailReason::ZeroLines);
+        }
+
+        $docType = DocType::forPaymentMethod($order->paymentMethod);
         $core = self::core($order, $order->lines, $docType, $labels);
 
         return DocumentBuildOutcome::built(match ($docType) {
             DocType::Invoice => InvoiceDraftTransformer::build($order, $core),
             DocType::SalesReceipt => SalesReceiptDraftTransformer::build($order, $core),
         });
-    }
-
-    private static function notBuilt(SyncOrder $order, ?DocType $docType): DocumentBuildOutcome
-    {
-        return match (true) {
-            $order->cancelled => DocumentBuildOutcome::skipped(SkipReason::Cancelled),
-            $docType === null => DocumentBuildOutcome::skipped(SkipReason::PaymentMethodUnmapped),
-            default => DocumentBuildOutcome::failed(FailReason::ZeroLines),
-        };
     }
 
     /**

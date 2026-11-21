@@ -12,13 +12,14 @@ enum DocType: string
     case SalesReceipt = 'sales_receipt';
 
     /**
-     * The Zap's path split: null for a method that reaches neither path.
+     * The Zap's path split. intentional: Credit takes the invoice path although the Zap posts nothing for it (COR-321).
      */
-    public static function forPaymentMethod(RawPaymentMethod $method): ?self
+    public static function forPaymentMethod(RawPaymentMethod $method): self
     {
         return match ($method) {
             RawPaymentMethod::AdminOrder,
-            RawPaymentMethod::Offline => self::Invoice,
+            RawPaymentMethod::Offline,
+            RawPaymentMethod::Credit => self::Invoice,
             RawPaymentMethod::PayPal,
             RawPaymentMethod::OpayoHosted,
             RawPaymentMethod::OpayoDirect,
@@ -27,7 +28,6 @@ enum DocType: string
             RawPaymentMethod::SagepayForm,
             RawPaymentMethod::SagepayHosted,
             RawPaymentMethod::ShopWiredPayments => self::SalesReceipt,
-            RawPaymentMethod::Credit => null,
         };
     }
 }

@@ -51,12 +51,13 @@ use Tests\Unit\Domain\QuickBooks\OrderSync\SyncOrderFixture;
 final class DocumentDraftTransformerTest extends TestCase
 {
     /**
-     * @return iterable<string, array{RawPaymentMethod, DocType|null}>
+     * @return iterable<string, array{RawPaymentMethod, DocType}>
      */
     public static function docTypes(): iterable
     {
         yield 'Admin Order' => [RawPaymentMethod::AdminOrder, DocType::Invoice];
         yield 'Offline' => [RawPaymentMethod::Offline, DocType::Invoice];
+        yield 'Credit' => [RawPaymentMethod::Credit, DocType::Invoice];
         yield 'PayPal' => [RawPaymentMethod::PayPal, DocType::SalesReceipt];
         yield 'Opayo Hosted' => [RawPaymentMethod::OpayoHosted, DocType::SalesReceipt];
         yield 'Opayo Direct' => [RawPaymentMethod::OpayoDirect, DocType::SalesReceipt];
@@ -65,22 +66,13 @@ final class DocumentDraftTransformerTest extends TestCase
         yield 'Sagepay Form' => [RawPaymentMethod::SagepayForm, DocType::SalesReceipt];
         yield 'Sagepay Hosted' => [RawPaymentMethod::SagepayHosted, DocType::SalesReceipt];
         yield 'ShopWired Payments' => [RawPaymentMethod::ShopWiredPayments, DocType::SalesReceipt];
-        yield 'Credit' => [RawPaymentMethod::Credit, null];
     }
 
     #[Test]
     #[DataProvider('docTypes')]
-    public function it_derives_the_doc_type_from_the_payment_method(RawPaymentMethod $method, ?DocType $expected): void
+    public function it_derives_the_doc_type_from_the_payment_method(RawPaymentMethod $method, DocType $expected): void
     {
         $outcome = self::build(SyncOrderFixture::order(paymentMethod: $method));
-
-        if ($expected === null) {
-            self::assertSame(BuildStatus::Skipped, $outcome->status);
-            self::assertSame(SkipReason::PaymentMethodUnmapped, $outcome->skipReason);
-            self::assertNull($outcome->draft);
-
-            return;
-        }
 
         self::assertSame(BuildStatus::Built, $outcome->status);
         self::assertSame($expected, $outcome->draft?->docType());
@@ -134,11 +126,13 @@ final class DocumentDraftTransformerTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_an_unmapped_payment_method_before_failing_zero_lines(): void
+    public function it_fails_a_zero_line_credit_order_rather_than_skipping_it(): void
     {
         $outcome = self::build(SyncOrderFixture::order(lines: [], paymentMethod: RawPaymentMethod::Credit));
 
-        self::assertSame(SkipReason::PaymentMethodUnmapped, $outcome->skipReason);
+        self::assertSame(BuildStatus::Failed, $outcome->status);
+        self::assertSame(FailReason::ZeroLines, $outcome->failReason);
+        self::assertNull($outcome->skipReason);
     }
 
     #[Test]
