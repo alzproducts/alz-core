@@ -36,6 +36,18 @@ final class SeedIds
 
     public const int OPTION_VALUE_BASE = 2_070_000_000;
 
+    public const int ORDER_BASE = 2_080_000_000;
+
+    public const int ORDER_REFERENCE_BASE = 2_090_000_000;
+
+    public const int ORDER_LINE_BASE = 2_100_000_000;
+
+    public const int ORDER_REFUND_BASE = 2_110_000_000;
+
+    public const int CUSTOMER_BASE = 2_120_000_000;
+
+    public const int ORDER_STATUS_BASE = 2_130_000_000;
+
     /**
      * Filter groups whose external IDs the code and guard tests pin: external_id => option_no.
      * These are the only seeded external IDs outside the reserved range.
