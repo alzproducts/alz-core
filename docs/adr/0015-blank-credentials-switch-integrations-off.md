@@ -20,5 +20,5 @@ A stand-in writes one info line per call (`Integration stand-in swallowed a call
 
 - In production, a blank secret for a switched integration fails at boot and at resolve; a stand-in never runs there.
 - A mis-set `APP_ENV` outside `production` would swallow contact forms silently, so `config/app.php` keeps `production` as the `APP_ENV` default.
-- The verify skill drives the contact and lead journeys against the stand-ins and proves them from the log lines.
+- Verify drives the contact and lead journeys against the stand-ins by blanking those integrations' keys for the run, and proves them from the log lines.
 - A new integration that a local flow must finish gets a stand-in here and its secrets in `IntegrationCredentials`; any other integration needs nothing.
