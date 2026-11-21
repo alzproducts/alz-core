@@ -197,8 +197,30 @@ _Avoid_: QBO integration (the connection is auth only, not any sync built on it)
 **QBO environment**:
 `sandbox` (an Intuit test company, the only one non-production alz-core may reach) or `production` (the real company).
 
+**Order sync**:
+The obligation to post one ShopWired order **reference** to one QBO company exactly once, as an invoice or a sales receipt, tracked as one row.
+_Avoid_: sync job, sync run (a run is one trigger that processes many order syncs)
+
+**Sync outcome**:
+What one trigger did for one **reference**: `synced`, `already_synced`, `skipped`, `failed` or `not_attempted`.
+_Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_attempted` are outcomes only)
+
+**Changed after sync**:
+A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.
+
+**Mapping key**:
+A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
+_Avoid_: calling a mapping key a QBO ID (committed text never holds one)
+
+## Relationships (QuickBooks order sync)
+
+- A ShopWired order **reference** has at most one **order sync** per QBO company
+- An **order sync** has at most one posted document
+- One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
+
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
 - "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
+- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled or unmapped-payment order gets `skipped` with no row written.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
