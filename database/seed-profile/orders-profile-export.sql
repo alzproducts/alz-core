@@ -7,11 +7,12 @@
 -- (orders for order distributions, lines for qty and price_tuples). Scalar shares are never suppressed.
 -- The output holds real price tuples: it stays in gitignored examples/seed-profile/ and is never committed (ADR-0013).
 --
--- A human runs this against prod with a read-only service; credentials come from PGSERVICE or ~/.pgpass:
---   mkdir -p examples/seed-profile
---   PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120s' PGSERVICE=<prod read-only service> psql -X -v ON_ERROR_STOP=1 -v sql_sha256="$(shasum -a 256 database/seed-profile/orders-profile-export.sql | cut -c1-64)" -At -f database/seed-profile/orders-profile-export.sql > examples/seed-profile/orders-profile.json
---   jq -e -f database/seed-profile/orders-profile-output-check.jq examples/seed-profile/orders-profile.json
--- No one reads the output until the jq check exits 0. Local fixture run: orders-profile-fixture.sql.
+-- A human runs it on prod in the Supabase dashboard SQL editor, never through psql:
+--   1. bash database/seed-profile/orders-profile-editor-copy.sh
+--      writes the gitignored examples/seed-profile/orders-profile-editor.sql, with this file's sha256 in place of the sql_sha256 placeholder.
+--   2. Paste that copy into the SQL editor, run it, and save the single result cell as examples/seed-profile/orders-profile.json.
+--   3. jq -e -f database/seed-profile/orders-profile-output-check.jq examples/seed-profile/orders-profile.json
+-- No one reads the output until the jq check exits 0; a run of this file unstamped fails it. Local fixture run: orders-profile-fixture.sql.
 WITH bounds AS (
     SELECT date_trunc('month', now()) - interval '12 months' AS window_start, date_trunc('month', now()) AS window_end
 ),
@@ -25,7 +26,7 @@ dedup AS (
         coalesce(d.payment_method, '<null>') AS payment_method,
         d.lifecycle_status,
         d.has_vat_relief,
-        d.sub_total_net + d.shipping_total_net + d.tax_value AS refund_baseline,
+        coalesce(d.sub_total_net, 0) + coalesce(d.shipping_total_net, 0) + coalesce(d.tax_value, 0) AS refund_baseline,
         CASE
             WHEN upper(btrim(d.delivery_country)) IN ('UNITED KINGDOM', 'UK', 'GB', 'GREAT BRITAIN', 'ENGLAND', 'SCOTLAND', 'WALES', 'NORTHERN IRELAND') THEN 'uk'
             WHEN upper(btrim(d.delivery_country)) IN ('IRELAND', 'IE', 'REPUBLIC OF IRELAND', 'EIRE') THEN 'ireland'
@@ -93,7 +94,7 @@ share_counts AS (
 )
 SELECT jsonb_build_object(
     'exported_at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-    'sql_sha256', :'sql_sha256',
+    'sql_sha256', '__SQL_SHA256__',
     'window', (
         SELECT jsonb_build_object(
             'start', to_char(window_start AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),

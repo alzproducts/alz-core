@@ -1,9 +1,10 @@
--- COR-297: runs orders-profile-export.sql against hand-built fixture orders inside one rolled-back transaction. Local database only.
--- psql -X -v ON_ERROR_STOP=1 -At -f database/seed-profile/orders-profile-fixture.sql | jq -e -f database/seed-profile/orders-profile-output-check.jq
+-- COR-297: runs the SQL editor copy of orders-profile-export.sql against hand-built fixture orders inside one rolled-back transaction. Local database only.
+-- bash database/seed-profile/orders-profile-editor-copy.sh
+-- psql -X "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -At -f database/seed-profile/orders-profile-fixture.sql | jq -e -f database/seed-profile/orders-profile-output-check.jq
 --
 -- Fixture (reference: external_id, payment, status, destination, lines as tuple x qty). A = (10.000000, 2.000000, 20), Z = (5.000000, 0.000000, 0).
 --   r1: 101 card UK, A x1.   r2: 102 card UK, A x1.   r3: 103 card UK, A x2.
---   r4: 104 card UK, A x1, total lowered to 0, refund 12.00 = baseline 10 + 0 + 2: refunded.
+--   r4: 104 card UK, A x1, VAT-exempt (tax_value NULL), total lowered to 0, refund 10.00 = baseline 10 + 0 + 0: refunded.
 --   r5: 105 paypal Ireland, A x1, total lowered to 7, refund 5.00 < baseline 12: part-refunded (against total it would read as refunded).
 --   r6: 106 cancelled original with A x3, edited into 107 card UK with A x1 + Z x1; 106's lines are never counted.
 --   r7: 108 admin France, cancelled, VAT relief, no lines.
@@ -13,7 +14,6 @@
 --   qty rows qty 1 (lines 6, orders 5), suppressed 1. price_tuples rows A (lines 6, orders 6), suppressed 1.
 --   destination_class rows uk 5, suppressed 2. Each share: orders 1, share 0.142857.
 \set QUIET on
-\set sql_sha256 0000000000000000000000000000000000000000000000000000000000000000
 BEGIN;
 
 DELETE FROM shopwired.order_refunds;
@@ -30,7 +30,7 @@ INSERT INTO shopwired.orders (
     delivery_name, delivery_email, delivery_address_line1, delivery_city, delivery_postcode,
     created_at, updated_at
 )
-SELECT v.external_id, v.reference, v.total, 10.00, 0, 2.00, v.lifecycle_status, v.delivery_country,
+SELECT v.external_id, v.reference, v.total, 10.00, 0, CASE WHEN v.external_id = 104 THEN NULL ELSE 2.00 END, v.lifecycle_status, v.delivery_country,
     v.has_vat_relief, v.payment_method, date_trunc('month', now()) + v.placed,
     'Fixture', 'fixture', 1, 1,
     'Fixture', 'fixture@example.test', 'Fixture', 'Fixture', 'FX1 1FX', 'United Kingdom',
@@ -69,9 +69,9 @@ JOIN shopwired.orders o ON o.external_id = v.order_external_id;
 
 INSERT INTO shopwired.order_refunds (order_id, order_external_id, external_id, name, value, created_at, updated_at)
 SELECT o.id, o.external_id, 3000 + o.external_id, 'Fixture', v.value, now(), now()
-FROM (VALUES (104, 12.00), (105, 5.00)) v (order_external_id, value)
+FROM (VALUES (104, 10.00), (105, 5.00)) v (order_external_id, value)
 JOIN shopwired.orders o ON o.external_id = v.order_external_id;
 
-\ir orders-profile-export.sql
+\ir ../../examples/seed-profile/orders-profile-editor.sql
 
 ROLLBACK;
