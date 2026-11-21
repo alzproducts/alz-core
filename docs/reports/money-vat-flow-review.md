@@ -65,13 +65,41 @@ PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120s' PGSERV
 jq -e -f database/reports/vat-replay-output-check.jq examples/vat-replay/vat-replay.json
 ```
 
-Or paste a copy of the SQL, with `:'sql_sha256'` replaced by the file's sha256 literal, into the Supabase SQL editor for prod, and save the single result cell as `examples/vat-replay/vat-replay.json`.
+Or paste a copy of the SQL, with `:'sql_sha256'` replaced by the file's sha256 literal, into the Supabase SQL editor for prod, and save the single result cell as `examples/vat-replay/vat-replay.json`. The editor copies the cell CSV-escaped (outer quotes, doubled inner quotes), so unwrap it before the `jq` check:
+
+```bash
+jq -R 'ltrimstr("\"") | rtrimstr("\"") | gsub("\"\""; "\"") | fromjson' examples/vat-replay/vat-replay.json > examples/vat-replay/vat-replay.unwrapped.json && mv examples/vat-replay/vat-replay.unwrapped.json examples/vat-replay/vat-replay.json
+```
 
 `/examples` is gitignored. No one reads the output until the `jq` check exits 0. Any later change to the SQL needs a re-run before merge.
 
 ### Results
 
-Pending the human prod run (COR-295 AC8). This section will record the run's `sql_sha256`, the mismatch shapes, and, for each variant × VAT mode, the mismatch counts and pence deltas. It will also give `baseline`, `fallback_lines` and `fallback_orders`.
+Prod run on 2026-11-21 (COR-295 AC8), `sql_sha256` `2391d6b1803cbc719567be1eb588eb5492ea3763261eedc3cd8d4220f5404078`. The jq check exited 0 before anyone read the output.
+
+- **Cohort:** 33,409 orders in each variant.
+- **Excluded:** `null_tax_value` 9,389; `ireland_remap`, `unmapped_rate`, `null_shipping_rate` and `null_original_shipping` 0 each.
+- **`baseline`:** 1,846 orders whose summed `m1` line amounts differ from `sub_total_net`.
+- **Fallback (`zap_as_built`):** `fallback_lines` 147 on `fallback_orders` 129.
+
+Mismatches against `tax_value` (Δ = replayed VAT − `tax_value`, in pence):
+
+| Variant | VAT mode | Mismatched | Share | Δ > 0 | Δ < 0 | \|Δ\| ≤ 2 | Σ\|Δ\| | Net Δ | Max \|Δ\| |
+|---------|----------|-----------:|------:|------:|------:|----------:|-------:|------:|----------:|
+| `m1` | `per_line` | 1,052 | 3.1% | 326 | 726 | 747 | 3,151 | −1,295 | 48 |
+| `m1` | `per_rate` | 5,698 | 17.1% | 562 | 5,136 | 5,324 | 8,222 | −5,936 | 50 |
+| `zap_as_built` | `per_line` | 1,094 | 3.3% | 404 | 690 | 784 | 3,332 | −1,016 | 66 |
+| `zap_as_built` | `per_rate` | 5,690 | 17.0% | 567 | 5,123 | 5,315 | 8,344 | −5,780 | 66 |
+
+Mismatch shapes:
+
+- **`per_line` fits `tax_value` about five times better than `per_rate`** in both variants. Most `per_rate` mismatches are 1p under (4,573 of `m1`'s 5,698), so ShopWired's `tax_value` behaves like per-line rounding. How QBO rounds is still for the M1 sandbox acceptance journey (COR-309) to settle.
+- **Every `m1` `per_line` mismatch has a line with qty above 1**: 1,052 of 1,052. The 7dp unit price × qty step is the likely source, not VAT rounding alone.
+- **Line-item VAT calculation off:** 1,018 of the 1,052 `m1` `per_line` mismatches have `line_item_vat_calculation` false, and 1,016 are `baseline` orders.
+- **Zero-rate lines:** 46 of the 1,052 `m1` `per_line` mismatches mix 0% and 20% lines.
+- **Discounted shipping:** two orders with discounted shipping mismatch only in `zap_as_built`, and only `zap_as_built` has the two +66p deltas. The likely cause is the Zap's pre-discount shipping figure overstating these orders, which is the case COR-295/D8 corrects.
+
+Choices beyond parity that these results inform, such as the VAT mode, a total guard and `vat_mismatch` warnings, are held in COR-321.
 
 ## 4. Float money paths outside the sync path (COR-308 input)
 
