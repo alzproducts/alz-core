@@ -13,6 +13,12 @@
 -- Totals: m1 orders 5 (per_line mismatched 1, per_rate 2); zap_as_built orders 4, mismatched 0, fallback_lines 2, fallback_orders 1;
 --   baseline 0; every excluded reason 1.
 \set QUIET on
+\set ON_ERROR_STOP on
+SELECT :'HOST' IN ('127.0.0.1', 'localhost', '::1') AS fixture_local_host \gset
+\if :fixture_local_host
+\else
+    DO $$ BEGIN RAISE EXCEPTION 'vat-replay-fixture.sql runs on local Supabase only'; END $$;
+\endif
 \set sql_sha256 0000000000000000000000000000000000000000000000000000000000000000
 BEGIN;
 
