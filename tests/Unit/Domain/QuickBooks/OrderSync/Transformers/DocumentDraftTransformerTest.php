@@ -21,6 +21,7 @@ use App\Domain\QuickBooks\OrderSync\Transformers\InvoiceDraftTransformer;
 use App\Domain\QuickBooks\OrderSync\Transformers\LineDraftTransformer;
 use App\Domain\QuickBooks\OrderSync\Transformers\SalesReceiptDraftTransformer;
 use App\Domain\QuickBooks\OrderSync\ValueObjects\DocumentBuildOutcome;
+use App\Domain\QuickBooks\OrderSync\ValueObjects\DocumentCore;
 use App\Domain\QuickBooks\OrderSync\ValueObjects\DocumentRunLabels;
 use App\Domain\QuickBooks\OrderSync\ValueObjects\InvoiceDraft;
 use App\Domain\QuickBooks\OrderSync\ValueObjects\InvoiceTerms;
@@ -43,6 +44,10 @@ use Tests\Unit\Domain\QuickBooks\OrderSync\SyncOrderFixture;
 #[CoversClass(SupportedVatRate::class)]
 #[CoversClass(InvoiceTerms::class)]
 #[CoversClass(DocumentBuildOutcome::class)]
+#[CoversClass(InvoiceDraft::class)]
+#[CoversClass(SalesReceiptDraft::class)]
+#[CoversClass(DocumentRunLabels::class)]
+#[CoversClass(DocumentCore::class)]
 final class DocumentDraftTransformerTest extends TestCase
 {
     /**
@@ -413,6 +418,15 @@ final class DocumentDraftTransformerTest extends TestCase
         self::assertSame('V7-A10042', $receipt->core->docNumber);
         self::assertSame('A10042', $receipt->paymentRefNum);
         self::assertSame('Alex Buyer, AB1 2CD [v7]', $receipt->core->customer->displayName);
+    }
+
+    #[Test]
+    public function it_applies_no_labels_by_default(): void
+    {
+        $labels = DocumentRunLabels::none();
+
+        self::assertSame('', $labels->docNumberPrefix);
+        self::assertSame('', $labels->customerNameSuffix);
     }
 
     private static function build(SyncOrder $order, ?DocumentRunLabels $labels = null): DocumentBuildOutcome

@@ -28,9 +28,10 @@ final class SyncOrderFixture
         string $shippingMethod = 'Next Day Delivery',
         string $comments = '',
         string $transactionId = '',
+        string $reference = '10042',
     ): SyncOrder {
         return new SyncOrder(
-            reference: '10042',
+            reference: $reference,
             createdAt: new DateTimeImmutable('2026-11-02 14:30:00'),
             cancelled: $cancelled,
             paymentMethod: $paymentMethod,
