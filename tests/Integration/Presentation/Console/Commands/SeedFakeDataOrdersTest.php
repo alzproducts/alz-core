@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Presentation\Console\Commands;
 
+use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
 use App\Application\Enums\FixtureSku;
+use App\Application\Shopwired\Enums\OrderQueryMode;
 use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Presentation\Console\Commands\Dev\SeedFakeDataCommand;
@@ -26,7 +28,8 @@ use Database\Seeders\ProductSlice\Contracts\SliceGeneratorInterface;
 use Database\Seeders\ProductSlice\SeedProfile;
 use Database\Seeders\ProductSlice\SliceRows;
 use Database\Seeders\ProductSlice\SliceTables;
-use Faker\Factory;
+use DateTimeImmutable;
+use Faker\Generator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -187,6 +190,20 @@ final class SeedFakeDataOrdersTest extends TestCase
     }
 
     #[Test]
+    public function every_seeded_order_maps_through_the_order_repository(): void
+    {
+        $this->seedFresh();
+
+        $orders = $this->app->make(OrderRepositoryInterface::class)->getOrdersInDateRange(
+            new DateTimeImmutable('@' . (OrderMonth::FIRST - 86_400)),
+            new DateTimeImmutable('@' . (OrderMonth::LAST + 86_400)),
+            OrderQueryMode::Raw,
+        );
+
+        $this->assertCount(self::generatedCount(OrderSliceTables::ORDERS), $orders);
+    }
+
+    #[Test]
     public function every_resolved_sku_is_in_the_pool_except_the_missing_sku_orders(): void
     {
         $this->seedFresh();
@@ -312,7 +329,7 @@ final class SeedFakeDataOrdersTest extends TestCase
     {
         DB::statement('TRUNCATE TABLE ' . \implode(', ', OrderSliceTables::INSERT_ORDER));
 
-        $faker = Factory::create('en_GB');
+        $faker = $this->app->make(Generator::class, ['locale' => 'en_GB']);
         $faker->seed(1);
         $builder = new OrderRowBuilder(new SeedRandom($faker));
         $builder->add(new OrderSpec(

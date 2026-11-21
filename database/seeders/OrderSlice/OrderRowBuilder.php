@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\OrderSlice;
 
+use App\Domain\Catalog\Order\ValueObjects\OrderStatusType;
 use App\Infrastructure\Shopwired\Mappers\StatusTypeToLifecycleMapper;
 use Database\Seeders\ProductSlice\Builders\SeedRandom;
 use Database\Seeders\ProductSlice\SeedIds;
@@ -91,6 +92,7 @@ final class OrderRowBuilder
             'shipping_vat_rate' => OrderTotals::shippingVatRate($order->lines),
             'shipping_method' => 'Standard Delivery',
             'tax_value' => OrderTotals::taxValue($order->lines, $order->shippingNet),
+            'status_id' => SeedIds::ORDER_STATUS_BASE + (int) \array_search($order->status, OrderStatusType::cases(), true),
             'status_name' => $order->status->value,
             'status_type' => $order->status->value,
             'lifecycle_status' => StatusTypeToLifecycleMapper::toLifecycle($order->status)->value,
