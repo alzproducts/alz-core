@@ -29,4 +29,5 @@ dev_image:
   - '.env.example'
   - '.github/workflows/ci.yml'
   - 'Makefile'
+  - 'phpunit.xml'
   - '.github/filters.yml'

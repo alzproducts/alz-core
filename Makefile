@@ -346,7 +346,7 @@ endif
 	@echo "$(GREEN)Test users seeded.$(NC)"
 
 # Redis (Docker - used alongside Supabase PostgreSQL)
-redis: ## Start Redis only (not PostgreSQL from compose.yaml)
+redis: ## Start Redis (compose.yaml; local Supabase provides PostgreSQL)
 	docker compose up -d redis
 
 redis-recreate: ## Recreate Redis container (fixes dropped host-port bindings)

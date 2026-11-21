@@ -16,9 +16,10 @@ Regenerate only when a reader's output is meant to change, and review the diff.
 1. Check out the starting commit, or the commit whose output should become the baseline, in a
    throwaway worktree: `git worktree add --detach .claude/worktrees/<name> <sha>`.
 2. In it, run `composer install`, then `cp .env.example .env` and `php artisan key:generate`.
-3. Start an empty Postgres 17, export the CI test env (`APP_ENV=testing`, the `DB_*` values
-   pointing at it, `CACHE_STORE=array`, `QUEUE_CONNECTION=sync`) and run
-   `php artisan migrate --force`.
+3. Start an empty Supabase baseline (`database/baseline/compose.yaml`: `up -d --wait pgsql`, then
+   `run --rm auth-migrate`), export the CI test env (`APP_ENV=testing`, `DB_DATABASE` and
+   `DB_USERNAME` `postgres`, the other `DB_*` values pointing at it, `CACHE_STORE=array`,
+   `QUEUE_CONNECTION=sync`) and run `php artisan migrate --force`.
 4. Copy `ProductViewReadersParityTest.php` into the same path there and run it with
    `PRODUCT_VIEW_READERS_CAPTURE=1 php artisan test tests/Feature/Infrastructure/Catalog/ProductViewReaders`.
    It refreshes `products_view` itself when that view is materialized.

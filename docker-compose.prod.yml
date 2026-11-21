@@ -2,8 +2,14 @@
 # Docker Compose for Production-like Testing
 # ==============================================================================
 # Purpose: Test production Dockerfile locally before Railway deployment
-# Usage: docker-compose -f docker-compose.prod.yml up --build
+# Usage: export BASELINE_DB_PASSWORD=$(openssl rand -hex 16) first (Auth puts it in a URL unescaped), then
+#        docker compose -f docker-compose.prod.yml up --build
+# The database is the Supabase baseline (database/baseline/, ADR-0016).
 # ==============================================================================
+
+include:
+  - path: database/baseline/compose.yaml
+    env_file: database/baseline/versions.env
 
 services:
   # ----------------------------------------------------------------------------
@@ -41,12 +47,12 @@ services:
 
       # Database (PostgreSQL)
       DB_CONNECTION: pgsql
-      DB_HOST: postgres
+      DB_HOST: pgsql
       DB_PORT: 5432
-      DB_DATABASE: alz_core_prod
+      DB_DATABASE: postgres
       DB_USERNAME: postgres
-      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      # intentional: the baseline's password from the shell, so a repo .env cannot split app and database.
+      DB_PASSWORD: ${BASELINE_DB_PASSWORD:?}
       DB_SSLMODE: prefer
 
       # Redis
@@ -75,11 +81,15 @@ services:
       # Telescope (disabled in production)
       TELESCOPE_ENABLED: false
     depends_on:
-      postgres:
+      pgsql:
         condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+    # intentional: included services join only the project's default network.
     networks:
+      - default
       - alz-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/up"]
@@ -87,29 +97,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-
-  # ----------------------------------------------------------------------------
-  # PostgreSQL Database
-  # ----------------------------------------------------------------------------
-  postgres:
-    image: postgres:16-alpine
-    container_name: alz-core-postgres-prod
-    environment:
-      POSTGRES_DB: alz_core_prod
-      POSTGRES_USER: postgres
-      # ⚠️ WARNING: For local testing ONLY. Use strong credentials in production.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - alz-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # ----------------------------------------------------------------------------
   # Redis (Cache & Queues)
@@ -133,8 +120,6 @@ services:
 # Volumes
 # ==============================================================================
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
 

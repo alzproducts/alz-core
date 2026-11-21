@@ -97,11 +97,10 @@ jobs:
       APP_ENV: testing
       APP_DEBUG: true
       DB_CONNECTION: pgsql
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_DATABASE: testing
+      # The Supabase baseline (ADR-0016); DB_PORT and DB_PASSWORD come from the "Start the Supabase baseline" step.
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: postgres
       DB_USERNAME: postgres
-      DB_PASSWORD: password
       DB_SSLMODE: disable
       REDIS_HOST: localhost
       REDIS_PORT: 6379
@@ -110,21 +109,6 @@ jobs:
       TELESCOPE_ENABLED: false
 
     services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: testing
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
       redis:
         image: redis:7-alpine
         ports:
@@ -138,6 +122,36 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Start the Supabase baseline
+        run: |
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          {
+            echo "BASELINE_DB_PASSWORD=$password"
+            echo "DB_PASSWORD=$password"
+            echo "PGPASSWORD=$password"
+          } >> "$GITHUB_ENV"
+          export BASELINE_DB_PASSWORD="$password"
+          export BASELINE_DIR="$GITHUB_WORKSPACE/database/baseline"
+          echo "BASELINE_DIR=$BASELINE_DIR" >> "$GITHUB_ENV"
+          dc=(docker compose -p baseline -f database/baseline/compose.yaml --env-file database/baseline/versions.env)
+          "${dc[@]}" up -d --wait pgsql
+          "${dc[@]}" run --rm auth-migrate
+          published="$("${dc[@]}" port pgsql 5432)"
+          port="${published##*:}"
+          if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+            echo "::error::unexpected published port: $published"
+            exit 1
+          fi
+          echo "DB_PORT=$port" >> "$GITHUB_ENV"
+
+      - name: Print baseline role privileges
+        # AC2: migrations run as a non-superuser postgres that bypasses RLS and cannot create in auth, as on hosted Supabase.
+        run: |
+          row="$(psql -h 127.0.0.1 -p "$DB_PORT" -U postgres -d postgres -At -F '|' -c "select rolsuper, rolbypassrls, has_schema_privilege('postgres', 'auth', 'CREATE') from pg_roles where rolname = current_user")"
+          echo "$row"
+          [[ "$row" == 'f|t|f' ]]
 
       - name: Setup PHP ${{ env.PHP_VERSION }}
         uses: shivammathur/setup-php@v2
@@ -230,10 +244,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Read the Supabase baseline pin
+        id: pin
+        run: |
+          for key in SUPABASE_POSTGRES_VERSION SUPABASE_AUTH_VERSION; do
+            value="$(sed -n "s/^${key}=//p" database/baseline/versions.env)"
+            [[ -n "$value" ]] || { echo "::error::$key missing from database/baseline/versions.env"; exit 1; }
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done
+
       - name: Build dev image
         uses: docker/build-push-action@v6
         with:
           file: Dockerfile.dev
+          build-args: |
+            SUPABASE_POSTGRES_VERSION=${{ steps.pin.outputs.SUPABASE_POSTGRES_VERSION }}
+            SUPABASE_AUTH_VERSION=${{ steps.pin.outputs.SUPABASE_AUTH_VERSION }}
           load: true
           tags: alz-core-dev
           cache-from: type=gha

@@ -190,7 +190,7 @@ load_state() {
 
 dc() {
     docker compose -p "$PROJECT" --project-directory "$EVIDENCE/compose" -f "$COMPOSE_FILE_PATH" \
-        --env-file "$EVIDENCE/compose/compose.env" "$@"
+        -f "$REPO/database/baseline/compose.yaml" --env-file "$EVIDENCE/compose/compose.env" "$@"
 }
 
 # ---- run env (plain array of K=V; bash 3.2) ----
@@ -260,7 +260,7 @@ build_run_env() {
     set_env DB_CONNECTION pgsql
     set_env DB_HOST 127.0.0.1
     set_env DB_PORT "$PORT_DB"
-    set_env DB_DATABASE verify
+    set_env DB_DATABASE postgres
     set_env DB_SSLMODE disable
     set_env PGGSSENCMODE disable
     set_env REDIS_HOST 127.0.0.1
@@ -290,7 +290,7 @@ build_run_env() {
             run)
                 case "$key" in
                     APP_KEY) ;; # set after composer install via key:generate --show
-                    DB_USERNAME) set_env "$key" verify ;;
+                    DB_USERNAME) set_env "$key" postgres ;;
                     DB_PASSWORD) set_env "$key" "$db_password" ;;
                     REDIS_PASSWORD) set_env "$key" "$redis_password" ;;
                     SUPABASE_LOCAL_BYPASS_SECRET) set_env "$key" "$bypass" ;;
@@ -495,14 +495,20 @@ cmd_launch() {
     while [ "$supabase_port" = "$PORT_HTTP" ]; do supabase_port="$(free_port)"; done
 
     mkdir -p "$EVIDENCE/compose" "$EVIDENCE/logs" "$EVIDENCE/http"
-    printf '%s\n' 'VERIFY_DB_DATABASE=verify' 'VERIFY_DB_USERNAME=verify' \
-        "VERIFY_DB_PASSWORD=$db_password" "VERIFY_REDIS_PASSWORD=$redis_password" >"$EVIDENCE/compose/compose.env"
+    {
+        cat "$REPO/database/baseline/versions.env"
+        printf '%s\n' "BASELINE_DB_PASSWORD=$db_password" "BASELINE_DIR=$REPO/database/baseline" \
+            "VERIFY_REDIS_PASSWORD=$redis_password"
+    } >"$EVIDENCE/compose/compose.env"
     jq -n --arg runId "$run_id" --arg repo "$REPO" --arg project "$PROJECT" --argjson http "$PORT_HTTP" \
         '{runId: $runId, repoRoot: $repo, composeProject: $project, ports: {db: null, redis: null, http: $http}, resources: []}' \
         >"$EVIDENCE/verify-state.json"
     record_resource compose "$PROJECT" '' ''
     note "compose up $PROJECT"
-    dc up -d --wait >"$EVIDENCE/logs/compose-up.log" 2>&1 || fail_launch "compose up (see logs/compose-up.log)"
+    dc up -d --wait pgsql redis >"$EVIDENCE/logs/compose-up.log" 2>&1 || fail_launch "compose up (see logs/compose-up.log)"
+    note "auth migrate"
+    dc run --rm auth-migrate >"$EVIDENCE/logs/auth-migrate.log" 2>&1 ||
+        fail_launch "auth migrate (see logs/auth-migrate.log)"
     PORT_DB="$(dc port pgsql 5432 | sed 's/.*://')"
     PORT_REDIS="$(dc port redis 6379 | sed 's/.*://')"
     [[ "$PORT_DB" =~ ^[0-9]+$ ]] && [[ "$PORT_REDIS" =~ ^[0-9]+$ ]] || fail_launch "could not read published ports"
@@ -648,7 +654,7 @@ cmd_db() {
     [ "${#ARGS[@]}" -eq 1 ] || usage
     note "db ${ARGS[0]}"
     dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql \
-        psql -v ON_ERROR_STOP=1 -U verify -d verify -c "${ARGS[0]}" || return 1
+        psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "${ARGS[0]}" || return 1
 }
 
 cmd_test() {
