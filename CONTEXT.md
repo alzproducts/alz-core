@@ -87,8 +87,15 @@ A product whose master SKU or any of its variation SKUs is **on sale** (`has_any
 ### Local data
 
 **Seed slice**:
-A domain-bounded group of tables the synthetic local seed generates together, consistent across their SKU and ID joins (first: the **products slice**).
+A domain-bounded group of tables the synthetic local seed generates together, consistent across their SKU and ID joins: the **products slice** and the **orders slice**.
 _Avoid_: "seed tier", which suggests a size setting rather than a domain boundary.
+
+**Edge-case order**:
+An **orders slice** order with a fixed synthetic reference and fixed values, independent of the **seed profile**, that exercises one QuickBooks sync rule; the slice's other orders are bulk orders drawn from the profile.
+_Avoid_: "test order", which suggests a Pest-only factory row.
+
+**Fixture SKU**:
+A SKU in the fixed pool the **orders slice** draws its order lines from, each with a QBO sandbox Item.
 
 **Seed profile**:
 The aggregate-only description of production's shape (counts, distributions and, where a slice needs them, value tuples such as order-line prices; never rows, names or references) that a **seed slice** is generated from.
