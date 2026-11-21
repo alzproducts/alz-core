@@ -47,9 +47,9 @@ Checked in the request, before any QBO call.
 | 401 | `unauthorized` | — | all | Missing or invalid JWT (middleware) |
 | 403 | `forbidden` | — | all | Caller is below the staff tier (middleware) |
 | 412 | `precondition_failed` | — | all | QBO is not connected: no connection, blank credentials (ADR-0015), or a revoked or invalid grant while the connection row still exists |
-| 412 | `precondition_failed` | `missing_mapping_keys` | both POSTs | QBO is connected but one or more mapping keys have no mapping for the connected company (ADR-0018) |
+| 412 | `precondition_failed` | `missing_mapping_keys` | both POSTs | QBO is connected but one or more seeded mapping keys have no mapping for the connected company (ADR-0018) |
 | 422 | `validation_error` | the invalid field(s) | all | Request body or query fails validation (per endpoint below) |
-| 429 | `error` | — | all | `throttle:api` limit reached; honour `Retry-After` |
+| 429 | `error` | — | all | `throttle:api` per-minute limit reached; the response carries no `Retry-After` header |
 | 503 | `service_unavailable` | — | both POSTs | An access token cannot be obtained for a transient reason |
 | 502 | `upstream_error` | — | both POSTs | A permanent QBO API failure outside any one order's outcome |
 | 500 | `server_error` | — | all | Unexpected error |
@@ -131,7 +131,7 @@ Every limit returns 422 `validation_error`.
 | `run_id` | string (uuid) \| null | A fresh id per request; `null` when `candidate_count` is 0 and nothing is dispatched |
 | `candidate_count` | integer | Order references in the range the run will consider |
 
-- Every valid request returns 202 and dispatches its own run; a second request for an overlapping range is not dropped. Leases make the overlap safe (ADR-0017).
+- Every valid request returns 202. A request with candidates dispatches its own run; one with `candidate_count` 0 dispatches nothing and returns `run_id: null`. A second request for an overlapping range is not dropped. Leases make the overlap safe (ADR-0017).
 - `run_id` is a log and support correlation id only: no endpoint takes it.
 
 ---
@@ -254,7 +254,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
   "data": [
     {
       "reference": 100250,
-      "order_external_id": "<shopwired order id>",
+      "order_external_id": 123456,
       "order_placed_at": "2026-11-20T09:12:44+00:00",
       "doc_type": "sales_receipt",
       "status": "failed",
@@ -289,7 +289,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | Field | Type | Notes |
 |-------|------|-------|
 | `reference` | integer | |
-| `order_external_id` | string | The ShopWired order id the attempt used |
+| `order_external_id` | integer | The ShopWired order id the attempt used |
 | `order_placed_at` | string | ISO 8601 |
 | `doc_type` | string \| null | `invoice`, `sales_receipt` or `null` when the failure came before the document type was known |
 | `status` | string | The stored row state: `failed` |
@@ -314,7 +314,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | `skipped` | `payment_method_unmapped` | `false` | `POST sync` | The order's raw ShopWired payment-method string is not one the sync routes to a document; no row is written |
 | `skipped` | `order_not_found` | `false` | `POST sync` | No order has this reference; no row is written |
 | `skipped` | `previously_failed` | `true` | `POST sync` | A stored `failed` row exists and `force_retry` was not set; the row stays `failed` |
-| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | A mapping key this order needs has no QBO ref for the connected company |
+| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead) |
 | `failed` | `item_missing` | `true` | `POST sync`, `GET failed` | A line's SKU has no matching QBO item; succeeds once the item exists |
 | `failed` | `zero_lines` | `false` | `POST sync`, `GET failed` | The order produced no document lines |
 | `failed` | `closed_period` | `false` | `POST sync`, `GET failed` | QBO rejected the document because its date is in a closed books period |
@@ -372,5 +372,6 @@ For each reference, first match wins:
 | 412 without `errors` | Show the QuickBooks reconnect prompt |
 | 412 with `errors.missing_mapping_keys` | List the missing mapping keys |
 | 422 | Show each `errors` entry beside its field |
-| 429 | Wait for `Retry-After`, then allow a retry |
-| 502, 503 | Show a temporary-failure message and offer a retry |
+| 429 | Wait about a minute (no `Retry-After` header is sent), then allow a retry |
+| 503 | Show a temporary-failure message and offer a retry |
+| 502 | Show a QuickBooks failure message; offer no retry |

@@ -215,7 +215,7 @@ _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 ## Relationships (QuickBooks order sync)
 
 - A ShopWired order **reference** has at most one **order sync** per QBO company
-- An **order sync** has at most one posted document
+- An **order sync** records at most one posted document (an unrecorded post can repeat: ADR-0019)
 - One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
 
 ## Flagged ambiguities
