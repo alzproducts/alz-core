@@ -55,7 +55,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, json, soap
+          extensions: mbstring, xml, ctype, json, bcmath, soap
           coverage: none
           tools: composer:v2
 
@@ -196,6 +196,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath
           coverage: none
 
       - name: Get Composer cache directory
