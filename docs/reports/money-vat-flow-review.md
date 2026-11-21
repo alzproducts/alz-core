@@ -65,6 +65,8 @@ PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120s' PGSERV
 jq -e -f database/reports/vat-replay-output-check.jq examples/vat-replay/vat-replay.json
 ```
 
+Or paste a copy of the SQL, with `:'sql_sha256'` replaced by the file's sha256 literal, into the Supabase SQL editor for prod, and save the single result cell as `examples/vat-replay/vat-replay.json`.
+
 `/examples` is gitignored. No one reads the output until the `jq` check exits 0. Any later change to the SQL needs a re-run before merge.
 
 ### Results
