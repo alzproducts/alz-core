@@ -36,8 +36,8 @@ final class EdgeCaseOrders
             $orders[] = self::edge(EdgeCase::PaymentMethod, $synced, \count($orders) + 1, $method);
         }
 
-        $orders[] = self::edge(EdgeCase::CreditPaymentMethod, ExpectedOutcome::SkippedPaymentMethodUnmapped, \count($orders) + 1, RawPaymentMethod::Credit);
-        $orders[] = self::edge(EdgeCase::OfflinePaymentMethod, ExpectedOutcome::SkippedPaymentMethodUnmapped, \count($orders) + 1, RawPaymentMethod::Offline);
+        $orders[] = self::edge(EdgeCase::CreditPaymentMethod, $synced, \count($orders) + 1, RawPaymentMethod::Credit);
+        $orders[] = self::edge(EdgeCase::OfflinePaymentMethod, $synced, \count($orders) + 1, RawPaymentMethod::Offline);
         $orders[] = self::edge(EdgeCase::Cancelled, ExpectedOutcome::SkippedCancelled, \count($orders) + 1, status: OrderStatusType::Cancelled);
         $orders[] = self::edited(\count($orders) + 1);
         $orders[] = self::edge(EdgeCase::InvoiceWithCompany, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, company: 'Hartley Care Homes Ltd');

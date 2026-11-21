@@ -21,8 +21,8 @@ final class OrderSliceEdgeCasesTest extends TestCase
 {
     private const array EXPECTED_OUTCOMES = [
         'payment_method' => 'synced',
-        'credit_payment_method' => 'skipped:payment_method_unmapped',
-        'offline_payment_method' => 'skipped:payment_method_unmapped',
+        'credit_payment_method' => 'synced',
+        'offline_payment_method' => 'synced',
         'cancelled' => 'skipped:cancelled',
         'edited' => 'synced',
         'invoice_with_company' => 'synced',
