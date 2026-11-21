@@ -3,31 +3,6 @@
 name: alz-core
 
 services:
-    pgsql:
-        image: 'postgres:17-alpine'
-        ports:
-            - '${FORWARD_DB_PORT:-5432}:5432'
-        environment:
-            PGPASSWORD: '${DB_PASSWORD:-secret}'
-            POSTGRES_DB: '${DB_DATABASE}'
-            POSTGRES_USER: '${DB_USERNAME}'
-            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
-        volumes:
-            - 'pgsql-data:/var/lib/postgresql/data'
-        networks:
-            - alz-core
-        healthcheck:
-            test:
-                - CMD
-                - pg_isready
-                - '-q'
-                - '-d'
-                - '${DB_DATABASE}'
-                - '-U'
-                - '${DB_USERNAME}'
-            retries: 3
-            timeout: 5s
-
     redis:
         image: 'redis:alpine'
         ports:
@@ -49,11 +24,8 @@ networks:
     alz-core:
         driver: bridge
 
-# intentional: explicit names keep the existing local volumes' data.
+# intentional: an explicit name keeps the existing local volume's data.
 volumes:
-    pgsql-data:
-        name: alz-core_sail-pgsql
-        driver: local
     redis-data:
         name: alz-core_sail-redis
         driver: local

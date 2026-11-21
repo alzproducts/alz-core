@@ -1,0 +1,47 @@
+{
+  "exported_at": "2026-11-21T07:00:07Z",
+  "sql_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "excluded": {
+    "null_tax_value": 1,
+    "null_shipping_rate": 1,
+    "unmapped_rate": 1,
+    "ireland_remap": 1,
+    "null_original_shipping": 1
+  },
+  "baseline": 0,
+  "m1": {
+    "per_line": {
+      "orders": 5,
+      "mismatched": 1,
+      "delta_pence": {"-1": 1},
+      "shapes": {"lines=1;qty=f;rates=20;ship=unknown;zero=f;calc=true;base=f": 1}
+    },
+    "per_rate": {
+      "orders": 5,
+      "mismatched": 2,
+      "delta_pence": {"-1": 2},
+      "shapes": {
+        "lines=2;qty=f;rates=20;ship=f;zero=f;calc=true;base=f": 1,
+        "lines=1;qty=f;rates=20;ship=unknown;zero=f;calc=true;base=f": 1
+      }
+    }
+  },
+  "zap_as_built": {
+    "per_line": {
+      "orders": 4,
+      "mismatched": 1,
+      "delta_pence": {"3": 1},
+      "shapes": {"lines=3-5;qty=t;rates=0,20;ship=t;zero=t;calc=false;base=t;fb=t": 1},
+      "fallback_lines": 2,
+      "fallback_orders": 1
+    },
+    "per_rate": {
+      "orders": 4,
+      "mismatched": 0,
+      "delta_pence": {},
+      "shapes": {},
+      "fallback_lines": 2,
+      "fallback_orders": 1
+    }
+  }
+}

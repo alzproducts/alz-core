@@ -5,7 +5,7 @@ description: Verify alz-core's HTTP API end to end in a private, throwaway stack
 
 # Verify alz-core
 
-One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (Postgres + Redis), migrated and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank, so third-party APIs are unreachable.
+One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (the Supabase baseline's Postgres and Auth migrations from `database/baseline/`, plus Redis), migrated as role `postgres` on database `postgres` and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank or a non-working placeholder, so third-party APIs are unreachable.
 
 - Covers the HTTP API only; the dashboard and storefront live in alz-admin.
 - Journeys live in the feature map, [`features/README.md`](features/README.md).
@@ -27,6 +27,8 @@ Output:
 Failures:
 - Exit 1 at preflight: the worktree holds a `.env*` file other than a tracked `*.example`, or `bootstrap/cache/config.php`. Use a fresh worktree; never delete a developer's `.env` to get past it.
 - Exit 75: Docker is down, or Octane already runs from this worktree.
+- Exit 1 at `auth migrate`: the baseline's Auth migrations failed; read `logs/auth-migrate.log`.
+- An evidence dir launched before the baseline move has a `compose.env` today's `cleanup` cannot read: clean it up from a checkout older than the move.
 - Exit 1 at the isolation guard happens before any database write (`run-notes.md` has no `migrate` line).
 - Any failure after Compose up keeps the run record: run `cleanup` on its evidence dir.
 
@@ -38,7 +40,7 @@ bash .agents/skills/verify/scripts/verify.sh doctor --evidence <dir>
 
 Run after launch and whenever anything looks off. It prints one `guard`/`credential`/`runtime` line per check and exits 1 on any `FAIL`:
 - `guard` lines: each DB and Redis connection resolves to the run's own loopback port, and `octane.port` is the run's HTTP port.
-- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed).
+- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed). An `-or-absent` mode also passes when the config path does not exist.
 - `runtime` line: xdebug and pcov are off in an app process.
 
 ## Drive
@@ -49,7 +51,7 @@ bash .agents/skills/verify/scripts/verify.sh db --evidence <dir> 'select count(*
 ```
 
 - `http <METHOD> <path> [--data <json>]` authenticates with the run's `X-Local-Bypass` secret as persona `dev@alzadmin.test` (admin, approved). It prints `status=<code>` and the body; exit 0 on 2xx/3xx, else 1.
-- `db <sql>` runs psql in a read-only transaction in the run's Postgres; use it to prove stored state.
+- `db <sql>` runs psql as `postgres` in a read-only transaction in the run's Postgres; use it to prove stored state. Its trusted container loopback proves nothing about the password.
 - Take ids from a list response, never hard-code them.
 - Follow the matching feature file; when the seed lacks a journey's precondition, report the failure and the reason, never a weakened check.
 
@@ -60,7 +62,7 @@ The evidence dir (caller's `--evidence`, else the one launch minted) is outside 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per step and call; add your own with `note`.
 - `http/<stamp>-<method>.txt`: request (bypass secret redacted), status, response headers and body.
 - `artisan/<stamp>-<command>.txt`: command line, output and `exit=<code>`.
-- `logs/`: composer, migrate, seed, Octane, worker and Pest output.
+- `logs/`: compose, auth-migrate, composer, migrate, seed, Octane, worker and Pest output.
 - `run.env`, `verify-state.json`, `compose/`: run bookkeeping; `run.env` holds run secrets, quote nothing from it.
 - Proof standard: drive the real route a client calls, capture request and response, and back side effects with a `db` read.
 
@@ -76,7 +78,7 @@ bash .agents/skills/verify/scripts/verify.sh cleanup --evidence <dir>
 
 ## Helpers
 
-`scripts/verify.sh` is the entry point (bash 3.2-safe); `scripts/compose.yaml` defines its private stack; `scripts/bench.php` is the bench verbs' PHP side.
+`scripts/verify.sh` is the entry point (bash 3.2-safe); `scripts/compose.yaml` adds Redis to the repo's `database/baseline/compose.yaml` for its private stack; `scripts/bench.php` is the bench verbs' PHP side.
 
 | Verb | Args | Does |
 |---|---|---|

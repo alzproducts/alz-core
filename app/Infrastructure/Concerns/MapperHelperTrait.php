@@ -50,4 +50,35 @@ trait MapperHelperTrait
 
         return $result;
     }
+
+    /**
+     * Nullable sibling of buildEnum(): null reads as null, and an unknown value logs and reads as null.
+     *
+     * @template T of BackedEnum
+     *
+     * @param class-string<T> $enumClass
+     *
+     * @return T|null
+     */
+    protected static function buildNullableEnum(
+        string $enumClass,
+        string|int|null $value,
+        EnumLogContext $logContext,
+    ): ?BackedEnum {
+        if ($value === null) {
+            return null;
+        }
+
+        /** @var T|null $result */
+        $result = $enumClass::tryFrom($value);
+
+        if ($result === null) {
+            Log::error("Unknown {$enumClass} in database - possible API change", [
+                'external_id' => $logContext->externalId,
+                $logContext->fieldName => $value,
+            ]);
+        }
+
+        return $result;
+    }
 }

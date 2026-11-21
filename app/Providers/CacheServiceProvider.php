@@ -102,6 +102,7 @@ final class CacheServiceProvider extends ServiceProvider implements DeferrablePr
             LockManagerInterface::class,
             static fn(Application $app): LockManagerInterface => new CacheLockManager(
                 cache: $app->make(CacheManager::class),
+                logger: $app->make(LoggerInterface::class),
             ),
         );
     }

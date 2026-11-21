@@ -45,7 +45,8 @@ Tests do NOT run on stop — run the relevant Pest tests yourself before declari
 ## Production Access
 
 - Production operations (logs, commands, shells, deploys, variables, data) are human-only; agents have no Railway CLI or MCP access here (`.claude/settings.json` denies both).
-- Local `.env` files hold no production credentials: a blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
+- The human runs every prod database query in the Supabase dashboard SQL editor, unless the user agrees another route for that query. Agents hand over paste-ready SQL, never a `psql` or connection-string command.
+- Every value in a local `.env`, the trunk checkout's included, is a non-production value. Copying it into any worktree, test or verify run is safe. A blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
 
 ---
 
@@ -134,7 +135,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
-**Database**: Supabase PostgreSQL (local dev) or Docker PostgreSQL (CI)
+**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production (see `database/AGENTS.md`)
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
@@ -161,7 +162,7 @@ make lint                         # Run linters
 Consumer API endpoints use an `X-Local-Bypass` header instead of a JWT (local only, from `127.0.0.1`):
 - Set `SUPABASE_LOCAL_BYPASS_SECRET` + `SUPABASE_LOCAL_TEST_EMAIL` in `.env`
 - Send `X-Local-Bypass: <secret>` header — see `ValidateSupabaseJwtMiddleware`
-- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (per-worktree, in `.claude/settings.local.json` → `env`). Each worktree binds Octane to its own port (main = 8000). On Codex they are NOT in the shell env — read the values from `.claude/settings.local.json` and substitute literals.
+- `$API_BYPASS_SECRET` and `$API_PORT` are Claude Code session env vars (in `.claude/settings.local.json` → `env`). Octane binds `OCTANE_PORT` (default 8000) in every checkout; set `API_PORT` only where a checkout overrides it. On Codex they are NOT in the shell env — read the values from `.claude/settings.local.json` and substitute literals.
 - ALWAYS curl with `${API_PORT:-8000}`, never a hardcoded port: `curl -H "X-Local-Bypass: $API_BYPASS_SECRET" "http://127.0.0.1:${API_PORT:-8000}/..."`
 
 ### Debugging & Logs

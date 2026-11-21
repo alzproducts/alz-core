@@ -336,6 +336,12 @@ parameters:
         -
             identifier: missingType.checkedException
             path: app/Domain/Catalog/Product/ValueObjects/Popularity.php
+        # BcMath\Number declares ValueError and ArithmeticError; inputs are asserted decimal strings and non-zero divisors (ADR-0022).
+        -
+            identifier: missingType.checkedException
+            paths:
+                - app/Domain/Shared/Money/ValueObjects/DecimalMoney.php
+                - app/Domain/Shared/Money/ValueObjects/VatMultiplier.php
         # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
         # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
         # Examples: Symfony's HttpException, Laravel's ModelNotFoundException

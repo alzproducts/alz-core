@@ -254,13 +254,13 @@ Implementation plans and logs live in a local AI workspace outside this public r
 `Dockerfile.dev` builds a self-contained image for running tests and linters with no network access, for example inside a sandboxed agent harness. Build it once, then run it offline.
 
 ```bash
-docker build -f Dockerfile.dev -t alz-core-dev .
-docker run --rm --network none alz-core-dev make test
+docker build -f Dockerfile.dev $(sed 's/^/--build-arg /' database/baseline/versions.env) -t alz-core-dev .
+docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
 ```
 
-Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`.
+Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
 
-- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and PostgreSQL 17 already migrated as the `testing` database, started automatically by the container entrypoint.
+- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and the Supabase baseline (`database/baseline/`) already migrated on database `postgres` as role `postgres`, started automatically by the container entrypoint.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.
 - **Snapshot of the source:** the image holds the source as it was at build time, so rebuild after changes. Bind-mounting the source is not supported, because it would hide the image's baked `vendor/`.
 - **BuildKit required:** it is the default since Docker 23, and it is what honours `Dockerfile.dev.dockerignore`.

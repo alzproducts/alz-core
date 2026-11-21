@@ -2,21 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Shopwired\Enums;
-
-use App\Domain\Catalog\Order\ValueObjects\PaymentMethod;
-use InvalidArgumentException;
+namespace App\Domain\Catalog\Order\ValueObjects;
 
 /**
- * Raw payment method values from ShopWired API.
- * This enum captures the exact string values returned by the API.
- * Maps to Domain PaymentMethod enum via toDomain() method.
- * When a new payment processor is added, add the case here and
- * update the toDomain() mapping.
+ * The exact processor string ShopWired gives an order. A closed set: an order with any
+ * other value is rejected at ingest, so a new processor needs a new case here.
  *
  * @see https://shopwired.readme.io/reference/listorders
  */
-enum PaymentMethodRaw: string
+enum RawPaymentMethod: string
 {
     case AdminOrder = 'Admin Order';
     case PayPal = 'PayPal';
@@ -30,11 +24,7 @@ enum PaymentMethodRaw: string
     case SagepayHosted = 'Sagepay Hosted';
     case ShopWiredPayments = 'ShopWired Payments';
 
-    /**
-     * Convert to Domain PaymentMethod.
-     * Groups raw API values into business-meaningful categories.
-     */
-    public function toDomain(): PaymentMethod
+    public function toPaymentMethod(): PaymentMethod
     {
         return match ($this) {
             self::AdminOrder => PaymentMethod::Admin,
@@ -50,15 +40,4 @@ enum PaymentMethodRaw: string
             self::ShopWiredPayments => PaymentMethod::Card,
         };
     }
-
-    /**
-     * Create from raw API string.
-     *
-     * @throws InvalidArgumentException When payment method is unknown
-     */
-    public static function fromApiValue(string $value): self
-    {
-        return self::tryFrom($value) ?? throw new InvalidArgumentException("Unknown payment method: {$value}");
-    }
-
 }

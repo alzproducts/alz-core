@@ -99,6 +99,12 @@ deptrac:
         - type: classLike
           value: ^Microsoft\\MsAds\\.*
 
+    # QuickBooks Online Accounting API SDK
+    - name: QuickBooksSdk
+      collectors:
+        - type: classLike
+          value: ^QuickBooksOnline\\API\\.*
+
     # HelpScout API SDK
     - name: HelpScoutSdk
       collectors:
@@ -183,7 +189,7 @@ deptrac:
       - IlluminateContractsEvents
       - AssertionLibrary
 
-    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, Horizon, TheIconic, libphonenumber, Firebase JWT
+    # Infrastructure: All internal + Laravel, Spatie, Google, Bing, QuickBooks, Guzzle, PSR, Flysystem, Assertions, Sentry, Symfony, Carbon, Monolog, Horizon, TheIconic, libphonenumber, Firebase JWT
     Infrastructure:
       - Application
       - Domain
@@ -193,6 +199,7 @@ deptrac:
       - GoogleAdsSdk
       - BingAdsSdk
       - BingAdsRestSdk
+      - QuickBooksSdk
       - HelpScoutSdk
       - GuzzleHttp
       - PsrInterfaces
@@ -250,6 +257,7 @@ deptrac:
     GoogleAdsSdk: ~
     BingAdsSdk: ~
     BingAdsRestSdk: ~
+    QuickBooksSdk: ~
     HelpScoutSdk: ~
     GuzzleHttp: ~
     SymfonyHttp: ~

@@ -10,9 +10,9 @@ use App\Domain\Catalog\Order\ValueObjects\OrderAdminComment;
 use App\Domain\Catalog\Order\ValueObjects\OrderDiscount;
 use App\Domain\Catalog\Order\ValueObjects\OrderProduct;
 use App\Domain\Catalog\Order\ValueObjects\OrderRefund;
+use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\Contracts\DomainConvertibleInterface;
-use App\Infrastructure\Shopwired\Enums\PaymentMethodRaw;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
@@ -133,7 +133,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
     }
 
     /**
-     * @throws InvalidApiResponseException When nested status has unknown enum value or created timestamp invalid
+     * @throws InvalidApiResponseException When nested status or payment method is unknown, or created timestamp invalid
      * @throws TypeError When nested status type mismatches (should not occur with proper Spatie Data parsing)
      */
     public function toDomain(): Order
@@ -147,6 +147,8 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
                 $e,
             );
         }
+
+        $rawPaymentMethod = $this->parseRawPaymentMethod();
 
         $products = $this->products !== null
             ? \array_map(
@@ -163,7 +165,7 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             subTotalNet: $this->subTotal,
             shippingTotalNet: $this->shippingTotal,
             originalShippingTotalNet: $this->originalShippingTotal,
-            paymentMethod: PaymentMethodRaw::fromApiValue($this->paymentMethod)->toDomain(),
+            paymentMethod: $rawPaymentMethod->toPaymentMethod(),
             comments: $this->comments ?? '',
             marketing: $this->marketing,
             hasVatRelief: $this->hasVatRelief(),
@@ -196,7 +198,17 @@ final class OrderResponse extends Data implements DomainConvertibleInterface
             products: $products,
             customFields: $this->customFields,
             customerReferenceNumber: Order::extractCustomerReferenceNumber($this->comments ?? ''),
+            rawPaymentMethod: $rawPaymentMethod,
         );
+    }
+
+    /**
+     * @throws InvalidApiResponseException When ShopWired sends a processor string outside the closed set
+     */
+    private function parseRawPaymentMethod(): RawPaymentMethod
+    {
+        return RawPaymentMethod::tryFrom($this->paymentMethod)
+            ?? throw new InvalidApiResponseException('ShopWired', "Unknown payment method: {$this->paymentMethod}");
     }
 
     /**

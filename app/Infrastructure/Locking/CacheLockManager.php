@@ -7,8 +7,10 @@ namespace App\Infrastructure\Locking;
 use App\Application\Contracts\LockManagerInterface;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use Closure;
+use Exception;
 use Illuminate\Cache\CacheManager;
-use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Cache\Lock;
+use Psr\Log\LoggerInterface;
 
 /**
  * Redis-backed distributed lock manager.
@@ -17,7 +19,8 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
  * exclusive access for critical operations like SKU generation.
  *
  * Unlike LockableCache which gracefully degrades, this implementation
- * enforces strict locking - operations fail if locks cannot be acquired.
+ * enforces strict locking - operations fail if locks cannot be acquired,
+ * including when the lock store itself is unreachable.
  */
 final readonly class CacheLockManager implements LockManagerInterface
 {
@@ -30,6 +33,7 @@ final readonly class CacheLockManager implements LockManagerInterface
 
     public function __construct(
         private CacheManager $cache,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -43,19 +47,40 @@ final readonly class CacheLockManager implements LockManagerInterface
      */
     public function withLock(string $name, int $timeoutSeconds, Closure $callback): mixed
     {
-        $holdTime = $timeoutSeconds + self::HOLD_BUFFER_SECONDS;
-        $lock = $this->cache->lock("lock:{$name}", $holdTime);
-
-        try {
-            $lock->block($timeoutSeconds);
-        } catch (LockTimeoutException $e) {
-            throw new LockAcquisitionException($name, $timeoutSeconds, $e);
-        }
+        $lock = $this->acquire($name, $timeoutSeconds);
 
         try {
             return $callback();
         } finally {
+            $this->release($lock, $name);
+        }
+    }
+
+    /**
+     * @throws LockAcquisitionException on a wait timeout or a lock-store failure
+     */
+    private function acquire(string $name, int $timeoutSeconds): Lock
+    {
+        try {
+            $lock = $this->cache->lock("lock:{$name}", $timeoutSeconds + self::HOLD_BUFFER_SECONDS);
+            $lock->block($timeoutSeconds);
+
+            return $lock;
+        } catch (Exception $e) {
+            throw new LockAcquisitionException($name, $timeoutSeconds, $e);
+        }
+    }
+
+    private function release(Lock $lock, string $name): void
+    {
+        try {
             $lock->release();
+        } catch (Exception $e) { // @ignoreException - the lock expires after its hold time; throwing would mask the callback's outcome
+            $this->logger->warning('Lock release failed', [
+                'lock' => $name,
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

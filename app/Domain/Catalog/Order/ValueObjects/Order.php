@@ -57,6 +57,7 @@ final readonly class Order
      * @param array<int, OrderAdminComment>|null $adminComments Null=not provided (skip sync), array=provided
      * @param array<string, mixed>|null $customFields Null=not provided, array=provided
      * @param string|null $customerReferenceNumber Extracted from comments (null if not present/extractable)
+     * @param RawPaymentMethod|null $rawPaymentMethod Null for rows stored before the raw value was kept
      */
     public function __construct(
         public int $id,
@@ -90,6 +91,7 @@ final readonly class Order
         public ?array $products = null,
         public ?array $customFields = null,
         public ?string $customerReferenceNumber = null,
+        public ?RawPaymentMethod $rawPaymentMethod = null,
     ) {
         Assert::greaterThan($id, 0, 'Order ID must be positive');
         Assert::greaterThan($reference, 0, 'Order reference must be positive');

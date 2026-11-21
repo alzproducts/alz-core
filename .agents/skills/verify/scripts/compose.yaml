@@ -1,28 +1,7 @@
 # Private per-run stack for verify.sh. Project dir and env file live in the run's evidence dir.
+# verify.sh adds database/baseline/compose.yaml for pgsql and auth-migrate (ADR-0016).
 # intentional: no .env interpolation and no fixed host ports, unlike the repo's compose.yaml (COR-255 P13).
 services:
-    pgsql:
-        image: 'postgres:17-alpine'
-        ports:
-            - '127.0.0.1::5432'
-        environment:
-            POSTGRES_DB: '${VERIFY_DB_DATABASE:?}'
-            POSTGRES_USER: '${VERIFY_DB_USERNAME:?}'
-            POSTGRES_PASSWORD: '${VERIFY_DB_PASSWORD:?}'
-        volumes:
-            - 'verify-pgsql:/var/lib/postgresql/data'
-        healthcheck:
-            test:
-                - CMD
-                - pg_isready
-                - '-q'
-                - '-d'
-                - '${VERIFY_DB_DATABASE:?}'
-                - '-U'
-                - '${VERIFY_DB_USERNAME:?}'
-            interval: 2s
-            timeout: 5s
-            retries: 30
     redis:
         image: 'redis:alpine'
         command:
@@ -43,5 +22,4 @@ services:
             timeout: 5s
             retries: 30
 volumes:
-    verify-pgsql:
     verify-redis:
