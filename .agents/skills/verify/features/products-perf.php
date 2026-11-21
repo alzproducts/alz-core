@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /*
- * alz-core verify bench helper, driven by verify.sh bench-load / bench-writers. See ../features/products-perf.md.
- * Usage: php bench.php <sub> [--key value]...   (cwd = the repo worktree, env = the run env)
+ * alz-core verify bench helper, driven by products-perf.sh load / writers inside the run's containers. See products-perf.md.
+ * Usage: php products-perf.php <sub> [--key value]...   (cwd = /var/www/html, env = the container's)
  *   runtime                         Prints uninstrumented=yes|no (xdebug and pcov off)
  *   writers                         Prints the background writer schedule as JSON lines: kind interval delay
  *   shapes --out F                  Writes the list request mix's URIs, derived from the seed, as JSON
@@ -16,7 +16,7 @@ declare(strict_types=1);
  *                                   Times the variation replace and the stock mirror, N runs each
  *
  * Writers and timings call repository methods directly and never reach ShopWired or Linnworks. They mutate the
- * run's throwaway database and restore nothing: launch a fresh run for each bench journey.
+ * run's throwaway database and restore nothing: bring up a fresh run for each bench journey.
  * Classes are resolved by name so this file loads at any commit; a missing method surfaces as a writer failure.
  */
 
@@ -46,7 +46,7 @@ const MIX = [
 
 function fail(string $message, int $code = 1): never
 {
-    fwrite(STDERR, "bench.php: {$message}\n");
+    fwrite(STDERR, "products-perf.php: {$message}\n");
     exit($code);
 }
 
@@ -101,7 +101,7 @@ function uninstrumented(): bool
 function boot(): Illuminate\Contracts\Foundation\Application
 {
     if (! uninstrumented()) {
-        fail('xdebug or pcov is active; timings would measure the instrumentation (relaunch the run)');
+        fail('xdebug or pcov is active; timings would measure the instrumentation (the runtime image should ship neither)');
     }
     require getcwd() . '/vendor/autoload.php';
     $app = require getcwd() . '/bootstrap/app.php';
