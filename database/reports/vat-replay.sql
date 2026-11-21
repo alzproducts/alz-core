@@ -12,7 +12,8 @@ WITH src_orders AS (
         d.original_shipping_total_net,
         d.shipping_vat_rate,
         d.line_item_vat_calculation,
-        upper(trim(d.delivery_country)) IN ('IRELAND', 'IE') AS ireland,
+        -- intentional: exact, case-sensitive match, as the Zap tests delivery_country (COR-295).
+        d.delivery_country = 'Ireland' AS ireland,
         d.shipping_total_net <> 0 OR coalesce(d.original_shipping_total_net, 0) <> 0 AS has_shipping
     FROM shopwired.orders_deduplicated d
     WHERE NOT EXISTS (

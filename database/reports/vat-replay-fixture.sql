@@ -47,7 +47,7 @@ FROM (VALUES
     (1008, 6, 10.00, 0, 0, 20, NULL, 'active', 'United Kingdom'),
     (1009, 7, 10.00, 5.00, 5.00, NULL, 3.00, 'active', 'United Kingdom'),
     (1010, 8, 10.00, 0, 0, 20, 0.50, 'active', 'United Kingdom'),
-    (1011, 9, 10.00, 0, 0, 20, 2.00, 'active', ' ireland '),
+    (1011, 9, 10.00, 0, 0, 20, 2.00, 'active', 'Ireland'),
     (1012, 10, 10.00, 0, NULL, 20, 2.01, 'active', 'United Kingdom'),
     (1013, 11, 10.00, 4.125, 4.125, 20, 2.83, 'active', 'United Kingdom')
 ) v (external_id, reference, sub_total_net, shipping_total_net, original_shipping_total_net, shipping_vat_rate, tax_value, lifecycle_status, delivery_country);
