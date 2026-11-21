@@ -1,32 +1,47 @@
 # ==============================================================================
 # Offline self-contained dev image (tests + linters, no network at runtime)
 # ==============================================================================
-# Build: docker build -f Dockerfile.dev -t alz-core-dev .
-# Run:   docker run --rm --network none alz-core-dev make test
-# Bakes vendor (with dev deps), .env and a migrated Postgres 17 `testing` DB.
+# Build: docker build -f Dockerfile.dev $(sed 's/^/--build-arg /' database/baseline/versions.env) -t alz-core-dev .
+# Run:   docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
+# Bakes vendor (with dev deps), .env and the Supabase baseline (ADR-0016), migrated on database `postgres` as role `postgres`.
 # Not included: Redis, Swoole/Octane, integration tests.
 # Uses Dockerfile.dev.dockerignore (BuildKit), not the production .dockerignore.
 # ==============================================================================
 
-FROM serversideup/php:8.4.27-cli
+ARG SUPABASE_POSTGRES_VERSION
+ARG SUPABASE_AUTH_VERSION
+
+FROM supabase/auth:${SUPABASE_AUTH_VERSION} AS auth
+
+FROM supabase/postgres:${SUPABASE_POSTGRES_VERSION}
 
 # intentional: stays root — throwaway sandbox, avoids storage/lint-cache permission friction
 USER root
 
-# CI's extension list (.github/workflows/ci.yml); the base already ships the rest.
-RUN install-php-extensions pgsql bcmath soap intl gd exif
+# CI's extension list (.github/workflows/ci.yml) plus what the php:*-cli images build in.
+RUN apk update && apk add --no-cache \
+      make git \
+      php84 php84-phar php84-openssl php84-tokenizer php84-ctype php84-fileinfo php84-session php84-sodium \
+      php84-posix php84-opcache php84-dom php84-xml php84-xmlreader php84-xmlwriter php84-simplexml \
+      php84-curl php84-mbstring php84-zip php84-pcntl php84-pdo php84-pdo_pgsql php84-pgsql php84-bcmath \
+      php84-soap php84-intl php84-gd php84-exif php84-iconv php84-pecl-redis \
+    && ln -sf /usr/bin/php84 /usr/bin/php
 
 RUN { \
       echo "memory_limit=512M"; \
       echo "zend.assertions=1"; \
       echo "opcache.enable_cli=1"; \
-    } > /usr/local/etc/php/conf.d/zzzz-dev.ini
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-17 \
-    && rm -rf /var/lib/apt/lists/*
+    } > /etc/php84/conf.d/zzzz-dev.ini
 
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
+COPY --from=auth /usr/local/bin/auth /usr/local/bin/auth
+COPY --from=auth /usr/local/etc/auth/migrations /usr/local/etc/auth/migrations
+COPY database/baseline/roles.sql /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
+
+# intentional: a fixed password is safe only because the server never listens beyond loopback.
+ENV POSTGRES_PASSWORD=password
+# intentional: off the image's data volume, so the cluster migrated at build time survives into the image.
+ENV PGDATA=/var/lib/postgresql/baked
 
 WORKDIR /var/www/html
 
@@ -50,7 +65,7 @@ RUN cp .env.example .env \
        } \
     && set_env DB_HOST 127.0.0.1 \
     && set_env DB_PORT 5432 \
-    && set_env DB_DATABASE testing \
+    && set_env DB_DATABASE postgres \
     && set_env DB_USERNAME postgres \
     && set_env DB_PASSWORD password \
     && set_env DB_SSLMODE disable \
@@ -70,20 +85,26 @@ RUN mkdir -p \
     && composer run-script post-autoload-dump \
     && php artisan key:generate
 
-# Single RUN so the layer holds a cleanly stopped cluster.
-# Superuser required: adopt migrations run CREATE ROLE and create the auth schema.
+# Single RUN so the layer holds a cleanly stopped cluster: init, Auth migrations, then Laravel's as non-superuser postgres.
 # intentional: artisan, not `make migrate` — /.dockerenv is absent during docker build.
-RUN pg_ctlcluster 17 main start \
-    && runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "ALTER USER postgres PASSWORD 'password'" \
-    && runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE testing" \
+RUN set -eu \
+    && (docker-entrypoint.sh postgres -D /etc/postgresql -c "data_directory=$PGDATA" -c listen_addresses=127.0.0.1 &) \
+    && until pg_isready -q -h 127.0.0.1 -U postgres; do sleep 1; done \
+    && GOTRUE_DB_DRIVER=postgres \
+       GOTRUE_DB_DATABASE_URL="postgres://supabase_auth_admin:$POSTGRES_PASSWORD@127.0.0.1:5432/postgres" \
+       GOTRUE_DB_MIGRATIONS_PATH=/usr/local/etc/auth/migrations \
+       GOTRUE_JWT_SECRET=baseline-migrate-placeholder-secret-not-used \
+       API_EXTERNAL_URL=http://localhost:9999 \
+       GOTRUE_SITE_URL=http://localhost:3000 \
+       auth migrate \
     && php artisan migrate --force \
-    && pg_ctlcluster 17 main stop
+    && su-exec postgres pg_ctl -D "$PGDATA" -m fast -w stop
 
 COPY --chmod=755 <<'EOF' /usr/local/bin/dev-entrypoint
-#!/bin/bash
-set -euo pipefail
-pg_ctlcluster 17 main start
-until pg_isready -h 127.0.0.1 -p 5432 -q; do sleep 0.2; done
+#!/bin/sh
+set -eu
+su-exec postgres pg_ctl -D /etc/postgresql -o "-c data_directory=$PGDATA -c listen_addresses=127.0.0.1" -w start >/dev/null
+until pg_isready -q -h 127.0.0.1 -U postgres; do sleep 0.2; done
 exec "$@"
 EOF
 

@@ -98,6 +98,14 @@ _Avoid_: "prod snapshot", "prod export", which imply copied rows.
 The class an integration binds in place of its real client when one of its secret credentials is blank outside production; it logs one line per call and does nothing else (HelpScout contact writes, Slack, Google Ads and Bing conversions; ADR-0015).
 _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
+**Supabase baseline**:
+The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production.
+_Avoid_: "Supabase stack", which names the full Supabase CLI stack in local development.
+
+**Supabase look-alike**:
+An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, or a Supabase role).
+_Avoid_: "stand-in", which names the integration class of ADR-0015.
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
@@ -105,6 +113,7 @@ _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 - The **margin midpoint** is derived from the **net margin (single unit)** min/max columns in `catalog.products_view`
 - A product belongs in the ShopWired sale category exactly when it **has any sale**
 - Each **seed slice** is generated from exactly one **seed profile**; a slice's tables are seeded together or not at all
+- A database on the **Supabase baseline** already holds every Supabase-owned object, so no migration needs a **Supabase look-alike**
 - A **tracking number** belongs to exactly one **number pool**
 - A **tracking number** is shown to at most one visitor within the **attribution window**
 - A **call-attributed conversion** carries a **click ID** resolved from the visit record, not from a contact submission
@@ -212,3 +221,4 @@ The earliest ShopWired order date the QBO order sync accepts; orders placed befo
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
 - "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
+- "stand-in" was used for both the ADR-0015 integration class and objects migrations create to imitate Supabase's — resolved (COR-291): **Stand-in** keeps the ADR-0015 meaning; the migration objects are **Supabase look-alikes**.

@@ -45,7 +45,7 @@ Tests do NOT run on stop — run the relevant Pest tests yourself before declari
 ## Production Access
 
 - Production operations (logs, commands, shells, deploys, variables, data) are human-only; agents have no Railway CLI or MCP access here (`.claude/settings.json` denies both).
-- Local `.env` files hold no production credentials: a blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
+- Every value in a local `.env`, the trunk checkout's included, is a non-production value. Copying it into any worktree, test or verify run is safe. A blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
 
 ---
 
@@ -134,7 +134,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
-**Database**: Supabase PostgreSQL (local dev) or Docker PostgreSQL (CI)
+**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production (see `database/AGENTS.md`)
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
