@@ -8,9 +8,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Hardens database authz on public.profiles, access.user_roles and public.user_profiles.
  *
- * Re-runnable: every auth-schema statement sits behind a catalog existence check, since hosted
- * Supabase's postgres role has no CREATE on auth; functions use CREATE OR REPLACE; the view,
- * the public.profiles trigger and policies are dropped and re-created. Forward-only.
+ * Re-runnable: the auth.users email trigger is created only when pg_trigger has none, since the
+ * postgres role holds TRIGGER on auth.users but does not own it, so cannot drop it; functions use
+ * CREATE OR REPLACE; the view, access.get_user_profiles, the public.profiles trigger and policies
+ * are dropped and re-created. Forward-only.
  *
  * @see https://github.com/alzproducts/alz-admin/issues/629 (ADM-59)
  */

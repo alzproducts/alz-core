@@ -40,7 +40,7 @@ COPY database/baseline/roles.sql /docker-entrypoint-initdb.d/init-scripts/99-rol
 
 # intentional: a fixed password is safe only because the server never listens beyond loopback.
 ENV POSTGRES_PASSWORD=password
-# intentional: off the image's data volume, so the cluster migrated at build time survives into the image.
+# intentional: not the default /var/lib/postgresql/data, the usual data-volume mount point, so a mounted volume cannot hide the cluster baked at build time.
 ENV PGDATA=/var/lib/postgresql/baked
 
 WORKDIR /var/www/html
