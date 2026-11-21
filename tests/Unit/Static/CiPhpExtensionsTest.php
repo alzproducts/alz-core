@@ -36,23 +36,25 @@ final class CiPhpExtensionsTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string, string, string}>
+     * @return iterable<string, array{string, string}>
      */
     public static function plantedExtensions(): iterable
     {
-        yield 'bcmath removed from code-style' => ['code-style', 'mbstring, xml, ctype, json, soap', 'code-style#1'];
-        yield 'bcmath removed from security' => ['security', '', 'security#1'];
-        yield 'bcmath disabled after being listed' => ['tests', 'dom, bcmath, :bcmath, redis', 'tests#1'];
-        yield 'none with no later bcmath' => ['mutation-domain', 'bcmath, none, dom', 'mutation-domain#1'];
+        yield 'bcmath removed from code-style' => ['code-style', 'mbstring, xml, ctype, json, soap'];
+        yield 'bcmath removed from security' => ['security', ''];
+        yield 'bcmath disabled after being listed' => ['tests', 'dom, bcmath, :bcmath, redis'];
+        yield 'none with no later bcmath' => ['mutation-domain', 'bcmath, none, dom'];
     }
 
     #[Test]
     #[DataProvider('plantedExtensions')]
-    public function a_step_without_bcmath_fails_the_check(string $job, string $extensions, string $expected): void
+    public function a_step_without_bcmath_fails_the_check(string $job, string $extensions): void
     {
+        $workflow = self::workflow();
+
         $this->assertSame(
-            ['setup-php step does not load bcmath: ' . $expected],
-            CiPhpExtensionsCheck::violations(self::withExtensions(self::workflow(), $job, $extensions), self::composer()),
+            ['setup-php step does not load bcmath: ' . $job . '#' . self::setupPhpIndex($workflow, $job)],
+            CiPhpExtensionsCheck::violations(self::withExtensions($workflow, $job, $extensions), self::composer()),
         );
     }
 
@@ -106,14 +108,25 @@ final class CiPhpExtensionsTest extends TestCase
      */
     private static function withExtensions(array $workflow, string $job, string $extensions): array
     {
+        $index = self::setupPhpIndex($workflow, $job);
         /** @var array{jobs: array<string, array{steps: array<int, array{uses?: string, with: array<string, string>}>}>} $workflow */
+        $workflow['jobs'][$job]['steps'][$index]['with']['extensions'] = $extensions;
+
+        return $workflow;
+    }
+
+    /**
+     * @param array<mixed> $workflow
+     */
+    private static function setupPhpIndex(array $workflow, string $job): int
+    {
+        /** @var array{jobs: array<string, array{steps: array<int, array{uses?: string}>}>} $workflow */
         $index = \array_find_key(
             $workflow['jobs'][$job]['steps'],
             static fn(array $step): bool => ($step['uses'] ?? null) === 'shivammathur/setup-php@v2',
         );
         self::assertIsInt($index);
-        $workflow['jobs'][$job]['steps'][$index]['with']['extensions'] = $extensions;
 
-        return $workflow;
+        return $index;
     }
 }
