@@ -98,7 +98,7 @@ final class CiPhpExtensionsTest extends TestCase
     }
 
     /**
-     * Sets the `extensions` of the job's setup-php step (step index 1 in every job).
+     * Sets the `extensions` of the job's setup-php step.
      *
      * @param array<mixed> $workflow
      *
@@ -107,8 +107,12 @@ final class CiPhpExtensionsTest extends TestCase
     private static function withExtensions(array $workflow, string $job, string $extensions): array
     {
         /** @var array{jobs: array<string, array{steps: array<int, array{uses?: string, with: array<string, string>}>}>} $workflow */
-        self::assertSame('shivammathur/setup-php@v2', $workflow['jobs'][$job]['steps'][1]['uses'] ?? null);
-        $workflow['jobs'][$job]['steps'][1]['with']['extensions'] = $extensions;
+        $index = \array_find_key(
+            $workflow['jobs'][$job]['steps'],
+            static fn(array $step): bool => ($step['uses'] ?? null) === 'shivammathur/setup-php@v2',
+        );
+        self::assertIsInt($index);
+        $workflow['jobs'][$job]['steps'][$index]['with']['extensions'] = $extensions;
 
         return $workflow;
     }
