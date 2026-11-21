@@ -5,7 +5,7 @@ description: Verify alz-core's HTTP API end to end in a private, throwaway stack
 
 # Verify alz-core
 
-One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (the Supabase baseline's Postgres and Auth migrations from `database/baseline/`, plus Redis), migrated as role `postgres` on database `postgres` and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank, so third-party APIs are unreachable.
+One run is one private stack in the current worktree: Compose project `alz-verify-<runId>` (the Supabase baseline's Postgres and Auth migrations from `database/baseline/`, plus Redis), migrated as role `postgres` on database `postgres` and seeded with `dev:seed-fake`, Octane on a free loopback port and a run-scoped queue worker. App processes see only `PATH`, `HOME` and generated keys; every external credential is blank or a non-working placeholder, so third-party APIs are unreachable.
 
 - Covers the HTTP API only; the dashboard and storefront live in alz-admin.
 - Journeys live in the feature map, [`features/README.md`](features/README.md).
@@ -40,7 +40,7 @@ bash .agents/skills/verify/scripts/verify.sh doctor --evidence <dir>
 
 Run after launch and whenever anything looks off. It prints one `guard`/`credential`/`runtime` line per check and exits 1 on any `FAIL`:
 - `guard` lines: each DB and Redis connection resolves to the run's own loopback port, and `octane.port` is the run's HTTP port.
-- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed).
+- `credential` lines: each credential's resolved config is blank, the placeholder, or the run-generated value (compared by hash; nothing is printed). An `-or-absent` mode also passes when the config path does not exist.
 - `runtime` line: xdebug and pcov are off in an app process.
 
 ## Drive
