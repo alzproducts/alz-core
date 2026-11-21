@@ -10,8 +10,10 @@
 -- A human runs it on prod in the Supabase dashboard SQL editor, never through psql:
 --   1. bash database/seed-profile/orders-profile-editor-copy.sh
 --      writes the gitignored examples/seed-profile/orders-profile-editor.sql, with this file's sha256 in place of the sql_sha256 placeholder.
---   2. Paste that copy into the SQL editor, run it, and save the single result cell as examples/seed-profile/orders-profile.json.
---   3. jq -e -f database/seed-profile/orders-profile-output-check.jq examples/seed-profile/orders-profile.json
+--   2. Paste that copy into the SQL editor, run it, and save the single result cell as examples/seed-profile/orders-profile-cell.txt.
+--   3. The editor copies the cell CSV-escaped (outer quotes, inner quotes doubled). Unwrap it:
+--      jq -R 'ltrimstr("\"") | rtrimstr("\"") | gsub("\"\""; "\"") | fromjson' examples/seed-profile/orders-profile-cell.txt > examples/seed-profile/orders-profile.json
+--   4. jq -e -f database/seed-profile/orders-profile-output-check.jq examples/seed-profile/orders-profile.json
 -- No one reads the output until the jq check exits 0; a run of this file unstamped fails it. Local fixture run: orders-profile-fixture.sql.
 WITH bounds AS (
     SELECT date_trunc('month', now()) - interval '12 months' AS window_start, date_trunc('month', now()) AS window_end
