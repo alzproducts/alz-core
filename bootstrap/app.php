@@ -10,6 +10,7 @@ use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\SetCloudflareClientIpMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
 use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
+use App\Presentation\Http\QuickBooks\QuickBooksCallbackExceptionMapper;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -86,6 +87,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // Return null to use Laravel's default 429 response
             return null;
         });
+
+        $exceptions->render(QuickBooksCallbackExceptionMapper::render(...));
 
         // Universal JSON error envelope for all API routes (consistent shape for frontend)
         $exceptions->render(InternalApiExceptionMapper::render(...));
