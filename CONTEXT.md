@@ -91,7 +91,7 @@ A domain-bounded group of tables the synthetic local seed generates together, co
 _Avoid_: "seed tier", which suggests a size setting rather than a domain boundary.
 
 **Seed profile**:
-The committed, aggregate-only description of production's shape (counts and structural distributions, no rows, prices or names) that a **seed slice** is generated from.
+The aggregate-only description of production's shape (counts, distributions and, where a slice needs them, value tuples such as order-line prices; never rows, names or references) that a **seed slice** is generated from.
 _Avoid_: "prod snapshot", "prod export", which imply copied rows.
 
 **Stand-in**:
