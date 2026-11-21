@@ -433,7 +433,7 @@ cmd_doctor() {
     fi
 
     for svc in app worker; do
-        out="$(container_tinker "$svc" "$GUARD_PHP")"
+        out="$(container_tinker "$svc" "$GUARD_PHP" || true)"
         [ -n "$out" ] || { doctor_line FAIL "$svc config did not resolve"; continue; }
         while IFS=' ' read -r kind name value; do
             case "$kind" in
@@ -453,7 +453,7 @@ $out
 EOF
     done
 
-    out="$(container_php app "$DEFAULTS_PHP")"
+    out="$(container_php app "$DEFAULTS_PHP" || true)"
     case "$out" in
         scanned\ 0* | '') doctor_line FAIL "credential-default scan found no config/*.php in the image" ;;
         *)
@@ -467,7 +467,7 @@ EOF
             ;;
     esac
 
-    out="$(container_php app "$KEYS_PHP" | sort | tr '\n' ' ')"
+    out="$({ container_php app "$KEYS_PHP" || true; } | sort | tr '\n' ' ')"
     doctor_line info "non-blank credential keys in app: ${out:-none}"
 
     if [ "$DOCTOR_FAIL" -eq 0 ]; then
