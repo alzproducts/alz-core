@@ -32,6 +32,7 @@
         "microsoft/bingads": "^13.0",
         "microsoft/msads": "^13.0",
         "predis/predis": "^3.2",
+        "quickbooks/v3-php-sdk": "^6.4.1",
         "sentry/sentry-laravel": "^4.0",
         "spatie/laravel-data": "^4.18",
         "theiconic/name-parser": "^1.2",

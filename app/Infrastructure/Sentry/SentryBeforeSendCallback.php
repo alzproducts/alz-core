@@ -49,6 +49,7 @@ final class SentryBeforeSendCallback
 
     public function __invoke(Event $event, ?EventHint $hint): ?Event
     {
+        $event = SentryRequestScrubber::scrub($event);
         $exception = $hint?->exception;
 
         foreach (self::THROTTLED_EXCEPTIONS as $class) {

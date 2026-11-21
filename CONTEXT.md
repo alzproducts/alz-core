@@ -62,6 +62,13 @@ _Avoid_: expecting substring or prefix behaviour — "lam" does not find "lamp".
 A read that reflects every local commit made before it began, by any write path; an edit sent to ShopWired counts only once its webhook commits locally.
 _Avoid_: "real-time", "fresh within N seconds" (a lag bound is a weaker guarantee)
 
+**Raw payment method**:
+The exact processor string ShopWired gives an order (`PayPal`, `Opayo Hosted`, `ShopWired Payments`, `Offline`, …), stored only when it is one of the values alz-core recognises; an order with any other value is rejected at ingest and never stored.
+_Avoid_: "payment method" alone — it means the grouped **Payment method**
+
+**Payment method**:
+The business grouping of a **Raw payment method** (`card`, `paypal`, `credit`, `admin`, `unknown`), which merges Opayo, Sagepay and ShopWired Payments into `card`; `unknown` covers `Offline`.
+
 ### Pricing & margin
 
 **Net margin (single unit)**:
@@ -220,6 +227,9 @@ A warning on a posted **order sync** whose reference now has a different live Sh
 **Mapping key**:
 A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
+
+**Backfill floor date**:
+The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
 
 ## Relationships (QuickBooks order sync)
 

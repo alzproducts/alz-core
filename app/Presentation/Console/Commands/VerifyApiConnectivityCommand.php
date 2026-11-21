@@ -11,6 +11,7 @@ use App\Application\Contracts\Linnworks\ConnectivityClientInterface as Linnworks
 use App\Application\Contracts\MixpanelClientInterface;
 use App\Application\Contracts\ReviewsIoClientInterface;
 use App\Application\Contracts\Shopwired\ConnectivityClientInterface as ShopwiredConnectivityClient;
+use App\Application\QuickBooks\UseCases\FetchQuickBooksCompanyNameUseCase;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Presentation\Console\Traits\FormatsExceptionContextTrait;
 use Illuminate\Console\Command;
@@ -30,7 +31,7 @@ final class VerifyApiConnectivityCommand extends Command
     use FormatsExceptionContextTrait;
 
     protected $signature = 'verify:api
-        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, helpscout, all)}';
+        {client : The API client to verify (reviewsio, mixpanel, googleads, shopwired, linnworks, bingads, helpscout, quickbooks, all)}';
 
     protected $description = 'Verify connectivity and authentication with external API services';
 
@@ -42,7 +43,7 @@ final class VerifyApiConnectivityCommand extends Command
 
         if ($results === null) {
             $this->error("Unknown client: {$client}");
-            $this->line('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, helpscout, all');
+            $this->line('Available: reviewsio, mixpanel, googleads, bingads, shopwired, linnworks, helpscout, quickbooks, all');
 
             return self::FAILURE;
         }
@@ -63,6 +64,7 @@ final class VerifyApiConnectivityCommand extends Command
             'shopwired' => ['shopwired' => $this->verifyShopwired()],
             'linnworks' => ['linnworks' => $this->verifyLinnworks()],
             'helpscout' => ['helpscout' => $this->verifyHelpScout()],
+            'quickbooks' => ['quickbooks' => $this->verifyQuickBooks()],
             'all' => $this->verifyAll(),
             default => null,
         };
@@ -81,6 +83,7 @@ final class VerifyApiConnectivityCommand extends Command
             'shopwired' => $this->verifyShopwired(),
             'linnworks' => $this->verifyLinnworks(),
             'helpscout' => $this->verifyHelpScout(),
+            'quickbooks' => $this->verifyQuickBooks(),
         ];
     }
 
@@ -235,6 +238,23 @@ final class VerifyApiConnectivityCommand extends Command
             return $this->displayAuthFailure($e, 'HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
         } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
             return $this->displayConnectivityFailure($e, 'HELPSCOUT_APP_ID and HELPSCOUT_APP_SECRET in .env');
+        }
+    }
+
+    private function verifyQuickBooks(): bool
+    {
+        $this->info('Verifying QuickBooks...');
+
+        try {
+            $companyName = \app(FetchQuickBooksCompanyNameUseCase::class)->execute();
+            $this->line('  Authentication: OK');
+            $this->line("  Company: {$companyName}");
+
+            return true;
+        } catch (AuthenticationExpiredException $e) {
+            return $this->displayAuthFailure($e, 'reconnect with php artisan quickbooks:connect');
+        } catch (Throwable $e) { // @ignoreException - connectivity test: report failure to user
+            return $this->displayConnectivityFailure($e, 'QUICKBOOKS_* settings in .env');
         }
     }
 

@@ -23,6 +23,7 @@ use App\Providers\MixpanelServiceProvider;
 use App\Providers\NotificationServiceProvider;
 use App\Providers\ProductSearchFeedServiceProvider;
 use App\Providers\QueueObservabilityServiceProvider;
+use App\Providers\QuickBooksServiceProvider;
 use App\Providers\RateLimitServiceProvider;
 use App\Providers\ReviewsIoServiceProvider;
 use App\Providers\RlsDatabaseServiceProvider;
@@ -36,6 +37,7 @@ use App\Providers\Schedule\LinnworksScheduleServiceProvider;
 use App\Providers\Schedule\MixpanelScheduleServiceProvider;
 use App\Providers\Schedule\PopularitySnapshotScheduleServiceProvider;
 use App\Providers\Schedule\QueueMaintenanceScheduleServiceProvider;
+use App\Providers\Schedule\QuickBooksScheduleServiceProvider;
 use App\Providers\Schedule\ReviewsIoScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredDefinitionScheduleServiceProvider;
 use App\Providers\Schedule\ShopwiredScheduleServiceProvider;
@@ -61,6 +63,7 @@ return [
     NotificationServiceProvider::class,
     QueueObservabilityServiceProvider::class,
     ProductSearchFeedServiceProvider::class,
+    QuickBooksServiceProvider::class,
     RateLimitServiceProvider::class,
     ReviewsIoServiceProvider::class,
     RlsDatabaseServiceProvider::class,
@@ -81,6 +84,7 @@ return [
     MixpanelScheduleServiceProvider::class,
     PopularitySnapshotScheduleServiceProvider::class,
     QueueMaintenanceScheduleServiceProvider::class,
+    QuickBooksScheduleServiceProvider::class,
     ReviewsIoScheduleServiceProvider::class,
     InventoryScheduleServiceProvider::class,
     ShopwiredDefinitionScheduleServiceProvider::class,
