@@ -62,6 +62,13 @@ _Avoid_: expecting substring or prefix behaviour — "lam" does not find "lamp".
 A read that reflects every local commit made before it began, by any write path; an edit sent to ShopWired counts only once its webhook commits locally.
 _Avoid_: "real-time", "fresh within N seconds" (a lag bound is a weaker guarantee)
 
+**Raw payment method**:
+The exact processor string ShopWired gives an order (`PayPal`, `Opayo Hosted`, `ShopWired Payments`, `Offline`, …), kept as given; ShopWired can add new values at any time.
+_Avoid_: "payment method" alone — it means the grouped **Payment method**
+
+**Payment method**:
+The business grouping of a **Raw payment method** (`card`, `paypal`, `credit`, `admin`, `unknown`), which merges Opayo, Sagepay and ShopWired Payments into `card`; `unknown` covers `Offline` and any raw value not yet recognised.
+
 ### Pricing & margin
 
 **Net margin (single unit)**:
@@ -196,6 +203,9 @@ _Avoid_: QBO integration (the connection is auth only, not any sync built on it)
 
 **QBO environment**:
 `sandbox` (an Intuit test company, the only one non-production alz-core may reach) or `production` (the real company).
+
+**Backfill floor date**:
+The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
 
 ## Flagged ambiguities
 
