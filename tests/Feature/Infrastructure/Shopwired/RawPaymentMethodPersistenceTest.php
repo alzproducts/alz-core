@@ -32,7 +32,7 @@ use Throwable;
 
 /**
  * Runs against the shared Postgres database inside a rolled-back transaction, asserting
- * only on rows this test seeds (external ids in the 9_298_xxx range).
+ * only on rows this test seeds (external ids in the 2_147_298_xxx range, above real ShopWired order ids).
  */
 #[CoversNothing]
 final class RawPaymentMethodPersistenceTest extends TestCase
@@ -59,42 +59,42 @@ final class RawPaymentMethodPersistenceTest extends TestCase
     #[Test]
     public function a_webhook_order_stores_its_raw_payment_method_on_insert_and_on_update(): void
     {
-        $this->saveWebhookOrder(9_298_001, 'Opayo Hosted');
-        self::assertSame('Opayo Hosted', $this->storedRaw(9_298_001));
+        $this->saveWebhookOrder(2_147_298_001, 'Opayo Hosted');
+        self::assertSame('Opayo Hosted', $this->storedRaw(2_147_298_001));
 
-        $this->saveWebhookOrder(9_298_001, 'PayPal');
-        self::assertSame('PayPal', $this->storedRaw(9_298_001));
+        $this->saveWebhookOrder(2_147_298_001, 'PayPal');
+        self::assertSame('PayPal', $this->storedRaw(2_147_298_001));
     }
 
     #[Test]
     public function a_range_sync_stores_the_raw_payment_method_on_insert_and_on_update(): void
     {
-        $this->bindOrderPage([ShopwiredOrderPayload::order(9_298_011, 'ShopWired Payments', self::CREATED)]);
+        $this->bindOrderPage([ShopwiredOrderPayload::order(2_147_298_011, 'ShopWired Payments', self::CREATED)]);
         $this->runRangeJob();
-        self::assertSame('ShopWired Payments', $this->storedRaw(9_298_011));
+        self::assertSame('ShopWired Payments', $this->storedRaw(2_147_298_011));
 
-        $this->bindOrderPage([ShopwiredOrderPayload::order(9_298_011, 'Credit', self::CREATED)]);
+        $this->bindOrderPage([ShopwiredOrderPayload::order(2_147_298_011, 'Credit', self::CREATED)]);
         $this->runRangeJob();
-        self::assertSame('Credit', $this->storedRaw(9_298_011));
+        self::assertSame('Credit', $this->storedRaw(2_147_298_011));
         self::assertSame([], $this->jobFailures);
     }
 
     #[Test]
     public function a_re_fetch_fills_a_backlog_row_and_a_second_re_fetch_leaves_it_unchanged(): void
     {
-        $this->saveWebhookOrder(9_298_021, 'Sagepay Form');
-        DB::table(self::TABLE)->where('external_id', 9_298_021)->update(['payment_method_raw' => null]);
-        self::assertNull($this->storedRaw(9_298_021));
+        $this->saveWebhookOrder(2_147_298_021, 'Sagepay Form');
+        DB::table(self::TABLE)->where('external_id', 2_147_298_021)->update(['payment_method_raw' => null]);
+        self::assertNull($this->storedRaw(2_147_298_021));
 
-        $this->bindOrderPage([ShopwiredOrderPayload::order(9_298_021, 'Sagepay Form', self::CREATED)]);
+        $this->bindOrderPage([ShopwiredOrderPayload::order(2_147_298_021, 'Sagepay Form', self::CREATED)]);
         $this->runRangeJob();
-        $afterFirst = $this->storedRow(9_298_021);
+        $afterFirst = $this->storedRow(2_147_298_021);
 
         $this->runRangeJob();
 
         self::assertSame('Sagepay Form', $afterFirst['payment_method_raw']);
-        self::assertSame($afterFirst['payment_method_raw'], $this->storedRaw(9_298_021));
-        self::assertSame($afterFirst['payment_method'], $this->storedRow(9_298_021)['payment_method']);
+        self::assertSame($afterFirst['payment_method_raw'], $this->storedRaw(2_147_298_021));
+        self::assertSame($afterFirst['payment_method'], $this->storedRow(2_147_298_021)['payment_method']);
         self::assertSame([], $this->jobFailures);
     }
 
@@ -102,8 +102,8 @@ final class RawPaymentMethodPersistenceTest extends TestCase
     public function an_unknown_payment_method_in_a_page_fails_the_job_once_and_saves_none_of_the_page(): void
     {
         $this->bindOrderPage([
-            ShopwiredOrderPayload::order(9_298_031, 'Opayo Hosted', self::CREATED),
-            ShopwiredOrderPayload::order(9_298_032, 'Klarna', self::CREATED),
+            ShopwiredOrderPayload::order(2_147_298_031, 'Opayo Hosted', self::CREATED),
+            ShopwiredOrderPayload::order(2_147_298_032, 'Klarna', self::CREATED),
         ]);
 
         $this->runRangeJob();
@@ -113,34 +113,34 @@ final class RawPaymentMethodPersistenceTest extends TestCase
         self::assertInstanceOf(InvalidApiResponseException::class, $failure['exception']);
         self::assertSame('Unknown payment method: Klarna', $failure['exception']->detail);
         self::assertSame(1, $failure['attempts']);
-        self::assertSame(0, DB::table(self::TABLE)->whereIn('external_id', [9_298_031, 9_298_032])->count());
+        self::assertSame(0, DB::table(self::TABLE)->whereIn('external_id', [2_147_298_031, 2_147_298_032])->count());
     }
 
     #[Test]
     public function a_stored_raw_payment_method_reads_back_as_its_enum_case(): void
     {
-        $this->saveWebhookOrder(9_298_041, 'PayPal');
+        $this->saveWebhookOrder(2_147_298_041, 'PayPal');
 
-        self::assertSame(RawPaymentMethod::PayPal, $this->readBack(9_298_041)->rawPaymentMethod);
+        self::assertSame(RawPaymentMethod::PayPal, $this->readBack(2_147_298_041)->rawPaymentMethod);
     }
 
     #[Test]
     public function a_null_raw_payment_method_reads_back_as_null(): void
     {
-        $this->saveWebhookOrder(9_298_051, 'PayPal');
-        DB::table(self::TABLE)->where('external_id', 9_298_051)->update(['payment_method_raw' => null]);
+        $this->saveWebhookOrder(2_147_298_051, 'PayPal');
+        DB::table(self::TABLE)->where('external_id', 2_147_298_051)->update(['payment_method_raw' => null]);
 
-        self::assertNull($this->readBack(9_298_051)->rawPaymentMethod);
+        self::assertNull($this->readBack(2_147_298_051)->rawPaymentMethod);
     }
 
     #[Test]
     public function an_unrecognised_stored_raw_payment_method_reads_back_as_null_and_logs_an_error(): void
     {
-        $this->saveWebhookOrder(9_298_061, 'PayPal');
-        DB::table(self::TABLE)->where('external_id', 9_298_061)->update(['payment_method_raw' => 'Bogus']);
+        $this->saveWebhookOrder(2_147_298_061, 'PayPal');
+        DB::table(self::TABLE)->where('external_id', 2_147_298_061)->update(['payment_method_raw' => 'Bogus']);
         Log::spy();
 
-        $order = $this->readBack(9_298_061);
+        $order = $this->readBack(2_147_298_061);
 
         self::assertNull($order->rawPaymentMethod);
         Log::shouldHaveReceived('error')
