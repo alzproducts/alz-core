@@ -12,7 +12,8 @@ FORBIDDEN_PORTS='54322 5432 6379 8000 8001'
 
 # Every credential key an env() call under config/ reads: KEY:mode:config.path[,config.path]
 # mode: blank (exported empty) | blank-or-absent (exported empty; the config path may also be absent)
-#       | placeholder (non-working value) | run (run-random or run-derived)
+#       | placeholder (non-working value) | placeholder-or-absent (non-working value; the config path may also be absent)
+#       | run (run-random or run-derived)
 CREDENTIAL_KEYS=(
     'SHOPWIRED_API_KEY:blank:shopwired.api_key'
     'SHOPWIRED_API_SECRET:blank:shopwired.api_secret'
@@ -44,7 +45,8 @@ CREDENTIAL_KEYS=(
     'SENTRY_LARAVEL_DSN:blank:sentry.dsn'
     'APP_KEY:run:app.key'
     'APP_PREVIOUS_KEYS:blank:app.previous_keys'
-    'API_KEY_ENCRYPTION_SECRET:blank:app.api_key_encryption_secret'
+    'QUICKBOOKS_CLIENT_SECRET:placeholder-or-absent:quickbooks.client_secret'
+    'API_KEY_ENCRYPTION_SECRET:run:app.api_key_encryption_secret'
     'SUPABASE_LOCAL_BYPASS_SECRET:run:services.supabase.local_bypass_secret'
     'HORIZON_USER:run:horizon.auth.username'
     'HORIZON_PASSWORD:run:horizon.auth.password'
@@ -271,6 +273,10 @@ build_run_env() {
     set_env SUPABASE_URL "http://127.0.0.1:$supabase_port"
     set_env SUPABASE_LOCAL_TEST_EMAIL dev@alzadmin.test
     set_env EMAIL_PRIMARY verify@example.invalid
+    set_env QUICKBOOKS_ENVIRONMENT sandbox
+    set_env QUICKBOOKS_CLIENT_ID verify-client-id
+    set_env QUICKBOOKS_REALM_ID 9130000000000001
+    set_env QUICKBOOKS_REDIRECT_URI "http://127.0.0.1:$PORT_HTTP/quickbooks/callback"
     set_env AWS_SHARED_CREDENTIALS_FILE /dev/null
     set_env AWS_CONFIG_FILE /dev/null
     set_env AWS_EC2_METADATA_DISABLED true
@@ -286,7 +292,7 @@ build_run_env() {
         mode="${mode%%:*}"
         case "$mode" in
             blank | blank-or-absent) set_env "$key" '' ;;
-            placeholder) set_env "$key" "$PLACEHOLDER" ;;
+            placeholder | placeholder-or-absent) set_env "$key" "$PLACEHOLDER" ;;
             run)
                 case "$key" in
                     APP_KEY) ;; # set after composer install via key:generate --show
@@ -296,6 +302,7 @@ build_run_env() {
                     SUPABASE_LOCAL_BYPASS_SECRET) set_env "$key" "$bypass" ;;
                     HORIZON_USER) set_env "$key" "verify-$(openssl rand -hex 4)" ;;
                     HORIZON_PASSWORD) set_env "$key" "$(openssl rand -hex 24)" ;;
+                    API_KEY_ENCRYPTION_SECRET) set_env "$key" "$(openssl rand -hex 32)" ;;
                     *) die 1 "no run value defined for $key" ;;
                 esac
                 ;;
@@ -367,6 +374,7 @@ credential_check() {
                 blank) [ "$kind" = null ] || [ "$kind" = empty ] ;;
                 blank-or-absent) [ "$kind" = null ] || [ "$kind" = empty ] || [ "$kind" = missing ] ;;
                 placeholder) [ "$kind" = value ] && [ "$sha" = "$(sha256 "$PLACEHOLDER")" ] ;;
+                placeholder-or-absent) [ "$kind" = missing ] || { [ "$kind" = value ] && [ "$sha" = "$(sha256 "$PLACEHOLDER")" ]; } ;;
                 run) want="$(env_value "$key")" && [ "$kind" = value ] && [ "$sha" = "$(sha256 "$want")" ] ;;
             esac && echo "credential ok $key $path ($mode)" ||
                 { echo "credential FAIL $key $path (want $mode, got $kind)"; fail=1; }
@@ -669,6 +677,8 @@ cmd_test() {
     for entry in "${CREDENTIAL_KEYS[@]}"; do
         key="${entry%%:*}"
         [ "$key" = SUPABASE_LOCAL_BYPASS_SECRET ] && continue
+        # intentional: process env beats phpunit.xml's force, which owns the test values for placeholder keys
+        case "${entry#*:}" in placeholder:* | placeholder-or-absent:*) continue ;; esac
         value="$(env_value "$key")" || die 1 "run.env has no $key"
         test_env+=("$key=$value")
     done
