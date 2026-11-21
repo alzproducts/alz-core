@@ -121,9 +121,6 @@ parameters:
             - RangeException
             - UnderflowException
             - UnexpectedValueException
-            # PHP Error subclasses BcMath\Number declares; programming errors like LogicException (ADR-0020)
-            - ValueError
-            - ArithmeticError
             # PHPUnit - test-only exceptions
             - PHPUnit\Framework\AssertionFailedError
             - PHPUnit\Framework\Exception
@@ -324,10 +321,27 @@ parameters:
         # This is intentional: domain exceptions for business logic, RuntimeException for infrastructure.
         # Rule disabled globally - consistently produces false positives for valid exception hierarchies.
         - identifier: shipmonk.nonNormalizedType
+        # DateTimeZone constructor throws ValueError for invalid timezone, but we use hardcoded constant.
+        # DateTimeImmutable::createFromFormat throws ValueError for invalid format, but 'U' is always valid.
+        -
+            identifier: missingType.checkedException
+            path: app/Domain/Catalog/CustomFields/ValueObjects/DateTimeCustomFieldValue.php
         # DateInterval constructor throws DateMalformedIntervalStringException, but chunk size is a validated positive-int.
         -
             identifier: missingType.checkedException
             path: app/Domain/ValueObjects/DateRange.php
+        # Popularity::level() division throws DivisionByZeroError only if max=0, but the constructor
+        # asserts max ∈ [2, 100]. PHPStan can't narrow promoted int properties across the fromRank()
+        # factory boundary without breaking the ?int input contract.
+        -
+            identifier: missingType.checkedException
+            path: app/Domain/Catalog/Product/ValueObjects/Popularity.php
+        # BcMath\Number declares ValueError and ArithmeticError; inputs are asserted decimal strings and non-zero divisors (ADR-0022).
+        -
+            identifier: missingType.checkedException
+            paths:
+                - app/Domain/Shared/Money/ValueObjects/DecimalMoney.php
+                - app/Domain/Shared/Money/ValueObjects/VatMultiplier.php
         # Stage 4: Symplify rule exceptions for Laravel/PHP conventions
         # Layer base exceptions follow PHP convention: named after layer, not "Abstract*" prefix
         # Examples: Symfony's HttpException, Laravel's ModelNotFoundException
