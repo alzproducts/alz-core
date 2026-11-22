@@ -73,7 +73,6 @@ logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<serv
 db --evidence <dir> <sql>   read-only SQL against the run Postgres
 test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static
 note --evidence <dir> <text>   append a line to run-notes.md
-artisan --evidence <dir> <command> [args]   php artisan in the app container
 browser   not supported (exit 69)'
 
 usage() {
@@ -555,17 +554,6 @@ cmd_exec() {
     capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
 }
 
-cmd_artisan() {
-    [ "${#ARGS[@]}" -ge 1 ] || die 64 "artisan wants <command> [args]"
-    set_evidence "$EVIDENCE_ARG" existing
-    require_run
-    local name
-    name="$(printf '%s' "${ARGS[0]}" | tr -c 'A-Za-z0-9._-' '-')"
-    note "artisan ${ARGS[*]}"
-    capture artisan "$name.txt" "\$ php artisan ${ARGS[*]} --no-interaction" "artisan ${ARGS[0]}" \
-        dc exec -T app php artisan "${ARGS[@]}" --no-interaction </dev/null
-}
-
 cmd_logs() {
     [ "${#ARGS[@]}" -le 1 ] || die 64 "logs takes at most one service"
     local svc="${ARGS[0]:-}" dirs d f out
@@ -629,7 +617,7 @@ verb="$1"
 shift
 case "$verb" in
     browser) echo "verify: browser is not supported" >&2; exit 69 ;;
-    up | down | doctor | http | exec | logs | db | test | note | artisan) ;;
+    up | down | doctor | http | exec | logs | db | test | note) ;;
     -h | --help) usage ;;
     *) echo "verify: unknown verb: $verb" >&2; usage ;;
 esac
@@ -649,5 +637,4 @@ case "$verb" in
     db) cmd_db ;;
     test) cmd_test ;;
     note) cmd_note ;;
-    artisan) cmd_artisan ;;
 esac

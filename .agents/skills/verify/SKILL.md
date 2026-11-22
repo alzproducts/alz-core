@@ -25,14 +25,13 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 | `doctor` | | Pass/FAIL report under `doctor/` |
 | `http` | `<METHOD> <path> [--data <json>] [--expect <code>]` | One request from inside the app container, as the X-Local-Bypass test user |
 | `exec` | `[<service>] [--] <argv>...` | Runs argv in `app` (default), `worker`, `pgsql` or `redis`; stdin passes through |
-| `artisan` | `<command> [args]` | `php artisan … --no-interaction` in the app container |
 | `logs` | `[<service>]` | Container stdout, then the `<evidence>/logs/<service>/` files |
 | `db` | `<sql>` | Read-only psql as `postgres` in the run's Postgres |
 | `test` | `<paths>...` | Pest in the test sidecar, always with `--exclude-group=repo-static` |
 | `note` | `<text>` | Appends a `run-notes.md` line |
 | `browser` | | Not supported: exits 69 |
 
-Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status ≥ 400); 64 usage; 69 not supported; 75 environment not ready. `exec`, `artisan` and `test` instead return the wrapped command's own exit code, so a 64 or 75 from them can come from the command; the capture's `exit=` line and stderr tell which.
+Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status ≥ 400); 64 usage; 69 not supported; 75 environment not ready. `exec` and `test` instead return the wrapped command's own exit code, so a 64 or 75 from them can come from the command; the capture's `exit=` line and stderr tell which.
 
 ## Workflow
 
@@ -59,13 +58,14 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
    .agents/skills/verify/verify http --evidence <dir> GET /api/user
    .agents/skills/verify/verify db --evidence <dir> 'select count(*) from shopwired.products'
    .agents/skills/verify/verify exec --evidence <dir> worker -- ps aux
-   .agents/skills/verify/verify artisan --evidence <dir> about --only=environment
+   .agents/skills/verify/verify exec --evidence <dir> -- php artisan about --only=environment --no-interaction
    .agents/skills/verify/verify test --evidence <dir> tests/Feature/Infrastructure/Access/EloquentUserApiKeyRepositoryTest.php
    ```
    - **Requests and reads:**
      - `http` picks its persona by `SUPABASE_LOCAL_TEST_EMAIL`, filled with `dev@alzadmin.test` (admin, approved) when the env file leaves it blank; `/api/user` returns the env file's `EMAIL_PRIMARY` as the email. The bypass secret stays inside the container.
      - `http` prints `status=<code>` and the body.
      - `db` runs in a read-only transaction, so a write exits non-zero. Use it to prove stored state.
+     - Run artisan commands through `exec -- php artisan <command> --no-interaction`.
    - **Tests:**
      - `test` runs in the `Dockerfile.verify` sidecar (runtime plus dev deps and `tests/`), with the stack's DB and Redis keys, a fresh `APP_KEY` and `API_KEY_ENCRYPTION_SECRET` per call, and no env file, so `phpunit.xml`'s defaults apply.
      - `repo-static` tests need `.git` and never run here.
@@ -85,7 +85,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 The evidence dir is outside every work tree and survives `down`.
 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
-- `http/`, `exec/`, `artisan/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call. `http/` captures redact the bypass secret.
+- `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call. `http/` captures redact the bypass secret.
 - `logs/<service>/`: each PHP service's `storage/logs`, e.g. `logs/app/laravel.log`, `logs/worker/laravel.log`. Also `logs/compose-up.log`, `logs/compose-down.log` and `logs/<stamp>-<service>.txt` from `logs`.
 - `build/` holds the image build logs; `.verify/` the run bookkeeping, where `compose.env` and `run.env` hold run secrets, so quote nothing from them.
 

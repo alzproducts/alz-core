@@ -9,7 +9,7 @@ The maintained source for verifying alz-core's HTTP API. Read this index, then u
 
 ## Driving conventions
 
-- Drive every journey with the `verify` verbs (`http`, `db`, `exec`, `artisan`, `logs`, `test`) against that run; never against a host Octane or the developer's Supabase.
+- Drive every journey with the `verify` verbs (`http`, `db`, `exec`, `logs`, `test`) against that run; never against a host Octane or the developer's Supabase.
 - The run loads the main checkout's `.env` and allows outbound calls, so a journey that writes to an external API reaches it with the env file's keys. Drive such a journey only where its `up` blanks those keys and a stand-in answers (contact and lead, ADR-0015); each other feature's `Gotchas` names the journeys it does not drive.
 
 ## Feature entry contract
