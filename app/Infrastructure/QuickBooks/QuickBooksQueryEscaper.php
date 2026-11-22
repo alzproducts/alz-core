@@ -44,9 +44,18 @@ final readonly class QuickBooksQueryEscaper
     {
         $distinct = [];
         foreach ($values as $value) {
-            $distinct[\mb_strtolower($value)] ??= $value;
+            $distinct[self::fold($value)] ??= $value;
         }
 
         return \array_chunk(\array_values($distinct), self::MAX_IN_VALUES);
+    }
+
+    /**
+     * The case-folded form QBO's name comparison treats as equal. An all-digit result becomes an int array key, so
+     * use it only to look up, never iterate keys.
+     */
+    public static function fold(string $value): string
+    {
+        return \mb_strtolower($value);
     }
 }

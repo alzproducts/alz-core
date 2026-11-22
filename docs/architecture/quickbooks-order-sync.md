@@ -18,7 +18,7 @@ flowchart LR
     SSV -->|"One order per reference"| UCASE
     UCASE -->|"Order and mapping keys"| BUILD["Document builder"]
     BUILD -->|"Invoice or SalesReceipt"| UCASE
-    UCASE -->|"Customer query, batch create"| ADAPT["QBO adapter"]
+    UCASE -->|"Item and customer queries, batch create"| ADAPT["QBO adapter"]
     ADAPT --> QBO["QuickBooks Online"]
     UCASE -->|"Claim and record"| ROWS[("Order sync rows")]
 ```
@@ -29,7 +29,7 @@ flowchart LR
 | Sync-source view | Gives exactly one order per `reference`, through `shopwired.orders_deduplicated` |
 | Document builder | An Application transformer over Domain tax and routing policy. Turns one order into an Invoice or SalesReceipt draft holding mapping keys, never QBO IDs (ADR-0018), or into a `skipped` (`cancelled`) or `failed` (`zero_lines`, `tax_rate_unsupported`) outcome; it owns the cancelled skip |
 | Sync use case | Picks candidates, applies the stored-row rules, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk and records each outcome |
-| QBO adapter | Maps resolved drafts to QBO payloads, finds and creates customers, and posts each chunk's documents as one SDK batch call (ADR-0019) |
+| QBO adapter | Finds items by SKU, finds and creates customers, maps resolved drafts to QBO payloads, and posts each chunk's documents as one SDK batch call (ADR-0019). It resolves no mapping keys: the use case passes it resolved refs |
 
 - An edited ShopWired order keeps its `reference` and the original row is cancelled. `shopwired.orders_deduplicated` picks the live row, and the cancelled skip is checked on that chosen row, so an edited order is not skipped for its cancelled original.
 - A range request queues a run that walks the range in chunks; a reference request runs the same use case in the request. Both paths share the row-state rules in the contract doc.
@@ -49,7 +49,8 @@ sequenceDiagram
 
     UC->>DB: Claim each row (processing, lease)
     DB-->>UC: Claimed rows
-    UC->>QA: Find or create customers, post chunk
+    UC->>QA: Find items, find or create customers, post chunk
+    QA->>QB: Item query (Name IN)
     QA->>QB: Customer query (DisplayName IN)
     QA->>QB: Create each missing customer
     QA->>QB: Batch create documents

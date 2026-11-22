@@ -10,6 +10,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
@@ -49,6 +50,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(OrderSyncErrorRepositoryInterface::class, EloquentOrderSyncErrorRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
+        $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
         $this->registerRateLimiter();
         $this->registerCacheBackedStores();
     }
@@ -99,6 +101,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             OrderSyncErrorRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,
             QuickBooksClientInterface::class,
+            QuickBooksOrderPostingInterface::class,
             QuickBooksRateLimiter::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,

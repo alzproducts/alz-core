@@ -20,6 +20,7 @@ use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Sleep;
 use Mockery;
@@ -353,6 +354,56 @@ final class QuickBooksTransportTest extends TestCase
         }
     }
 
+    #[Test]
+    public function an_add_returns_the_created_entity(): void
+    {
+        $created = new IPPCustomer();
+
+        $this->assertSame($created, $this->transport([$this->addSession($created, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()));
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function unusableAddResults(): array
+    {
+        return [
+            'unparsed response returned as an exception' => [new Exception('parse failure')],
+            'local refusal' => [new IdsException('refused')],
+            'another entity type' => [new IPPCompanyInfo()],
+            'null' => [null],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('unusableAddResults')]
+    public function an_add_result_that_is_not_the_entity_sent_is_unexpected(mixed $result): void
+    {
+        $this->expectException(UnexpectedApiResultException::class);
+
+        $this->transport([$this->addSession($result, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+    }
+
+    /**
+     * @param class-string<Throwable> $expected
+     */
+    #[Test]
+    #[DataProvider('callFaults')]
+    public function an_add_fault_raises_its_mapped_error(int $status, string $body, string $expected): void
+    {
+        $this->expectException($expected);
+
+        $this->transport([$this->addSession(null, self::fault($status, $body))])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+    }
+
+    #[Test]
+    public function an_add_transport_error_is_unavailable(): void
+    {
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        $this->transport([$this->addSession(new SdkException('curl failed'), false, throws: true)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+    }
+
     private static function token(): ApiKeyToken
     {
         return new ApiKeyToken('access');
@@ -387,6 +438,23 @@ final class QuickBooksTransportTest extends TestCase
     {
         $dataService = Mockery::mock(DataService::class);
         $dataService->shouldReceive('Query')->once()->with(self::QUERY)->andReturn($result);
+        $dataService->shouldReceive('getLastError')->andReturn($lastError);
+
+        return new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient());
+    }
+
+    /**
+     * An IdsException result is thrown, as the SDK throws it for a local refusal; `throws` throws any other exception.
+     */
+    private function addSession(mixed $result, FaultHandler|false $lastError, bool $throws = false): QuickBooksDataServiceSession
+    {
+        $dataService = Mockery::mock(DataService::class);
+        $expectation = $dataService->shouldReceive('Add')->once()->with(Mockery::type(IPPCustomer::class));
+        if ($result instanceof Throwable && ($throws || $result instanceof IdsException)) {
+            $expectation->andThrow($result);
+        } else {
+            $expectation->andReturn($result);
+        }
         $dataService->shouldReceive('getLastError')->andReturn($lastError);
 
         return new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient());

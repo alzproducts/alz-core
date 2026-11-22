@@ -18,7 +18,9 @@ use Exception;
 use Illuminate\Support\Sleep;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
+use QuickBooksOnline\API\Data\IPPIntuitEntity;
 use QuickBooksOnline\API\DataService\DataService;
+use QuickBooksOnline\API\Exception\IdsException;
 use Random\RandomException;
 use SensitiveParameter;
 
@@ -86,6 +88,46 @@ final readonly class QuickBooksTransport
         }
 
         return \array_values(\array_filter($rows, \is_object(...)));
+    }
+
+    /**
+     * Creates one entity, outside any batch.
+     *
+     * @template T of IPPIntuitEntity
+     *
+     * @param class-string<T> $expected
+     *
+     * @return T the created entity as QBO returned it
+     *
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksDeadlineExceededException
+     * @throws QuickBooksFaultException
+     * @throws UnexpectedApiResultException        when the response is not the entity type sent
+     */
+    public function add(#[SensitiveParameter] ApiKeyToken $accessToken, IPPIntuitEntity $entity, string $expected, Deadline $deadline): IPPIntuitEntity
+    {
+        $created = $this->send($accessToken, $deadline, false, static function (DataService $dataService) use ($entity): mixed {
+            try {
+                return $dataService->Add($entity);
+            } catch (IdsException $e) { // @ignoreException - classified below
+                return $e;
+            }
+        });
+
+        // intentional: only a bare IdsException is the SDK refusing the entity before sending; its subclasses (curl errors among them) are transport failures
+        if ($created instanceof IdsException && $created::class !== IdsException::class) {
+            throw $this->transientFailure($created::class, null);
+        }
+
+        // intentional: the SDK returns, not throws, an \Exception when it cannot parse the response, so only the sent type counts as created
+        if (!$created instanceof $expected) {
+            $this->logger->error(self::LOG_PREFIX . ' returned an unexpected create result', ['result_type' => \get_debug_type($created)]);
+
+            throw new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Create result is not the entity sent');
+        }
+
+        return $created;
     }
 
     /**
