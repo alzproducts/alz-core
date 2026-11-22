@@ -1,4 +1,4 @@
-.PHONY: help install migrate db-reset-full seed-fake pint pint-test testtest-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -181,9 +181,13 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity and real-Slack tests; matches CI)
+test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack and real-Redis tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --no-coverage $(TEST_ARGS)
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --no-coverage $(TEST_ARGS)
+
+test-redis: ## Run the tests that need a live Redis (start it with make redis)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
 
 test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
 	@echo "$(MODE)"

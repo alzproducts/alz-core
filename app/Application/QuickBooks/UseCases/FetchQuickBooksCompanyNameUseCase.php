@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use DateTimeImmutable;
@@ -38,6 +39,7 @@ final readonly class FetchQuickBooksCompanyNameUseCase
      *
      * @throws AuthenticationExpiredException      when there is no connection, or Intuit rejects the grant or token
      * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      * @throws LockAcquisitionException
