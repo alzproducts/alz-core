@@ -118,6 +118,17 @@ final class QuickBooksCustomerProvisionerTest extends TestCase
     }
 
     #[Test]
+    public function a_name_with_edge_spaces_queries_trimmed_and_matches_its_row(): void
+    {
+        $this->transport->shouldReceive('query')->once()
+            ->with(Mockery::any(), "SELECT * FROM Customer WHERE Active IN (true, false) AND DisplayName IN ('Jo Bloggs') MAXRESULTS 1000", Mockery::any())
+            ->andReturn([self::customer('Jo Bloggs', '3')]);
+        $this->transport->shouldNotReceive('add');
+
+        $this->assertSame('3', $this->provision([self::draft(' Jo Bloggs ')])->forDisplayName(' Jo Bloggs ')?->match?->id);
+    }
+
+    #[Test]
     public function an_inactive_first_hit_is_inactive_and_creates_nothing(): void
     {
         $this->transport->shouldReceive('query')->once()->andReturn([self::customer('Jo Bloggs', '1', active: 'false'), self::customer('Jo Bloggs', '2')]);

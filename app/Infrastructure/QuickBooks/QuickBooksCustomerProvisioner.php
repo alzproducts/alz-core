@@ -50,7 +50,7 @@ final readonly class QuickBooksCustomerProvisioner
 
         $resolutions = [];
         foreach ($drafts as $draft) {
-            $row = $found[QuickBooksQueryEscaper::fold($draft->displayName)] ?? null;
+            $row = $found[self::key($draft->displayName)] ?? null;
             $resolutions[] = $row === null
                 ? $this->create($accessToken, $draft, $deadline)
                 : $this->resolved($draft->displayName, $row);
@@ -68,7 +68,7 @@ final readonly class QuickBooksCustomerProvisioner
     {
         $distinct = [];
         foreach ($customers as $customer) {
-            $distinct[QuickBooksQueryEscaper::fold($customer->displayName)] ??= $customer;
+            $distinct[self::key($customer->displayName)] ??= $customer;
         }
 
         return \array_values($distinct);
@@ -88,7 +88,7 @@ final readonly class QuickBooksCustomerProvisioner
     private function find(#[SensitiveParameter] ApiKeyToken $accessToken, array $displayNames, Deadline $deadline): array
     {
         $found = [];
-        foreach (QuickBooksQueryEscaper::chunks($displayNames) as $chunk) {
+        foreach (QuickBooksQueryEscaper::chunks(\array_map(\mb_trim(...), $displayNames)) as $chunk) {
             $query = 'SELECT * FROM Customer WHERE Active IN (true, false) AND DisplayName IN '
                 . QuickBooksQueryEscaper::inList($chunk)
                 . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
@@ -98,7 +98,7 @@ final readonly class QuickBooksCustomerProvisioner
                     throw $this->unexpected('Customer query returned another entity');
                 }
 
-                $found[QuickBooksQueryEscaper::fold(self::text($row->DisplayName) ?? '')] ??= $row;
+                $found[self::key(self::text($row->DisplayName) ?? '')] ??= $row;
             }
         }
 
@@ -141,7 +141,7 @@ final readonly class QuickBooksCustomerProvisioner
         QuickBooksFault $fault,
         Deadline $deadline,
     ): CustomerResolutionDTO {
-        $row = $this->find($accessToken, [$displayName], $deadline)[QuickBooksQueryEscaper::fold($displayName)] ?? null;
+        $row = $this->find($accessToken, [$displayName], $deadline)[self::key($displayName)] ?? null;
 
         return $row === null
             ? CustomerResolutionDTO::failed($displayName, CustomerFailureKind::NameClash, $fault)
@@ -167,6 +167,14 @@ final readonly class QuickBooksCustomerProvisioner
             displayName: self::text($customer->DisplayName) ?? $displayName,
             salesTermRef: self::reference($customer->SalesTermRef),
         ));
+    }
+
+    /**
+     * Trimmed, because a returned row's DisplayName is read trimmed: an order name with edge spaces must still find it.
+     */
+    private static function key(string $displayName): string
+    {
+        return QuickBooksQueryEscaper::fold(\mb_trim($displayName));
     }
 
     /**
