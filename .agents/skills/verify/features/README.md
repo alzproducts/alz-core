@@ -4,17 +4,17 @@ The maintained source for verifying alz-core's HTTP API. Read this index, then u
 
 ## Baseline preconditions
 
-- A run launched with `verify.sh launch` from the worktree under test; `doctor` exits 0 on its evidence dir.
+- A run brought up with `.agents/skills/verify/verify up` from the worktree under test; `doctor` exits 0 on its evidence dir.
 - Data comes only from `dev:seed-fake` (products slice); brands, orders and customers stay empty (ADR-0013).
 
 ## Driving conventions
 
-- Drive every journey with `verify.sh http` and `verify.sh db` against the launched run; never against port 8000/8001.
-- Journeys that write to an external API are coverable only where a stand-in answers with credentials blank (contact and lead, ADR-0015); each other feature's `Gotchas` names its uncoverable ones.
+- Drive every journey with the `verify` verbs (`http`, `db`, `exec`, `artisan`, `logs`, `test`) against that run; never against a host Octane or the developer's Supabase.
+- The run loads the main checkout's `.env` and allows outbound calls, so a journey that writes to an external API reaches it with the env file's keys. Drive such a journey only where its `up` blanks those keys and a stand-in answers (contact and lead, ADR-0015); each other feature's `Gotchas` names the journeys it does not drive.
 
 ## Feature entry contract
 
-Each feature file has an H1 title, one paragraph on the user-visible behaviour, then four H2s in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with verify.sh` (opening with `Preconditions:`), `Gotchas`.
+Each feature file has an H1 title, one paragraph on the user-visible behaviour, then four H2s in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with verify` (opening with `Preconditions:`), `Gotchas`.
 
 ## Features
 

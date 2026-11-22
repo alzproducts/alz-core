@@ -70,6 +70,14 @@ storage/framework/views/*
 !storage/framework/sessions/.gitkeep
 !storage/framework/testing/.gitkeep
 !storage/framework/views/.gitkeep
+# Host-built package and provider manifests list dev packages the image lacks
+bootstrap/cache/*.php
+
+# ------------------------------------------------------------------------------
+# Agent and scratch directories
+# ------------------------------------------------------------------------------
+tmp/
+.claude/
 
 # ------------------------------------------------------------------------------
 # Development Tools
