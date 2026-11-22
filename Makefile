@@ -314,7 +314,7 @@ ifneq ($(CI),true)
 	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
 		echo "Supabase already running"; \
 	else \
-		(cd $(ALZ_ADMIN) && pnpm exec supabase start); \
+		(cd $(ALZ_ADMIN) && pnpm exec supabase start) && \
 		$(MAKE) db-reset-full; \
 	fi
 endif
