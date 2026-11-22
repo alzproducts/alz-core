@@ -287,6 +287,8 @@ See [`docs/guides/assertion-validation-reference.md`](docs/guides/assertion-vali
 
 **Run commands via Make**: `make lint`, `make test`, etc. Run `make help` for all targets.
 
+**macOS make (GNU Make 3.81) ignores `.SHELLFLAGS`**: recipes run without `-e`/`pipefail`, so join a recipe step that must not run after a failure with `&&`, never `;`.
+
 ## Code Quality & Linting
 
 **CRITICAL**: We maintain strict code quality standards with five linters + mutation testing.
