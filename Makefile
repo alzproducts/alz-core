@@ -277,7 +277,8 @@ migrate: ## Run database migrations
 # migrate:reset, or db:wipe directly - they destroy Supabase auth tables.
 # Use this target instead for safe, coordinated resets.
 
-db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic products seed)
+# intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic products seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
 	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic products seed.$(NC)"
 	@echo ""
@@ -305,12 +306,17 @@ seed-fake: ## Seed the synthetic products slice (add ARGS=--fresh to replace an 
 # Requires ALZ_ADMIN env var pointing to alz-admin project
 # Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin
 
-supabase-start: ## Start Supabase services (PostgreSQL, Auth, Storage)
+supabase-start: ## Start Supabase services; a stopped stack is started then reset from empty (make db-reset-full)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 ifneq ($(CI),true)
-	@cd $(ALZ_ADMIN) && (pnpm exec supabase status 2>/dev/null | grep -qi "running\|started" && echo "Supabase already running" || pnpm exec supabase start)
+	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
+		echo "Supabase already running"; \
+	else \
+		(cd $(ALZ_ADMIN) && pnpm exec supabase start) && \
+		$(MAKE) db-reset-full; \
+	fi
 endif
 
 supabase-functions: ## Start Supabase Edge Functions dev server (long-running)
@@ -334,7 +340,7 @@ ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
-	cd $(ALZ_ADMIN) && pnpm db:setup-local
+	cd $(ALZ_ADMIN) && ALZ_CORE_PATH="$(CURDIR)" pnpm db:setup-local
 	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
 
 supabase-seed-users: ## Seed test users only (no DB reset)

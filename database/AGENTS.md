@@ -38,6 +38,8 @@ This runs a preflight and two steps in sequence:
 
 > Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema; step 2 creates the business tables (linnworks, shopwired, etc.) and fills the products slice.
 
+**`make supabase-start` runs this same reset whenever it starts a stopped stack**; on a running stack it resets nothing. A failed start-triggered reset fails `make supabase-start`; recover with `make db-reset-full`.
+
 ### What Gets Wiped
 
 `make db-reset-full` destroys **all local data**: the seeded products slice, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and re-seeds the synthetic slice.

@@ -139,7 +139,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
-**Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`. EXCEPTION: resets and seeding (`make db-reset-full`, `make supabase-reset`) need the user's go-ahead.
+**Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`, including the `make db-reset-full` that `make supabase-start` runs on a stopped stack. EXCEPTION: a manual reset or seed (`make db-reset-full`, `make supabase-reset`) needs the user's go-ahead.
 
 **Fresh worktree → run `make install` first**; NEVER `composer install` or an `APP_ENV` override by hand. Steps: [`docs/guides/local-setup.md`](docs/guides/local-setup.md).
 
@@ -286,6 +286,8 @@ See [`docs/guides/assertion-validation-reference.md`](docs/guides/assertion-vali
 **Single Source of Truth**: Makefile owns all build/test/quality command implementations. The `composer.json` scripts delegate to Makefile targets.
 
 **Run commands via Make**: `make lint`, `make test`, etc. Run `make help` for all targets.
+
+**macOS make (GNU Make 3.81) ignores `.SHELLFLAGS`**: recipes run without `-e`/`pipefail`, so join a recipe step that must not run after a failure with `&&`, never `;`.
 
 ## Code Quality & Linting
 
