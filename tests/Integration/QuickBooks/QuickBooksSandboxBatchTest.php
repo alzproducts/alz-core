@@ -27,6 +27,7 @@ use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksInvoiceMapper;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksSalesReceiptMapper;
+use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
 use App\Infrastructure\QuickBooks\QuickBooksDocumentBatchCreator;
 use App\Infrastructure\QuickBooks\QuickBooksFaultMapper;
@@ -166,7 +167,14 @@ final class QuickBooksSandboxBatchTest extends TestCase
 
         $counts = \array_count_values($kinds);
         self::report('batch maximum probe', ['items' => self::QBO_BATCH_MAXIMUM, 'seconds' => \round($seconds, 2), 'outcomes' => $counts]);
-        self::assertSame([BatchOutcomeKind::Created->value => self::QBO_BATCH_MAXIMUM], $counts, 'OVERTURN: QBO caps a batch below its documented maximum');
+        self::assertArrayNotHasKey(BatchOutcomeKind::Faulted->value, $counts, 'OVERTURN: QBO caps a batch below its documented maximum');
+
+        // intentional: a curl timeout leaves every item ambiguous, which says nothing about QBO's cap
+        if ($counts === [BatchOutcomeKind::Ambiguous->value => self::QBO_BATCH_MAXIMUM] && $seconds >= QuickBooksCurlHttpClient::TIMEOUT_SECONDS) {
+            self::markTestIncomplete(\sprintf('LATENCY, not an overturn: the %d-item batch took %.2f s, at or past the %d s curl timeout', self::QBO_BATCH_MAXIMUM, $seconds, QuickBooksCurlHttpClient::TIMEOUT_SECONDS));
+        }
+
+        self::assertSame([BatchOutcomeKind::Created->value => self::QBO_BATCH_MAXIMUM], $counts, 'QBO did not create every item of its documented batch maximum');
     }
 
     /**
