@@ -37,7 +37,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 
 1. **Up.**
    ```bash
-   .agents/skills/verify/verify up --evidence <abs dir outside every work tree> [--env-override KEY=VALUE]...
+   .agents/skills/verify/verify up --evidence <abs dir> [--env-override KEY=VALUE]...
    ```
    - A first build takes several minutes: run `up` in the background.
    - The evidence dir must sit outside every git work tree and hold no `.verify/` from an earlier run.
@@ -64,7 +64,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
    - **Requests and reads:**
      - `http` picks its persona by `SUPABASE_LOCAL_TEST_EMAIL`, filled with `dev@alzadmin.test` (admin, approved) when the env file leaves it blank; `/api/user` returns the env file's `EMAIL_PRIMARY` as the email. The bypass secret stays inside the container.
      - `http` prints `status=<code>` and the body.
-     - `db` runs in a read-only transaction, so a write exits non-zero. Use it to prove stored state.
+     - `db` runs in a read-only transaction, so a write exits non-zero.
      - Run artisan commands through `exec -- php artisan <command> --no-interaction`.
    - **Tests:**
      - `test` runs in the `Dockerfile.verify` sidecar (runtime plus dev deps and `tests/`), with the stack's DB and Redis keys, a fresh `APP_KEY` and `API_KEY_ENCRYPTION_SECRET` per call, and no env file, so `phpunit.xml`'s defaults apply.
@@ -82,7 +82,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 
 ## Evidence
 
-The evidence dir is outside every work tree and survives `down`.
+The evidence dir survives `down`.
 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
 - `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call. `http/` captures redact the bypass secret.

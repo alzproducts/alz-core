@@ -18,7 +18,7 @@ Preconditions:
 
 - A fresh `up` per journey: each journey mutates the seed, and the script refuses a run that already served one (exit 64).
 - `doctor` exits 0.
-- For a load run, bring the run up with `--env-override OCTANE_WORKERS=<n>`, where `<n>` is production's worker count. Production is human-only, so ask the user for it; `docker-compose.prod.yml` sets 2. Without the override the run takes the env file's value, or Octane's fallback of 4, and can measure queueing instead of the endpoint.
+- For a load run, bring the run up with `--env-override OCTANE_WORKERS=<n>`, where `<n>` is production's worker count: ask the user for it; `docker-compose.prod.yml` sets 2. Without the override the run takes the env file's value, or Octane's fallback of 4, and can measure queueing instead of the endpoint.
 
 `features/products-perf.sh` drives both journeys against an `up` run through `verify exec`, with cwd = the worktree under test; `products-perf.php` is its in-container side.
 
@@ -33,7 +33,7 @@ Preconditions:
 - **Writer timing.** `.agents/skills/verify/features/products-perf.sh writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
   - Prints `<writer> median_ms= runs_ms=` and `result=<evidence>/bench/writers-<stamp>.json`; with `--baseline`, also `<writer> ratio=<head/base> head_median_ms= base_median_ms=` against that dir's latest `bench/writers-*.json`.
-- **Baseline at an earlier commit.** The base commit must contain f20d5c74, which adds the `Dockerfile.verify` that `up` builds the test image from, and must have the repository methods `products-perf.php` calls. An older base fails `up` at the test-image build.
+- **Baseline at an earlier commit.** The base commit must contain f20d5c74 (it adds `Dockerfile.verify`) and the repository methods `products-perf.php` calls; an older base fails `up` at the test-image build.
   1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base).
   2. With cwd = that worktree, run this worktree's `verify` and `products-perf.sh` by absolute path: `up --evidence <base dir>`, `writers --evidence <base dir>`, `down --evidence <base dir>`.
   3. With cwd = the head worktree: `up --evidence <head dir>`, `writers --evidence <head dir> --baseline <base dir>`, `down --evidence <head dir>`.
