@@ -23,8 +23,7 @@ final class RelatedProductsAlgorithmSql
             . self::exclusionCte()
             . self::pinsCtes()
             . self::selfExcludedCtes()
-            . self::scoredPairsCte()
-            . self::rankingCtes()
+            . RelatedProductsPairScoringSql::ctes()
             . self::combinedNormalBranches()
             . self::combinedSelfExcludedBranch()
             . 'SELECT product_external_id, related_external_id, position
@@ -85,7 +84,7 @@ final class RelatedProductsAlgorithmSql
     private static function exclusionCte(): string
     {
         return <<<'SQL'
-        product_exclusions AS (
+        product_exclusions AS MATERIALIZED (
             SELECT ap.id AS product_id,
                 (COALESCE(CASE WHEN jsonb_typeof(ap.custom_fields->'series_products') = 'array'
                      THEN ARRAY(SELECT jsonb_array_elements_text(ap.custom_fields->'series_products')::int)
@@ -143,58 +142,6 @@ final class RelatedProductsAlgorithmSql
                 ON jsonb_typeof(pinner.custom_fields->'related_pins') = 'array'
                 AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(pinner.custom_fields->'related_pins') pin_id
                     WHERE pin_id::int = se.external_id)
-        ),
-
-        SQL;
-    }
-
-    /** scored_pairs CTE — cross-product scoring: category Jaccard + title trigram + popularity */
-    private static function scoredPairsCte(): string
-    {
-        return <<<'SQL'
-        scored_pairs AS (
-            SELECT a.id AS product_id, a.external_id AS product_external_id,
-                b.external_id AS related_external_id,
-                COALESCE(array_length(
-                    ARRAY(SELECT unnest(a.cat_ids) INTERSECT SELECT unnest(b.cat_ids)), 1
-                ), 0)::numeric
-                / NULLIF(COALESCE(array_length(
-                    ARRAY(SELECT unnest(a.cat_ids) UNION SELECT unnest(b.cat_ids)), 1
-                ), 0), 0) * par.category_weight AS cat_score,
-                similarity(a.title, b.title)::numeric * par.title_weight AS title_score,
-                (b.final_score / mp.max_score) * par.popularity_weight AS pop_score
-            FROM active_products a CROSS JOIN active_products b
-            CROSS JOIN params par CROSS JOIN max_pop mp
-            LEFT JOIN product_exclusions pe ON pe.product_id = a.id
-            WHERE a.id != b.id
-              AND (pe.excluded_external_ids IS NULL OR b.external_id != ALL(pe.excluded_external_ids))
-              AND NOT EXISTS (SELECT 1 FROM resolved_pins rp
-                  WHERE rp.product_id = a.id AND rp.pinned_product_id = b.id)
-              AND (b.custom_fields->>'related_exclude_self' IS NULL
-                   OR b.custom_fields->>'related_exclude_self' = '')
-        ),
-
-        SQL;
-    }
-
-    /** ranked + algorithmic_results CTEs */
-    private static function rankingCtes(): string
-    {
-        return <<<'SQL'
-        ranked AS (
-            SELECT *, COALESCE(cat_score, 0) + title_score + pop_score AS total_score,
-                ROW_NUMBER() OVER (
-                    PARTITION BY product_id
-                    ORDER BY (COALESCE(cat_score, 0) + title_score + pop_score) DESC
-                ) AS rn
-            FROM scored_pairs
-        ), algorithmic_results AS (
-            SELECT r.product_id, r.product_external_id, r.related_external_id,
-                (COALESCE(pc.num_pins, 0) + r.rn)::smallint AS position
-            FROM ranked r CROSS JOIN params par
-            LEFT JOIN pin_counts pc ON pc.product_id = r.product_id
-            WHERE r.rn <= (par.max_results - COALESCE(pc.num_pins, 0))
-              AND (COALESCE(r.cat_score, 0) + r.title_score) >= par.min_content_score
         ),
 
         SQL;
