@@ -6,7 +6,8 @@
     "permissions": {
         "allow": [
             "Bash(php artisan migrate:*)",
-            "Bash(php artisan shopwired:audit-*)"
+            "Bash(php artisan shopwired:audit-*)",
+            "Bash(make supabase-start)"
         ],
         "deny": [
             "Bash(railway *)",

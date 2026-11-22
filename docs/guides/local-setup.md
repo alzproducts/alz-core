@@ -25,7 +25,7 @@ make test
 1. Creates `.env` when it is missing (`bin/install-env`). An existing `.env` is never overwritten.
 2. `composer install`.
 3. `php artisan key:generate`, only when `APP_KEY` is blank.
-4. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN`, or skips it when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead (see [`database/AGENTS.md`](../../database/AGENTS.md)).
+4. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN` and resets a stack it starts from empty with `make db-reset-full`, or skips both when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead (see [`database/AGENTS.md`](../../database/AGENTS.md)).
 5. `make redis`: starts Redis in Docker.
 6. `php artisan migrate`: forward-only migrations against the shared local database. It never resets or wipes it.
 
@@ -41,6 +41,6 @@ The main checkout is the first entry of `git worktree list`.
 
 ## Next steps
 
-- **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds a production-shaped products slice (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data.
+- **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds a production-shaped products slice (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data. `make supabase-start` runs it whenever it starts a stopped stack, so every fresh boot starts from this seed.
 - **Dev server:** `php artisan octane:start --watch`.
 - **Integration tests:** `make test-integration`, after `make db-reset-full`.
