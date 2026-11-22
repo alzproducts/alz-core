@@ -81,6 +81,10 @@ Every database alz-core migrates runs Supabase's images, with migrations run as 
 2. Re-link in `${FRONTEND_APP}` (`supabase link`); `supabase/.temp/gotrue-version` → `SUPABASE_AUTH_VERSION`.
 3. Edit `versions.env`; CI rebuilds the dev image from it.
 
+## Seeded Faker
+
+- DO take a seeded Faker from the container (`make(Generator::class, ['locale' => ...])`), never `Faker\Factory::create()`: a discarded generator's `__destruct()` reseeds the global MT whenever the cycle collector frees it, silently breaking any seeded run in flight. Canonical: `OrderSliceGenerator`.
+
 ## Octane Safety
 
 **Never use `static` variables in connection callbacks** - they persist across Octane requests, causing security issues. Use Laravel Context or just run the operation every time.
