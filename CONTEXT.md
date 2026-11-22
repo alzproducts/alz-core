@@ -236,7 +236,7 @@ A semantic name the document builder emits (a tax treatment, payment route or fi
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 
 **Backfill floor date**:
-The earliest ShopWired order date a date-range sync may start from; a sync by **reference** checks no floor.
+The earliest ShopWired order date the sync accepts, at both entry points: a date-range sync may not start before it, and a sync by **reference** rejects any reference whose order was placed before it.
 
 ## Relationships (QuickBooks order sync)
 

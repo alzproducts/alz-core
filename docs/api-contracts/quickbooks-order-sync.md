@@ -156,6 +156,8 @@ Syncs the given references in the request and returns one outcome per reference.
 
 An empty array, more than 10 items, a duplicate or a non-integer item returns 422 `validation_error` keyed under `references` (or `references.<index>` for one item).
 
+A request with any reference whose order was placed before the floor date (see [Range limits](#range-limits)) returns 422 `validation_error` keyed under `references`, and nothing in it is synced. Until the floor date is set, every request fails closed the same way. A reference with no order passes this check and returns `skipped` (`order_not_found`).
+
 ### Responses
 
 | Status | Body |
@@ -363,7 +365,7 @@ For each reference, first match wins:
 | Endpoint | Success | Body / query limits |
 |----------|---------|---------------------|
 | `POST /api/quickbooks/orders/sync-range` | 202 `{message, run_id, candidate_count}` | `from`, `to` `YYYY-MM-DD`; `to` ≥ `from`; `to` ≤ today; ≤ 31 days inclusive; `from` ≥ floor; `force_retry` optional |
-| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; `force_retry` optional |
+| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; every order placed ≥ floor; `force_retry` optional |
 | `GET /api/quickbooks/orders/failed` | 200 `{data, links, meta}` | `status` `failed` \| `changed_after_sync`; `page`; `per_page` ≤ 1000, default 50 |
 
 | Response | ADM action |
