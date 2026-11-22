@@ -8,6 +8,8 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use SensitiveParameter;
 
 /**
@@ -20,7 +22,8 @@ interface QuickBooksClientInterface
      *
      * @throws AuthenticationExpiredException      when the access token is rejected (401 or 403)
      * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksFaultException            on any other QuickBooks Fault
      * @throws UnexpectedApiResultException        on a missing company or a blank name
      */
-    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken): string;
+    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): string;
 }

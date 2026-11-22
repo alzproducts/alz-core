@@ -15,6 +15,9 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,6 +25,8 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class FetchQuickBooksCompanyNameUseCase
 {
+    private const int DEADLINE_SECONDS = 30;
+
     public function __construct(
         private QuickBooksTokenService $tokens,
         private QuickBooksClientInterface $client,
@@ -33,6 +38,7 @@ final readonly class FetchQuickBooksCompanyNameUseCase
      *
      * @throws AuthenticationExpiredException      when there is no connection, or Intuit rejects the grant or token
      * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      * @throws LockAcquisitionException
      * @throws InvalidApiResponseException
@@ -47,7 +53,7 @@ final readonly class FetchQuickBooksCompanyNameUseCase
         $accessToken = $this->tokens->accessToken();
 
         try {
-            $name = $this->client->companyName($accessToken);
+            $name = $this->client->companyName($accessToken, Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS));
         } catch (AuthenticationExpiredException $e) {
             // A rejected token must not be served from cache again; the next call refreshes.
             $this->tokens->forgetAccessToken();

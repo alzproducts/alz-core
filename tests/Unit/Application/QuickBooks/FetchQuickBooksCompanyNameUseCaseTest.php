@@ -10,6 +10,7 @@ use App\Application\QuickBooks\UseCases\FetchQuickBooksCompanyNameUseCase;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -44,7 +45,7 @@ final class FetchQuickBooksCompanyNameUseCaseTest extends TestCase
     public function it_returns_the_company_name_using_the_current_access_token(): void
     {
         $this->tokens->shouldReceive('accessToken')->once()->andReturn($this->accessToken);
-        $this->client->shouldReceive('companyName')->once()->with($this->accessToken)->andReturn('Sandbox Company_US_1');
+        $this->client->shouldReceive('companyName')->once()->with($this->accessToken, Mockery::type(Deadline::class))->andReturn('Sandbox Company_US_1');
         $this->tokens->shouldNotReceive('forgetAccessToken');
 
         $this->assertSame('Sandbox Company_US_1', $this->useCase()->execute());

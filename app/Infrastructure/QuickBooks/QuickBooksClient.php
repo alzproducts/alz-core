@@ -9,6 +9,8 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use Override;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Data\IPPCompanyInfo;
@@ -26,12 +28,13 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface
      *
      * @throws AuthenticationExpiredException      when the access token is rejected (401 or 403)
      * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksFaultException            on any other QuickBooks Fault
      * @throws UnexpectedApiResultException        on a missing company or a blank name
      */
     #[Override]
-    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken): string
+    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): string
     {
-        $companyInfo = $this->transport->companyInfo($accessToken);
+        $companyInfo = $this->transport->companyInfo($accessToken, $deadline);
         if (!$companyInfo instanceof IPPCompanyInfo) {
             throw $this->unexpected('CompanyInfo missing from response');
         }

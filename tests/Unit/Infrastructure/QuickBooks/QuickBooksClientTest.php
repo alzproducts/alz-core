@@ -7,8 +7,10 @@ namespace Tests\Unit\Infrastructure\QuickBooks;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -27,7 +29,7 @@ final class QuickBooksClientTest extends TestCase
     #[Test]
     public function it_returns_the_company_name(): void
     {
-        $this->assertSame('Sandbox Company_US_1', $this->clientReturning(self::companyInfo('Sandbox Company_US_1'))->companyName(new ApiKeyToken('access')));
+        $this->assertSame('Sandbox Company_US_1', $this->clientReturning(self::companyInfo('Sandbox Company_US_1'))->companyName(new ApiKeyToken('access'), self::deadline()));
     }
 
     #[Test]
@@ -35,7 +37,7 @@ final class QuickBooksClientTest extends TestCase
     public function an_unusable_result_raises_unexpected_api_result(mixed $result, string $reason): void
     {
         try {
-            $this->clientReturning($result)->companyName(new ApiKeyToken('access'));
+            $this->clientReturning($result)->companyName(new ApiKeyToken('access'), self::deadline());
             $this->fail('Expected UnexpectedApiResultException');
         } catch (UnexpectedApiResultException $e) {
             $this->assertSame($reason, $e->reason);
@@ -63,7 +65,12 @@ final class QuickBooksClientTest extends TestCase
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        (new QuickBooksClient($transport, new NullLogger()))->companyName(new ApiKeyToken('access'));
+        (new QuickBooksClient($transport, new NullLogger()))->companyName(new ApiKeyToken('access'), self::deadline());
+    }
+
+    private static function deadline(): Deadline
+    {
+        return Deadline::after(new DateTimeImmutable(), 30);
     }
 
     private static function companyInfo(?string $name): IPPCompanyInfo
