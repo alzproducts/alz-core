@@ -17,7 +17,7 @@ final class SalesReceiptDraftTransformer
     {
         return new SalesReceiptDraftDTO(
             $core,
-            'A' . $order->reference,
+            DocumentFieldTextResolver::referenceNumber($order->reference),
             StructuredAddressDTO::fromContact($order->billing),
             StructuredAddressDTO::fromContact($order->delivery),
             DocumentFieldTextResolver::transactionId($order->transactionId),

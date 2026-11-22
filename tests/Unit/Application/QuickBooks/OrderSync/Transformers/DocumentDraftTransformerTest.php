@@ -137,7 +137,7 @@ final class DocumentDraftTransformerTest extends TestCase
         $outcome = self::build(SyncOrderFixture::order(
             lines: [],
             shippingTotalNet: '5.00',
-            shippingVatRate: '17.5',
+            shippingVatRate: 17.5,
         ));
 
         self::assertSame(BuildStatus::Failed, $outcome->status);
@@ -147,22 +147,19 @@ final class DocumentDraftTransformerTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string|null}>
+     * @return iterable<string, array{float|null}>
      */
     public static function unsupportedRates(): iterable
     {
-        yield 'fractional' => ['20.5'];
-        yield 'trailing non-zero fraction' => ['20.0001'];
-        yield 'negative' => ['-20'];
-        yield 'exponent' => ['2e1'];
-        yield 'other whole rate' => ['5'];
+        yield 'fractional' => [20.5];
+        yield 'tiny fraction above standard' => [20.0001];
+        yield 'other whole rate' => [5.0];
         yield 'null' => [null];
-        yield 'not a number' => ['abc'];
     }
 
     #[Test]
     #[DataProvider('unsupportedRates')]
-    public function it_fails_an_unsupported_goods_rate(?string $rate): void
+    public function it_fails_an_unsupported_goods_rate(?float $rate): void
     {
         self::assertFailedForUnsupportedRate(self::build(SyncOrderFixture::order(
             lines: [SyncOrderFixture::line(), SyncOrderFixture::line(vatRate: $rate)],
@@ -171,7 +168,7 @@ final class DocumentDraftTransformerTest extends TestCase
 
     #[Test]
     #[DataProvider('unsupportedRates')]
-    public function it_fails_an_unsupported_rate_on_a_non_zero_shipping_line(?string $rate): void
+    public function it_fails_an_unsupported_rate_on_a_non_zero_shipping_line(?float $rate): void
     {
         self::assertFailedForUnsupportedRate(self::build(SyncOrderFixture::order(
             shippingTotalNet: '4.99',
@@ -188,43 +185,41 @@ final class DocumentDraftTransformerTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string, SupportedVatRate}>
+     * @return iterable<string, array{float, TaxKey}>
      */
     public static function supportedRates(): iterable
     {
-        yield '20' => ['20', SupportedVatRate::Standard];
-        yield '20.0' => ['20.0', SupportedVatRate::Standard];
-        yield '20.000000' => ['20.000000', SupportedVatRate::Standard];
-        yield '0' => ['0', SupportedVatRate::Zero];
-        yield '0.0' => ['0.0', SupportedVatRate::Zero];
-        yield 'leading zero' => ['020.00', SupportedVatRate::Standard];
+        yield '20.0' => [20.0, TaxKey::Standard];
+        yield '0.0' => [0.0, TaxKey::Zero];
     }
 
     #[Test]
     #[DataProvider('supportedRates')]
-    public function it_matches_a_supported_rate_by_decimal_value(string $rate, SupportedVatRate $expected): void
+    public function it_builds_a_line_for_a_supported_rate(float $rate, TaxKey $expected): void
     {
-        self::assertSame($expected, SupportedVatRate::fromRate($rate, '10042'));
+        $draft = self::invoice(SyncOrderFixture::order(lines: [SyncOrderFixture::line(vatRate: $rate)]));
+
+        self::assertSame($expected, $draft->core->goodsLines[0]->taxKey);
     }
 
     /**
-     * @return iterable<string, array{string, string, TaxKey, TaxKey}>
+     * @return iterable<string, array{float, string, TaxKey, TaxKey}>
      */
     public static function taxKeys(): iterable
     {
-        yield 'UK standard' => ['20.0', 'United Kingdom', TaxKey::Standard, TaxKey::Standard];
-        yield 'UK zero' => ['0.0', 'United Kingdom', TaxKey::Zero, TaxKey::Zero];
-        yield 'Ireland zero' => ['0.0', 'Ireland', TaxKey::EuGoods, TaxKey::EuShipping];
-        yield 'Ireland standard' => ['20.0', 'Ireland', TaxKey::Standard, TaxKey::Standard];
-        yield 'lower-case ireland' => ['0.0', 'ireland', TaxKey::Zero, TaxKey::Zero];
-        yield 'padded Ireland' => ['0.0', ' Ireland', TaxKey::Zero, TaxKey::Zero];
-        yield 'IE' => ['0.0', 'IE', TaxKey::Zero, TaxKey::Zero];
+        yield 'UK standard' => [20.0, 'United Kingdom', TaxKey::Standard, TaxKey::Standard];
+        yield 'UK zero' => [0.0, 'United Kingdom', TaxKey::Zero, TaxKey::Zero];
+        yield 'Ireland zero' => [0.0, 'Ireland', TaxKey::EuGoods, TaxKey::EuShipping];
+        yield 'Ireland standard' => [20.0, 'Ireland', TaxKey::Standard, TaxKey::Standard];
+        yield 'lower-case ireland' => [0.0, 'ireland', TaxKey::Zero, TaxKey::Zero];
+        yield 'padded Ireland' => [0.0, ' Ireland', TaxKey::Zero, TaxKey::Zero];
+        yield 'IE' => [0.0, 'IE', TaxKey::Zero, TaxKey::Zero];
     }
 
     #[Test]
     #[DataProvider('taxKeys')]
     public function it_picks_goods_and_shipping_tax_keys_as_the_zap_does(
-        string $rate,
+        float $rate,
         string $deliveryCountry,
         TaxKey $goodsKey,
         TaxKey $shippingKey,
@@ -244,7 +239,7 @@ final class DocumentDraftTransformerTest extends TestCase
     public function it_keys_ireland_on_the_delivery_country_not_the_billing_country(): void
     {
         $draft = self::invoice(SyncOrderFixture::order(
-            lines: [SyncOrderFixture::line(unitPriceVat: '0', vatRate: '0.0')],
+            lines: [SyncOrderFixture::line(unitPriceVat: '0', vatRate: 0.0)],
             billing: SyncOrderFixture::contact(country: 'Ireland'),
         ));
 
@@ -288,7 +283,7 @@ final class DocumentDraftTransformerTest extends TestCase
         self::assertSame('2026-11-02 14:30:00', $draft->core->txnDate->format('Y-m-d H:i:s'));
         self::assertSame('buyer@example.test', $draft->core->billEmail);
         self::assertSame([FixedRefKey::Department, FixedRefKey::SalesClass], $draft->fixedRefKeys());
-        self::assertSame('PO-77', $draft->poNumber);
+        self::assertSame('PO-77', $draft->poNumberCustomField);
         self::assertSame('Next Day', $draft->shipVia);
         self::assertSame(
             "Alex Buyer\nAcme Ltd\n1 High Street\nFlat 2\n\nLeeds, AB1 2CD\nUnited Kingdom",
@@ -324,7 +319,7 @@ final class DocumentDraftTransformerTest extends TestCase
         self::assertSame('A10042', $receipt->core->docNumber);
         self::assertSame('A10042', $receipt->paymentRefNum);
         self::assertSame([FixedRefKey::Department], $receipt->fixedRefKeys());
-        self::assertSame('PAY-123', $receipt->transactionId);
+        self::assertSame('PAY-123', $receipt->transactionIdCustomField);
         self::assertSame(
             ['1 High Street', 'Flat 2', 'Leeds', 'AB1 2CD', 'United Kingdom'],
             [
@@ -347,7 +342,7 @@ final class DocumentDraftTransformerTest extends TestCase
             transactionId: '{{txn}}',
         ));
 
-        self::assertSame('', $receipt->transactionId);
+        self::assertSame('', $receipt->transactionIdCustomField);
     }
 
     #[Test]

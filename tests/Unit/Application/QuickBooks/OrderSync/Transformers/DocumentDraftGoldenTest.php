@@ -29,7 +29,7 @@ final class DocumentDraftGoldenTest extends TestCase
     public function ireland_zero_rated_goods(): void
     {
         $core = self::core(SyncOrderFixture::order(
-            lines: [SyncOrderFixture::line(unitPrice: '10.000000', unitPriceVat: '0.000000', vatRate: '0.0')],
+            lines: [SyncOrderFixture::line(unitPrice: '10.000000', unitPriceVat: '0.000000', vatRate: 0.0)],
             delivery: SyncOrderFixture::contact(country: 'Ireland'),
         ));
 
@@ -41,10 +41,10 @@ final class DocumentDraftGoldenTest extends TestCase
     public function ireland_zero_rated_shipping(): void
     {
         $core = self::core(SyncOrderFixture::order(
-            lines: [SyncOrderFixture::line(unitPrice: '10.000000', unitPriceVat: '0.000000', vatRate: '0.0')],
+            lines: [SyncOrderFixture::line(unitPrice: '10.000000', unitPriceVat: '0.000000', vatRate: 0.0)],
             delivery: SyncOrderFixture::contact(country: 'Ireland'),
             shippingTotalNet: '5.000000',
-            shippingVatRate: '0.0',
+            shippingVatRate: 0.0,
         ));
 
         self::assertShippingLine($core, '5.00', TaxKey::EuShipping);
@@ -66,7 +66,7 @@ final class DocumentDraftGoldenTest extends TestCase
     public function zero_rated_goods(): void
     {
         $core = self::core(SyncOrderFixture::order(
-            lines: [SyncOrderFixture::line(unitPrice: '12.500000', unitPriceVat: '0.000000', vatRate: '0.0')],
+            lines: [SyncOrderFixture::line(unitPrice: '12.500000', unitPriceVat: '0.000000', vatRate: 0.0)],
         ));
 
         self::assertGoodsLine($core, 0, '12.5000000', 1, '12.50', TaxKey::Zero);

@@ -46,7 +46,7 @@ final class LineDraftTransformer
             return null;
         }
 
-        $rate = SupportedVatRate::fromRate($order->shippingVatRate, $order->reference);
+        $rate = SupportedVatRate::fromTaxRate($order->shippingVatRate, $order->reference);
 
         return new ShippingLineDraftDTO(
             $order->shippingTotalNet->round(NetLinePrice::AMOUNT_SCALE),
@@ -59,7 +59,7 @@ final class LineDraftTransformer
      */
     private static function goodsLine(SyncOrderDTO $order, SyncOrderLineDTO $line): GoodsLineDraftDTO
     {
-        $rate = SupportedVatRate::fromRate($line->vatRate, $order->reference);
+        $rate = SupportedVatRate::fromTaxRate($line->vatRate, $order->reference);
         $price = NetLinePrice::fromGross($line->unitPrice, $line->unitPriceVat, $rate, $line->quantity);
 
         return new GoodsLineDraftDTO(

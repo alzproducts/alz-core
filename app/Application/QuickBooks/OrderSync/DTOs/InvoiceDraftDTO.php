@@ -8,13 +8,13 @@ use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\OrderSync\Enums\FixedRefKey;
 
 /**
- * An Invoice with free-form addresses, which keep an empty line for each empty field.
+ * An Invoice with free-form addresses, which keep an empty line for each empty field. The PO number posts to the P.O. Number custom field, never the DocNumber.
  */
 final readonly class InvoiceDraftDTO
 {
     public function __construct(
         public DocumentCoreDTO $core,
-        public string $poNumber,
+        public string $poNumberCustomField,
         public string $shipVia,
         public string $billingAddressText,
         public string $shippingAddressText,

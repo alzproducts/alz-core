@@ -18,7 +18,7 @@ final readonly class SalesReceiptDraftDTO
         public string $paymentRefNum,
         public StructuredAddressDTO $billingAddress,
         public StructuredAddressDTO $shippingAddress,
-        public string $transactionId,
+        public string $transactionIdCustomField,
         public ?PaymentKey $paymentKey,
     ) {}
 

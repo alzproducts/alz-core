@@ -10,6 +10,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderLineDTO;
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
 
 final class SyncOrderFixture
@@ -24,7 +25,7 @@ final class SyncOrderFixture
         ?OrderContactDTO $billing = null,
         ?OrderContactDTO $delivery = null,
         string $shippingTotalNet = '0.000000',
-        ?string $shippingVatRate = '20.0',
+        ?float $shippingVatRate = 20.0,
         string $shippingMethod = 'Next Day Delivery',
         string $comments = '',
         string $transactionId = '',
@@ -41,7 +42,7 @@ final class SyncOrderFixture
             delivery: $delivery ?? self::contact(name: 'Sam Carer', company: 'Care Home Ltd'),
             shippingMethod: $shippingMethod,
             shippingTotalNet: DecimalMoney::fromString($shippingTotalNet),
-            shippingVatRate: $shippingVatRate,
+            shippingVatRate: self::taxRate($shippingVatRate),
             comments: $comments,
             transactionId: $transactionId,
             lines: $lines ?? [self::line()],
@@ -52,7 +53,7 @@ final class SyncOrderFixture
         string $unitPrice = '8.333333',
         string $unitPriceVat = '1.666667',
         int $quantity = 1,
-        ?string $vatRate = '20.0',
+        ?float $vatRate = 20.0,
         string $title = 'Easy Grip Cutlery',
         string $sku = 'ALZ-001',
     ): SyncOrderLineDTO {
@@ -62,8 +63,13 @@ final class SyncOrderFixture
             $quantity,
             DecimalMoney::fromString($unitPrice),
             DecimalMoney::fromString($unitPriceVat),
-            $vatRate,
+            self::taxRate($vatRate),
         );
+    }
+
+    private static function taxRate(?float $percentage): ?TaxRate
+    {
+        return $percentage === null ? null : TaxRate::fromPercentage($percentage);
     }
 
     public static function contact(

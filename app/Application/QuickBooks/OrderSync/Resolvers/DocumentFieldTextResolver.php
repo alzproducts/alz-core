@@ -14,6 +14,14 @@ final class DocumentFieldTextResolver
     private const int SHIP_VIA_MAX_LENGTH = 31;
 
     /**
+     * The reference both document types post: the invoice's DocNumber and the sales receipt's DocNumber and PaymentRefNum.
+     */
+    public static function referenceNumber(string $orderReference): string
+    {
+        return 'A' . $orderReference;
+    }
+
+    /**
      * Removes only the first `:` and the first `;`, as the Zap's single string replace does.
      */
     public static function removeInvalidChars(string $value): string

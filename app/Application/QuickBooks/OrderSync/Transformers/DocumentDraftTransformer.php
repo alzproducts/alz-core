@@ -10,6 +10,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderLineDTO;
 use App\Application\QuickBooks\OrderSync\Enums\FailReason;
 use App\Application\QuickBooks\OrderSync\Enums\SkipReason;
+use App\Application\QuickBooks\OrderSync\Resolvers\DocumentFieldTextResolver;
 use App\Application\QuickBooks\OrderSync\Results\DocumentBuildResult;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\OrderSync\Exceptions\UnsupportedVatRateException;
@@ -63,7 +64,7 @@ final class DocumentDraftTransformer
     private static function core(SyncOrderDTO $order, array $lines, DocType $docType, DocumentRunLabelsDTO $labels): DocumentCoreDTO
     {
         return new DocumentCoreDTO(
-            $labels->docNumberPrefix . 'A' . $order->reference,
+            $labels->docNumberPrefix . DocumentFieldTextResolver::referenceNumber($order->reference),
             $order->createdAt,
             $order->billingEmail,
             CustomerDraftTransformer::build($order, $docType, $labels),

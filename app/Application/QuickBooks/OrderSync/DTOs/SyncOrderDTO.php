@@ -6,6 +6,7 @@ namespace App\Application\QuickBooks\OrderSync\DTOs;
 
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
+use App\Domain\ValueObjects\TaxRate;
 use DateTimeImmutable;
 use Webmozart\Assert\Assert;
 
@@ -28,7 +29,7 @@ final readonly class SyncOrderDTO
         public OrderContactDTO $delivery,
         public string $shippingMethod,
         public DecimalMoney $shippingTotalNet,
-        public ?string $shippingVatRate,
+        public ?TaxRate $shippingVatRate,
         public string $comments,
         public string $transactionId,
         public array $lines,

@@ -13,13 +13,13 @@ final class UnsupportedVatRateException extends DomainException
 {
     public function __construct(
         public readonly string $orderReference,
-        public readonly ?string $rate,
+        public readonly ?float $rate,
     ) {
         parent::__construct('VAT rate is not supported by the QuickBooks order sync');
     }
 
     /**
-     * @return array{order_reference: string, rate: string|null}
+     * @return array{order_reference: string, rate: float|null}
      */
     public function context(): array
     {

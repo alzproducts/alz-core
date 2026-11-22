@@ -13,6 +13,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(DocumentFieldTextResolver::class)]
 final class DocumentFieldTextResolverTest extends TestCase
 {
+    #[Test]
+    public function it_prefixes_the_order_reference_with_a_for_the_reference_number(): void
+    {
+        self::assertSame('A10042', DocumentFieldTextResolver::referenceNumber('10042'));
+    }
+
     /**
      * @return iterable<string, array{string, string}>
      */
