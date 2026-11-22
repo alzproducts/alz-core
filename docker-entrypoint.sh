@@ -85,14 +85,18 @@ if [ "${SKIP_DB_CHECK}" != "true" ]; then
     MAX_RETRIES=${DB_CONNECT_RETRIES:-90}
     RETRY_COUNT=0
 
+    # intentional: opens a connection only; db:show needs the intl extension, absent from the runtime image
+    DB_CHECK_CODE='DB::connection(getenv("DB_CONNECTION") ?: "pgsql")->getPdo();'
+
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if php artisan db:show --database="${DB_CONNECTION:-pgsql}" > /dev/null 2>&1; then
+        if DB_CHECK_OUTPUT=$(php artisan tinker --execute="$DB_CHECK_CODE" 2>&1); then
             log_success "Database connection established"
             break
         else
             RETRY_COUNT=$((RETRY_COUNT + 1))
             if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
                 log_error "Failed to connect to database after $MAX_RETRIES attempts"
+                log_error "Last error: ${DB_CHECK_OUTPUT}"
                 exit 1
             fi
             log_warning "Database not ready, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
