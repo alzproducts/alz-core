@@ -235,6 +235,10 @@ A warning on a posted **order sync** whose reference now has a different live Sh
 A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 
+**Resolved mapping key**:
+A **mapping key** whose row holds a QBO ref for the connected company's realm; a null ref or another realm's ref leaves it unresolved.
+_Avoid_: treating "mapped" and "resolved" as different states
+
 **Backfill floor date**:
 The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
 
