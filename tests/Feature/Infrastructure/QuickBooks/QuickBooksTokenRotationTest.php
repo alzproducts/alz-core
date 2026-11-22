@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Application\QuickBooks;
+namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\Access\ApiKeyCipherInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
@@ -24,7 +24,7 @@ use Tests\TestCase;
  * Container-wired: the real encrypting repository, the configured token cache and lock, and a faked Intuit.
  */
 #[CoversClass(QuickBooksTokenService::class)]
-final class QuickBooksTokenServiceTest extends TestCase
+final class QuickBooksTokenRotationTest extends TestCase
 {
     use DatabaseTransactions;
 
