@@ -130,7 +130,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - Never implement on `main`, `develop`, or a `worktree/*` branch. Worktree branches are scratch/session containers, not feature branches.
 - Do not switch to unrelated branches mid-task.
 
-**Updating an existing PR:** `EnterWorktree` (by `path`) to bind the session to the PR's branch before editing — editing via raw paths from the `develop` checkout strands the change (commits land on `develop`, not the branch). Commit + push there. Do not `ExitWorktree` afterward — successive PR edits reuse the worktree; the user runs cleanup.
+**Updating an existing PR:** `EnterWorktree` (by `path`) to bind the session to the PR's branch before editing — editing via raw paths from the `develop` checkout strands the change (commits land on `develop`, not the branch). Commit + push there. Do not `ExitWorktree` between successive edits to an open PR — they reuse the worktree. Once the PR merges, remove your own worktree and branch; cleanup is not the user's job.
 
 ## Development Environment
 
