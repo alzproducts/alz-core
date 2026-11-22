@@ -7,6 +7,8 @@ namespace App\Infrastructure\QuickBooks;
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
@@ -28,6 +30,7 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
     public function __construct(
         private QuickBooksTransport $transport,
         private QuickBooksCustomerProvisioner $customers,
+        private QuickBooksDocumentBatchCreator $documents,
         private LoggerInterface $logger,
     ) {}
 
@@ -95,6 +98,21 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
     public function findOrCreateCustomers(#[SensitiveParameter] ApiKeyToken $accessToken, array $customers, Deadline $deadline): CustomerResolutionResult
     {
         return $this->customers->findOrCreate($accessToken, $customers, $deadline);
+    }
+
+    /**
+     * @param non-empty-list<PostableDocumentDTO> $documents
+     *
+     * @return non-empty-list<BatchItemOutcomeResult>
+     *
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException when the limiter is down before the first send; nothing was sent
+     * @throws QuickBooksDeadlineExceededException when the call cannot start before the deadline; nothing was sent
+     */
+    #[Override]
+    public function createDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $documents, Deadline $deadline): array
+    {
+        return $this->documents->create($accessToken, $documents, $deadline);
     }
 
     /**

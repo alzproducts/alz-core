@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Contracts\QuickBooks;
 
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
@@ -18,7 +20,7 @@ use App\Domain\Shared\ValueObjects\Deadline;
 use SensitiveParameter;
 
 /**
- * Posting orders to QuickBooks Online: the item and customer finds a document needs. Names match ignoring case,
+ * Posting orders to QuickBooks Online: the item and customer finds a document needs, and the document creates. Names match ignoring case,
  * and nothing is cached between calls (ADR-0011).
  */
 interface QuickBooksOrderPostingInterface
@@ -47,4 +49,18 @@ interface QuickBooksOrderPostingInterface
      * @throws UnexpectedApiResultException        when a row or created customer lacks an id
      */
     public function findOrCreateCustomers(#[SensitiveParameter] ApiKeyToken $accessToken, array $customers, Deadline $deadline): CustomerResolutionResult;
+
+    /**
+     * Creates the documents in one batch call. Once the call may have reached QBO, every failure but a rejected token is
+     * an outcome: `Ambiguous` means QBO may hold the document.
+     *
+     * @param non-empty-list<PostableDocumentDTO> $documents 1 to 20, never split
+     *
+     * @return non-empty-list<BatchItemOutcomeResult> one per document, in input order
+     *
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException when the limiter is down before the first send; nothing was sent
+     * @throws QuickBooksDeadlineExceededException when the call cannot start before the deadline; nothing was sent
+     */
+    public function createDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $documents, Deadline $deadline): array;
 }

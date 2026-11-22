@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\QuickBooks;
 
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -19,10 +20,12 @@ use Illuminate\Support\Sleep;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
 use QuickBooksOnline\API\Data\IPPIntuitEntity;
+use QuickBooksOnline\API\DataService\Batch;
 use QuickBooksOnline\API\DataService\DataService;
 use QuickBooksOnline\API\Exception\IdsException;
 use Random\RandomException;
 use SensitiveParameter;
+use Throwable;
 
 /**
  * Accounting API calls through the SDK: the only class that calls it. Each attempt, a 429 retry included, gets a fresh
@@ -128,6 +131,92 @@ final readonly class QuickBooksTransport
         }
 
         return $created;
+    }
+
+    /**
+     * Creates the entities in one batch call, item `i` under bId `i + 1`. Once the call may have reached QBO, a failure is
+     * reported per item rather than thrown, so the caller can record what is unknown.
+     *
+     * @param non-empty-list<IPPIntuitEntity> $entities
+     *
+     * @throws AuthenticationExpiredException      on a 401 or 403, or an Authentication or Authorization Fault
+     * @throws ExternalServiceUnavailableException when the limiter is down before the first send; nothing was sent
+     * @throws QuickBooksDeadlineExceededException when the call cannot start in time; nothing was sent
+     */
+    public function executeBatch(#[SensitiveParameter] ApiKeyToken $accessToken, array $entities, Deadline $deadline): QuickBooksBatchExecution
+    {
+        $this->awaitStart($deadline, true);
+
+        for ($retry = 0; ; ++$retry) {
+            $session = $this->dataServices->create($accessToken);
+            $batch = $this->sendBatch($session, $entities);
+            if ($batch === null) {
+                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous());
+            }
+
+            $error = QuickBooksFaultMapper::faultOrNull($batch->getLastError());
+            if ($error === null) {
+                $responses = $batch->ReadOnlyCollection();
+
+                return QuickBooksBatchExecution::responses(\is_array($responses) ? $responses : []);
+            }
+
+            if (QuickBooksFaultMapper::status($error) !== self::TOO_MANY_REQUESTS) {
+                return self::batchFailure($this->callFailure($error, $session->httpClient));
+            }
+
+            $retryAfter = $session->httpClient->retryAfterSeconds();
+            $wait = \max(self::backoffSeconds($retry), (float) ($retryAfter ?? 0));
+            if (!$this->awaitRetry($deadline, true, $wait)) {
+                $this->logTransient(ExternalServiceUnavailableException::class, self::TOO_MANY_REQUESTS);
+
+                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::rateLimited($retryAfter ?? (int) \ceil($wait)));
+            }
+        }
+    }
+
+    /**
+     * @param non-empty-list<IPPIntuitEntity> $entities
+     *
+     * @return Batch|null null when building or sending the batch threw
+     */
+    private function sendBatch(QuickBooksDataServiceSession $session, array $entities): ?Batch
+    {
+        $batch = null;
+        $thrown = null;
+
+        try {
+            $batch = $session->dataService->CreateNewBatch();
+            foreach ($entities as $index => $entity) {
+                $batch->AddEntity($entity, (string) ($index + 1), 'create');
+            }
+
+            $batch->Execute();
+        } catch (Throwable $e) { // @ignoreException - the SDK throws Exceptions and, on odd Fault codes, TypeErrors; translated below
+            $thrown = $e::class;
+        }
+
+        // intentional: logged outside the catch so the SDK exception cannot become `previous` (see class doc)
+        if ($thrown !== null) {
+            $this->logTransient($thrown, null);
+
+            return null;
+        }
+
+        return $batch;
+    }
+
+    /**
+     * @throws AuthenticationExpiredException
+     */
+    private static function batchFailure(
+        AuthenticationExpiredException|ExternalServiceUnavailableException|QuickBooksFaultException $failure,
+    ): QuickBooksBatchExecution {
+        return match (true) {
+            $failure instanceof AuthenticationExpiredException => throw $failure,
+            $failure instanceof QuickBooksFaultException => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::faulted($failure->fault)),
+            default => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous()),
+        };
     }
 
     /**
@@ -277,11 +366,16 @@ final readonly class QuickBooksTransport
         ?int $status,
         ?ExternalServiceUnavailableException $failure = null,
     ): ExternalServiceUnavailableException {
+        $this->logTransient($exceptionClass, $status);
+
+        return $failure ?? new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME);
+    }
+
+    private function logTransient(string $exceptionClass, ?int $status): void
+    {
         $this->logThrottle->logTransient(QuickBooksOAuthHttpTransport::SERVICE_NAME, self::LOG_PREFIX . ' request failed', [
             'status' => $status,
             'exception' => $exceptionClass,
         ]);
-
-        return $failure ?? new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME);
     }
 }

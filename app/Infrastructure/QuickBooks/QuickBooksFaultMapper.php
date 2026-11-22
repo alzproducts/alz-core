@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\QuickBooks;
 
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
@@ -11,6 +12,9 @@ use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
 use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
+use QuickBooksOnline\API\Data\IPPIntuitEntity;
+use QuickBooksOnline\API\DataService\IntuitBatchResponse;
+use QuickBooksOnline\API\Exception\ValidationException;
 
 /**
  * Turns QuickBooks Faults into Domain errors. The only place Intuit fault codes are read.
@@ -48,6 +52,46 @@ final readonly class QuickBooksFaultMapper
         }
 
         return new QuickBooksFaultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, self::fault($parsed));
+    }
+
+    /**
+     * One batch item's outcome. Only a per-item ValidationFault is a Fault the item's own data caused; any other or
+     * unreadable response leaves it unknown whether QBO created the document.
+     *
+     * @param class-string<IPPIntuitEntity> $expected
+     */
+    public static function batchItem(mixed $response, string $expected): BatchItemOutcomeResult
+    {
+        if (!$response instanceof IntuitBatchResponse) {
+            return BatchItemOutcomeResult::ambiguous();
+        }
+
+        if ($response->isSuccess()) {
+            $id = $response->entity instanceof $expected ? self::text($response->entity->Id) : null;
+
+            return $id === null ? BatchItemOutcomeResult::ambiguous() : BatchItemOutcomeResult::created($id);
+        }
+
+        // intentional: a Service, Security or bare IdsException may follow a create QBO did commit, so it stays Ambiguous
+        $exception = $response->exception;
+        if (!$exception instanceof ValidationException || $exception::class !== ValidationException::class) {
+            return BatchItemOutcomeResult::ambiguous();
+        }
+
+        return BatchItemOutcomeResult::faulted(self::validationFault($exception));
+    }
+
+    private static function validationFault(ValidationException $exception): QuickBooksFault
+    {
+        $code = self::text($exception->getCode());
+        $code = $code === '0' ? null : $code;
+
+        return new QuickBooksFault(
+            kind: $code === null ? QuickBooksFaultKind::Validation : (self::KIND_BY_CODE[$code] ?? QuickBooksFaultKind::Validation),
+            code: $code,
+            element: null,
+            message: self::text($exception->getMessage()),
+        );
     }
 
     /**

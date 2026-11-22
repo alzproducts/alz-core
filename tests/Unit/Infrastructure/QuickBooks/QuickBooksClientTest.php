@@ -6,15 +6,20 @@ namespace Tests\Unit\Infrastructure\QuickBooks;
 
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\StructuredAddressDTO;
+use App\Application\QuickBooks\OrderSync\Enums\BatchOutcomeKind;
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksBatchExecution;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksCustomerProvisioner;
+use App\Infrastructure\QuickBooks\QuickBooksDocumentBatchCreator;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
 use Mockery;
@@ -26,7 +31,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Data\IPPCompanyInfo;
 use QuickBooksOnline\API\Data\IPPItem;
+use QuickBooksOnline\API\Data\IPPSalesReceipt;
 use stdClass;
+use Tests\Unit\Application\QuickBooks\OrderSync\DocumentDraftFixture;
 
 #[CoversClass(QuickBooksClient::class)]
 final class QuickBooksClientTest extends TestCase
@@ -149,9 +156,28 @@ final class QuickBooksClientTest extends TestCase
         $this->assertSame($expected, self::client(Mockery::mock(QuickBooksTransport::class), $provisioner)->findOrCreateCustomers(new ApiKeyToken('access'), $drafts, self::deadline()));
     }
 
+    #[Test]
+    public function create_documents_delegates_to_the_batch_creator(): void
+    {
+        $documents = [new PostableDocumentDTO(DocumentDraftFixture::receipt(), DocumentDraftFixture::refs())];
+        $transport = Mockery::mock(QuickBooksTransport::class);
+        $transport->shouldReceive('executeBatch')->once()
+            ->with(Mockery::any(), Mockery::on(static fn(array $entities): bool => \count($entities) === 1 && $entities[0] instanceof IPPSalesReceipt), Mockery::any())
+            ->andReturn(QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous()));
+
+        $outcomes = self::client($transport)->createDocuments(new ApiKeyToken('access'), $documents, self::deadline());
+
+        $this->assertSame([BatchOutcomeKind::Ambiguous], \array_map(static fn(BatchItemOutcomeResult $outcome): BatchOutcomeKind => $outcome->kind, $outcomes));
+    }
+
     private static function client(QuickBooksTransport $transport, ?QuickBooksCustomerProvisioner $provisioner = null): QuickBooksClient
     {
-        return new QuickBooksClient($transport, $provisioner ?? new QuickBooksCustomerProvisioner($transport, new NullLogger()), new NullLogger());
+        return new QuickBooksClient(
+            $transport,
+            $provisioner ?? new QuickBooksCustomerProvisioner($transport, new NullLogger()),
+            new QuickBooksDocumentBatchCreator($transport, new NullLogger()),
+            new NullLogger(),
+        );
     }
 
     private static function item(string $name, string|int|null $id): IPPItem
