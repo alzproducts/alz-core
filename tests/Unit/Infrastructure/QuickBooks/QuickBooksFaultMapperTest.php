@@ -9,6 +9,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Infrastructure\QuickBooks\QuickBooksFaultMapper;
+use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -142,7 +143,9 @@ final class QuickBooksFaultMapperTest extends TestCase
      */
     private static function fault(int $status, string $body, string $contentType = 'application/xml'): FaultHandler
     {
-        $fault = new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: {$contentType}\r\n", $body, $status, true)->getFaultHandler();
+        $fault = QuickBooksXmlParsing::quietly(
+            static fn(): mixed => new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: {$contentType}\r\n", $body, $status, true)->getFaultHandler(),
+        );
         self::assertInstanceOf(FaultHandler::class, $fault);
 
         return $fault;

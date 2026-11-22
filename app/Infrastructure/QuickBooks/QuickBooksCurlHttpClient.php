@@ -45,6 +45,15 @@ final class QuickBooksCurlHttpClient extends CurlHttpClient
     }
 
     /**
+     * @param mixed $response
+     */
+    #[Override]
+    public function setIntuitResponse($response): void
+    {
+        QuickBooksXmlParsing::quietly(fn(): mixed => parent::setIntuitResponse($response));
+    }
+
+    /**
      * The last response's Retry-After in seconds. The SDK keeps header keys in the server's case,
      * may hold null headers, and holds `false` after a curl error.
      */

@@ -17,6 +17,7 @@ use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceSession;
 use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
+use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
@@ -414,9 +415,14 @@ final class QuickBooksTransportTest extends TestCase
         return Deadline::after(CarbonImmutable::now(), $seconds);
     }
 
+    /**
+     * Built the way the curl client builds it, so the SDK's own content-type parsing runs.
+     */
     private static function fault(int $status, string $body): FaultHandler
     {
-        $fault = new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: application/xml\r\n", $body, $status, true)->getFaultHandler();
+        $fault = QuickBooksXmlParsing::quietly(
+            static fn(): mixed => new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: application/xml\r\n", $body, $status, true)->getFaultHandler(),
+        );
         self::assertInstanceOf(FaultHandler::class, $fault);
 
         return $fault;

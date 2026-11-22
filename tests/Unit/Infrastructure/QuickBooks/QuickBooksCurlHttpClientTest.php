@@ -5,14 +5,21 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\QuickBooks;
 
 use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
+use App\Infrastructure\QuickBooks\QuickBooksFaultMapper;
+use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
+use ErrorException;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use QuickBooksOnline\API\Core\CoreConstants;
 use QuickBooksOnline\API\Core\HttpClients\BaseCurl;
+use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
+use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
 
 #[CoversClass(QuickBooksCurlHttpClient::class)]
+#[CoversClass(QuickBooksXmlParsing::class)]
 final class QuickBooksCurlHttpClientTest extends TestCase
 {
     #[Test]
@@ -57,6 +64,46 @@ final class QuickBooksCurlHttpClientTest extends TestCase
 
         $this->assertNull($withoutHeader->retryAfterSeconds());
         $this->assertNull($noHeaders->retryAfterSeconds());
+    }
+
+    /**
+     * @return array<string, array{int, string}>
+     */
+    public static function nonXmlErrorBodies(): array
+    {
+        return [
+            '429 plain text' => [429, 'Too Many Requests'],
+            '503 truncated xml' => [503, '<IntuitResponse><Fault'],
+            '502 empty' => [502, ''],
+        ];
+    }
+
+    /**
+     * Laravel turns PHP warnings into ErrorExceptions, so a parse warning would escape the status-first Fault mapping.
+     */
+    #[Test]
+    #[DataProvider('nonXmlErrorBodies')]
+    public function a_non_xml_error_body_with_an_xml_content_type_still_yields_its_fault(int $status, string $body): void
+    {
+        $client = new QuickBooksCurlHttpClient(new SpyCurl("HTTP/1.1 {$status}\r\nContent-Type: application/xml\r\nRetry-After: 4\r\n\r\n", $body, $status));
+        \set_error_handler(static function (int $level, string $message, string $file, int $line): never {
+            throw new ErrorException($message, 0, $level, $file, $line);
+        });
+
+        try {
+            $client->makeAPICall('https://example.test', 'POST', ['Accept' => 'application/xml'], '<x/>', null, false);
+        } finally {
+            \restore_error_handler();
+        }
+
+        $response = $client->getLastResponse();
+        $this->assertInstanceOf(IntuitResponse::class, $response);
+        $fault = QuickBooksFaultMapper::faultOrNull($response->getFaultHandler());
+        $this->assertInstanceOf(FaultHandler::class, $fault);
+        $this->assertSame($status, QuickBooksFaultMapper::status($fault));
+        $this->assertSame($body, $fault->getResponseBody());
+        $this->assertSame(4, $client->retryAfterSeconds());
+        $this->assertFalse(\libxml_use_internal_errors());
     }
 
     #[Test]

@@ -131,14 +131,9 @@ final readonly class QuickBooksFaultMapper
             return $fault;
         }
 
-        $useInternalErrors = \libxml_use_internal_errors(true);
-
-        try {
-            $reparsed = new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: application/xml\r\n", $body, $status, true)->getFaultHandler();
-        } finally {
-            \libxml_clear_errors();
-            \libxml_use_internal_errors($useInternalErrors);
-        }
+        $reparsed = QuickBooksXmlParsing::quietly(
+            static fn(): mixed => new IntuitResponse("HTTP/1.1 {$status}\r\nContent-Type: application/xml\r\n", $body, $status, true)->getFaultHandler(),
+        );
 
         return self::faultOrNull($reparsed) ?? $fault;
     }
