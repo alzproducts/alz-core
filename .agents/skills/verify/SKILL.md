@@ -31,7 +31,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 | `note` | `<text>` | Appends a `run-notes.md` line |
 | `browser` | | Not supported: exits 69 |
 
-Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status ≥ 400); 64 usage; 69 not supported; 75 environment not ready. `exec` and `test` instead return the wrapped command's own exit code, so a 64 or 75 from them can come from the command; the capture's `exit=` line and stderr tell which.
+Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status ≥ 400); 64 usage; 69 not supported; 75 environment not ready. `exec` and `test` instead return the wrapped command's own exit code, so a 64 or 75 from them can come from the command; the `exec` capture's `exit=` line or the `run-notes.md` `test exit=` line, with stderr, tells which.
 
 ## Workflow
 
@@ -85,7 +85,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 The evidence dir survives `down`.
 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
-- `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call. `http/` captures redact the bypass secret.
+- `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call (`test/`: `<stamp>-pest.log`). `http/` captures redact the bypass secret.
 - `logs/<service>/`: each PHP service's `storage/logs`, e.g. `logs/app/laravel.log`, `logs/worker/laravel.log`. Also `logs/compose-up.log`, `logs/compose-down.log` and `logs/<stamp>-<service>.txt` from `logs`.
 - `build/` holds the image build logs; `.verify/` the run bookkeeping, where `compose.env` and `run.env` hold run secrets, so quote nothing from them.
 
