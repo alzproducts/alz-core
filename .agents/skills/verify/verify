@@ -64,27 +64,22 @@ die() {
     exit "$code"
 }
 
-help_text() {
-    case "$1" in
-        up) echo 'up --evidence <abs dir> [--env-override KEY=VALUE]...   build HEAD, boot, migrate and seed; prints run_id= and base_url=' ;;
-        down) echo 'down --evidence <dir>   remove the run stack and images; keeps the evidence' ;;
-        doctor) echo 'doctor --evidence <dir>   pass/FAIL report: SHA, image digest, DB/Redis hosts, drivers, credential defaults and names' ;;
-        http) echo 'http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user' ;;
-        exec) echo 'exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app)' ;;
-        logs) echo 'logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files' ;;
-        db) echo 'db --evidence <dir> <sql>   read-only SQL against the run Postgres' ;;
-        test) echo 'test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static' ;;
-        note) echo 'note --evidence <dir> <text>   append a line to run-notes.md' ;;
-        artisan) echo 'artisan --evidence <dir> <command> [args]   php artisan in the app container' ;;
-    esac
-}
+HELP='up --evidence <abs dir> [--env-override KEY=VALUE]...   build HEAD, boot, migrate and seed; prints run_id= and base_url=
+down --evidence <dir>   remove the run stack and images; keeps the evidence
+doctor --evidence <dir>   pass/FAIL report: SHA, image digest, DB/Redis hosts, drivers, credential defaults and names
+http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
+exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app)
+logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
+db --evidence <dir> <sql>   read-only SQL against the run Postgres
+test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static
+note --evidence <dir> <text>   append a line to run-notes.md
+artisan --evidence <dir> <command> [args]   php artisan in the app container
+browser   not supported (exit 69)'
 
 usage() {
     {
         echo 'Usage: .agents/skills/verify/verify <verb> [args] --evidence <dir>   (cwd = the repo checkout)'
-        local v
-        for v in up down doctor http exec logs db test note artisan; do echo "  $(help_text "$v")"; done
-        echo '  browser   not supported (exit 69)'
+        printf '%s\n' "$HELP" | sed 's/^/  /'
         echo 'Exit: 0 ok | 1 check failed | 64 usage | 69 not supported | 75 environment not ready'
     } >&2
     exit 64
@@ -117,6 +112,18 @@ unique_file() {
     out="$1/$s-$2"
     while [ -e "$out" ]; do n=$((n + 1)); out="$1/$s-$n-$2"; done
     printf '%s' "$out"
+}
+
+# capture <kind> <suffix> <header> <label> <argv>...: runs argv into a fresh <kind>/ capture ending in an exit= line; returns argv's exit code.
+capture() {
+    local kind="$1" suffix="$2" header="$3" label="$4" out rc=0
+    shift 4
+    out="$(unique_file "$EVIDENCE/$kind" "$suffix")"
+    printf '%s\n\n' "$header" >"$out"
+    "$@" 2>&1 | tee -a "$out" || rc="${PIPESTATUS[0]}"
+    echo "exit=$rc" >>"$out"
+    note "$label exit=$rc ($kind/$(basename "$out"))"
+    return "$rc"
 }
 
 resolve_repo() {
@@ -302,36 +309,28 @@ cmd_up() {
     auth_version="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")"
     [ -n "$pg_version" ] && [ -n "$auth_version" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
 
-    local runtime_image="$PROJECT-runtime:run" test_image="$PROJECT-test:run" pgsql_image="$PROJECT-pgsql:run"
-    local label="com.docker.compose.project=$PROJECT" t0
-    t0="$(date +%s)"
-    docker build --progress=plain --label "$label" -t "$runtime_image" "$src" >"$EVIDENCE/build/runtime.log" 2>&1 ||
-        { note "up FAIL runtime build (build/runtime.log)"; die 1 "runtime image build failed: $EVIDENCE/build/runtime.log (run down to clean up)"; }
-    note "built runtime image in $(($(date +%s) - t0))s"
-    t0="$(date +%s)"
-    docker build --progress=plain --label "$label" --build-arg "RUNTIME_IMAGE=$runtime_image" \
-        -f "$src/Dockerfile.verify" -t "$test_image" "$src" >"$EVIDENCE/build/test.log" 2>&1 ||
-        { note "up FAIL test image build (build/test.log)"; die 1 "test image build failed: $EVIDENCE/build/test.log (run down to clean up)"; }
-    note "built test image in $(($(date +%s) - t0))s"
-    # intentional: roles.sql is baked in, not bind-mounted, so no worktree path reaches a container (COR-320 AC16).
-    printf '%s\n' 'ARG SUPABASE_POSTGRES_VERSION' 'FROM supabase/postgres:${SUPABASE_POSTGRES_VERSION}' \
-        'COPY roles.sql /docker-entrypoint-initdb.d/init-scripts/99-roles.sql' >"$STATE/pgsql.Dockerfile"
-    docker build --progress=plain --label "$label" --build-arg "SUPABASE_POSTGRES_VERSION=$pg_version" \
-        -f "$STATE/pgsql.Dockerfile" -t "$pgsql_image" "$src/database/baseline" >"$EVIDENCE/build/pgsql.log" 2>&1 ||
-        { note "up FAIL pgsql build (build/pgsql.log)"; die 1 "pgsql image build failed: $EVIDENCE/build/pgsql.log (run down to clean up)"; }
-    rm -rf "$src"
-
     {
-        echo "VERIFY_RUNTIME_IMAGE=$runtime_image"
-        echo "VERIFY_TEST_IMAGE=$test_image"
-        echo "VERIFY_PGSQL_IMAGE=$pgsql_image"
+        echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
+        echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
+        echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
         echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
         echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
         echo "VERIFY_ENV_FILE=$env_file"
         echo "VERIFY_RUN_ENV=$run_env"
         echo "VERIFY_LOGS=$EVIDENCE/logs"
+        echo "SUPABASE_POSTGRES_VERSION=$pg_version"
         echo "SUPABASE_AUTH_VERSION=$auth_version"
     } >"$STATE/compose.env"
+
+    # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
+    local t0 pair
+    for pair in app:runtime seed:test pgsql:pgsql; do
+        t0="$(date +%s)"
+        dc --progress plain build "${pair%%:*}" >"$EVIDENCE/build/${pair#*:}.log" 2>&1 ||
+            { note "up FAIL ${pair#*:} build (build/${pair#*:}.log)"; die 1 "${pair#*:} image build failed: $EVIDENCE/build/${pair#*:}.log (run down to clean up)"; }
+        note "built ${pair#*:} image in $(($(date +%s) - t0))s"
+    done
+    rm -rf "$src"
 
     t0="$(date +%s)"
     if ! dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1; then
@@ -552,35 +551,19 @@ cmd_exec() {
     [ "$#" -gt 0 ] || die 64 "exec wants [<service>] [--] <argv>"
     set_evidence "$EVIDENCE_ARG" existing
     require_run
-    local out rc=0
-    out="$(unique_file "$EVIDENCE/exec" "$svc.txt")"
     note "exec $svc $*"
-    {
-        echo "\$ [$svc] $*"
-        echo
-    } >"$out"
-    dc exec -T "$svc" "$@" 2>&1 | tee -a "$out" || rc="${PIPESTATUS[0]}"
-    echo "exit=$rc" >>"$out"
-    note "exec $svc exit=$rc (exec/$(basename "$out"))"
-    return "$rc"
+    capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
 }
 
 cmd_artisan() {
     [ "${#ARGS[@]}" -ge 1 ] || die 64 "artisan wants <command> [args]"
     set_evidence "$EVIDENCE_ARG" existing
     require_run
-    local name out rc=0
+    local name
     name="$(printf '%s' "${ARGS[0]}" | tr -c 'A-Za-z0-9._-' '-')"
-    out="$(unique_file "$EVIDENCE/artisan" "$name.txt")"
     note "artisan ${ARGS[*]}"
-    {
-        echo "\$ php artisan ${ARGS[*]} --no-interaction"
-        echo
-    } >"$out"
-    dc exec -T app php artisan "${ARGS[@]}" --no-interaction </dev/null 2>&1 | tee -a "$out" || rc="${PIPESTATUS[0]}"
-    echo "exit=$rc" >>"$out"
-    note "artisan ${ARGS[0]} exit=$rc (artisan/$(basename "$out"))"
-    return "$rc"
+    capture artisan "$name.txt" "\$ php artisan ${ARGS[*]} --no-interaction" "artisan ${ARGS[0]}" \
+        dc exec -T app php artisan "${ARGS[@]}" --no-interaction </dev/null
 }
 
 cmd_logs() {
@@ -613,17 +596,11 @@ cmd_db() {
     [ "${#ARGS[@]}" -eq 1 ] || die 64 "db wants one <sql> argument"
     set_evidence "$EVIDENCE_ARG" existing
     require_run
-    local out rc=0
-    out="$(unique_file "$EVIDENCE/db" query.txt)"
     note "db ${ARGS[0]}"
-    printf '%s\n\n' "${ARGS[0]}" >"$out"
     # shellcheck disable=SC2016
-    dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql sh -c \
+    capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql sh -c \
         'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "$1"' \
-        sh "${ARGS[0]}" </dev/null 2>&1 | tee -a "$out" || rc="${PIPESTATUS[0]}"
-    echo "exit=$rc" >>"$out"
-    note "db exit=$rc (db/$(basename "$out"))"
-    [ "$rc" -eq 0 ] || return 1
+        sh "${ARGS[0]}" </dev/null || return 1
 }
 
 cmd_test() {
@@ -657,7 +634,7 @@ case "$verb" in
     *) echo "verify: unknown verb: $verb" >&2; usage ;;
 esac
 if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
-    help_text "$verb"
+    printf '%s\n' "$HELP" | grep "^$verb "
     exit 0
 fi
 split_args "$@"
