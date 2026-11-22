@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\QuickBooks;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
@@ -34,6 +35,7 @@ use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
 use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
 use QuickBooksOnline\API\Data\IPPCompanyInfo;
+use QuickBooksOnline\API\Data\IPPCustomer;
 use QuickBooksOnline\API\DataService\DataService;
 use QuickBooksOnline\API\Exception\IdsException;
 use QuickBooksOnline\API\Exception\SdkException;
@@ -46,6 +48,8 @@ final class QuickBooksTransportTest extends TestCase
     use MockeryPHPUnitIntegration;
 
     private const string SENTINEL = 'Sentinel Customer Ltd';
+
+    private const string QUERY = "SELECT * FROM Customer WHERE DisplayName IN ('" . self::SENTINEL . "')";
 
     /** @var list<float> */
     private array $slept = [];
@@ -313,6 +317,42 @@ final class QuickBooksTransportTest extends TestCase
         ];
     }
 
+    #[Test]
+    public function a_query_returns_its_rows(): void
+    {
+        $customer = new IPPCustomer();
+
+        $this->assertSame([$customer], $this->transport([$this->querySession([$customer], false)])->query(self::token(), self::QUERY, self::deadline()));
+    }
+
+    #[Test]
+    public function a_null_query_result_with_no_fault_is_zero_rows(): void
+    {
+        $this->assertSame([], $this->transport([$this->querySession(null, false)])->query(self::token(), self::QUERY, self::deadline()));
+    }
+
+    #[Test]
+    public function a_null_query_result_with_a_fault_raises_the_fault_not_zero_rows(): void
+    {
+        $this->expectException(QuickBooksFaultException::class);
+
+        $this->transport([$this->querySession(null, self::fault(400, self::faultXml('4001', '')))])->query(self::token(), self::QUERY, self::deadline());
+    }
+
+    #[Test]
+    public function a_query_result_that_is_not_a_list_is_unexpected_and_logs_no_query_text(): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $this->transport([$this->querySession(new IPPCustomer(), false)], logger: $logger)->query(self::token(), self::QUERY, self::deadline());
+            $this->fail('Expected UnexpectedApiResultException');
+        } catch (UnexpectedApiResultException) {
+            $this->assertStringNotContainsString(self::SENTINEL, \serialize($logger->records));
+            $this->assertNotSame([], $logger->records);
+        }
+    }
+
     private static function token(): ApiKeyToken
     {
         return new ApiKeyToken('access');
@@ -341,6 +381,15 @@ final class QuickBooksTransportTest extends TestCase
               </Fault>
             </IntuitResponse>
             XML;
+    }
+
+    private function querySession(mixed $result, FaultHandler|false $lastError): QuickBooksDataServiceSession
+    {
+        $dataService = Mockery::mock(DataService::class);
+        $dataService->shouldReceive('Query')->once()->with(self::QUERY)->andReturn($result);
+        $dataService->shouldReceive('getLastError')->andReturn($lastError);
+
+        return new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient());
     }
 
     private function session(mixed $result, FaultHandler|false $lastError, ?QuickBooksCurlHttpClient $httpClient = null): QuickBooksDataServiceSession

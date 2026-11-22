@@ -7,6 +7,7 @@ namespace App\Infrastructure\QuickBooks;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
@@ -56,6 +57,35 @@ final readonly class QuickBooksTransport
     public function companyInfo(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): mixed
     {
         return $this->send($accessToken, $deadline, false, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
+    }
+
+    /**
+     * Runs one query. The text is never logged: its literals are customer names and SKUs.
+     *
+     * @return list<object> the matching entities; empty only when QBO answered with zero rows
+     *
+     * @throws AuthenticationExpiredException
+     * @throws ExternalServiceUnavailableException
+     * @throws QuickBooksDeadlineExceededException
+     * @throws QuickBooksFaultException
+     * @throws UnexpectedApiResultException        when the parsed response is neither rows nor empty
+     */
+    public function query(#[SensitiveParameter] ApiKeyToken $accessToken, string $query, Deadline $deadline): array
+    {
+        $rows = $this->send($accessToken, $deadline, false, static fn(DataService $dataService): mixed => $dataService->Query($query));
+
+        // intentional: the SDK returns null for a Fault too, but send() has already thrown on the Fault it recorded
+        if ($rows === null) {
+            return [];
+        }
+
+        if (!\is_array($rows)) {
+            $this->logger->error(self::LOG_PREFIX . ' returned an unexpected query result', ['result_type' => \get_debug_type($rows)]);
+
+            throw new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Query result is not a list');
+        }
+
+        return \array_values(\array_filter($rows, \is_object(...)));
     }
 
     /**

@@ -1,4 +1,4 @@
-.PHONY: help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -189,9 +189,13 @@ test-redis: ## Run the tests that need a live Redis (start it with make redis)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
 
-test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
+test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack and QuickBooks sandbox tests)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack
+	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack --exclude-group=quickbooks-sandbox
+
+test-quickbooks-sandbox: ## Run the QuickBooks sandbox tests against the realm in .env (connect first with php artisan quickbooks:connect)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --configuration=phpunit-quickbooks-sandbox.xml --group=quickbooks-sandbox --no-coverage $(TEST_ARGS)
 
 test-seed-command: ## Run the dev:seed-fake command tests (serial; needs local Supabase DB, writes inside a rolled-back transaction)
 	@echo "$(MODE)"
@@ -224,17 +228,17 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-clover=coverage.xml
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-html=coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox
 
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
 
