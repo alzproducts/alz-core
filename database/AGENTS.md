@@ -24,7 +24,7 @@ make db-reset-full
 
 This runs a preflight and two steps in sequence:
 
-**Preflight — `php artisan dev:seed-fake --dry-run`**: checks the seed guard and generates the slice with no writes, so a guard failure stops the reset before anything is wiped.
+**Preflight — `php artisan dev:seed-fake --dry-run`**: checks the seed guard and generates the seed with no writes, so a guard failure stops the reset before anything is wiped.
 
 **Step 1 — `make supabase-reset`** (runs `pnpm db:setup-local` in `${FRONTEND_APP}`):
 - Recreates the PostgreSQL database from scratch
@@ -34,20 +34,20 @@ This runs a preflight and two steps in sequence:
 
 **Step 2 — `php artisan dev:seed-fake`**:
 - Applies all Laravel migrations (business tables, indexes, schemas)
-- Seeds the synthetic, production-shaped products slice (no sync jobs, no external calls)
+- Runs the synthetic, production-shaped seed (`SeedFakeDataCommand` defines its contents; no sync jobs, no external calls)
 
-> Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema; step 2 creates the business tables (linnworks, shopwired, etc.) and fills the products slice.
+> Both steps are required. `pnpm db:setup-local` only restores the base Supabase schema; step 2 creates the business tables (linnworks, shopwired, etc.) and the seed fills them.
 
 **`make supabase-start` runs this same reset whenever it starts a stopped stack**; on a running stack it resets nothing. A failed start-triggered reset fails `make supabase-start`; recover with `make db-reset-full`.
 
 ### What Gets Wiped
 
-`make db-reset-full` destroys **all local data**: the seeded products slice, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and re-seeds the synthetic slice.
+`make db-reset-full` destroys **all local data**: the seeded data, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and reruns the synthetic seed.
 
 **Information only — the reset also covers alz-admin (`${FRONTEND_APP}`).** Running `make db-reset-full` is fine; this note just explains its full scope. Both projects use the same local Supabase project, and step 1 runs alz-admin's `supabase db reset`, so alz-admin's local auth users and data are reset as well. Afterwards, only these are re-seeded:
 - alz-admin's `database.types.ts` (regenerated)
 - alz-admin's test users (`seed-test-users`)
-- alz-core's synthetic products slice (`dev:seed-fake`)
+- alz-core's synthetic seed (`dev:seed-fake`)
 
 **Do NOT use for incremental schema changes.** For a column change on a feature branch table, use a direct SQL statement or rollback just that migration:
 

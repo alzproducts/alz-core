@@ -278,26 +278,26 @@ migrate: ## Run database migrations
 # Use this target instead for safe, coordinated resets.
 
 # intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
-db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic products seed); supabase-start also runs it on a stopped stack
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
-	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic products seed.$(NC)"
+	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic seed.$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Preflight: checking the seed guard and generating the slice (no writes)...$(NC)"
+	@echo "$(YELLOW)Preflight: checking the seed guard and generating the seed (no writes)...$(NC)"
 	@$(EXEC) artisan dev:seed-fake --dry-run
 	@echo ""
 	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
 	@$(MAKE) supabase-reset
 	@echo ""
-	@echo "$(YELLOW)Step 2/2: Migrating + seeding the synthetic products slice...$(NC)"
+	@echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)"
 	@$(EXEC) artisan dev:seed-fake
 	@echo ""
 	@echo "$(GREEN)Full database reset complete.$(NC)"
 	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
 	@echo "$(GREEN)- Test users: seeded$(NC)"
 	@echo "$(GREEN)- Laravel tables: migrated$(NC)"
-	@echo "$(GREEN)- Synthetic products slice: seeded (no sync jobs, no external calls)$(NC)"
+	@echo "$(GREEN)- Synthetic seed: applied (no sync jobs, no external calls)$(NC)"
 
-seed-fake: ## Seed the synthetic products slice (add ARGS=--fresh to replace an existing slice)
+seed-fake: ## Seed the synthetic, production-shaped data (add ARGS=--fresh to replace an existing seed)
 	@$(EXEC) artisan dev:seed-fake $(ARGS)
 
 # =============================================================================
