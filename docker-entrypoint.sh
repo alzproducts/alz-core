@@ -85,7 +85,7 @@ if [ "${SKIP_DB_CHECK}" != "true" ]; then
     MAX_RETRIES=${DB_CONNECT_RETRIES:-90}
     RETRY_COUNT=0
 
-    # intentional: opens a connection only; db:show needs the intl extension, absent from the runtime image
+    # intentional: opens a connection only; artisan's database report commands need the intl extension, absent from the runtime image
     DB_CHECK_CODE='DB::connection(getenv("DB_CONNECTION") ?: "pgsql")->getPdo();'
 
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
