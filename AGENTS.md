@@ -320,7 +320,7 @@ make test-ai      # Validate AI-generated tests (test + pest mutate)
 
 **ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
 
-**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + Deptrac + TLint.
+**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + Deptrac + TLint. `make install` registers them (`bin/install-git-hooks`); the guard `tests/Unit/Static/GitHooksInstalledTest.php`, run by `make lint` and `make test`, fails with "Run `make install`" when they are off.
 
 ### PHPArkitect Naming Conventions
 

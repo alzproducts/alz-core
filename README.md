@@ -258,7 +258,7 @@ docker build -f Dockerfile.dev $(sed 's/^/--build-arg /' database/baseline/versi
 docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
 ```
 
-Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
+Swap `make test` for `make lint TEST_ARGS=--exclude-group=repo-static` (the git hooks guard needs git), or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
 
 - **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and the Supabase baseline (`database/baseline/`) already migrated on database `postgres` as role `postgres`, started automatically by the container entrypoint.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.
@@ -273,8 +273,8 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 
 | Stage | Trigger | Checks |
 |-------|---------|--------|
-| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
-| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
+| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture). Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
+| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint. Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 

@@ -9,10 +9,12 @@ use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
+use App\Application\QuickBooks\OrderSync\Results\DocumentLookupResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -21,15 +23,23 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Override;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Data\IPPCompanyInfo;
+use QuickBooksOnline\API\Data\IPPInvoice;
 use QuickBooksOnline\API\Data\IPPItem;
+use QuickBooksOnline\API\Data\IPPSalesReceipt;
 use SensitiveParameter;
 
 final readonly class QuickBooksClient implements QuickBooksClientInterface, QuickBooksMappingCandidatesInterface, QuickBooksOrderPostingInterface
 {
+    private const array DOCUMENT_ENTITIES = [
+        'Invoice' => DocType::Invoice,
+        'SalesReceipt' => DocType::SalesReceipt,
+    ];
+
     public function __construct(
         private QuickBooksTransport $transport,
         private QuickBooksCustomerProvisioner $customers,
@@ -86,6 +96,39 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
         }
 
         return ItemLookupResult::fromMatches($skus, $found);
+    }
+
+    /**
+     * @param list<string> $docNumbers an empty list makes no QBO call
+     *
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a 429 past the retry window
+     * @throws QuickBooksDeadlineExceededException when a query cannot start before the deadline
+     * @throws QuickBooksFaultException            when QBO rejects a query
+     * @throws UnexpectedApiResultException        when a row lacks a document number or id, or a query hits the row limit
+     */
+    #[Override]
+    public function findDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $docNumbers, Deadline $deadline): DocumentLookupResult
+    {
+        $found = [];
+        foreach (QuickBooksQueryEscaper::chunks(\array_map(\mb_trim(...), $docNumbers)) as $chunk) {
+            foreach (self::DOCUMENT_ENTITIES as $entity => $type) {
+                $query = "SELECT Id, DocNumber FROM {$entity} WHERE DocNumber IN "
+                    . QuickBooksQueryEscaper::inList($chunk)
+                    . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
+
+                $rows = $this->transport->query($accessToken, $query, $deadline);
+                if (\count($rows) >= QuickBooksQueryEscaper::MAX_RESULTS) {
+                    throw $this->unexpected('Document query hit the row limit');
+                }
+
+                foreach ($rows as $row) {
+                    $found[] = $this->document($row, $type);
+                }
+            }
+        }
+
+        return new DocumentLookupResult($found);
     }
 
     /**
@@ -162,6 +205,29 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
         }
 
         return ['name' => $name, 'id' => $id];
+    }
+
+    /**
+     * @throws UnexpectedApiResultException
+     */
+    private function document(object $row, DocType $type): ExistingDocumentDTO
+    {
+        $rowType = match (true) {
+            $row instanceof IPPInvoice => DocType::Invoice,
+            $row instanceof IPPSalesReceipt => DocType::SalesReceipt,
+            default => null,
+        };
+        if ($rowType !== $type) {
+            throw $this->unexpected('Document query returned another entity');
+        }
+
+        $docNumber = self::nonBlank($row->DocNumber ?? null);
+        $id = self::nonBlank($row->Id ?? null);
+        if ($docNumber === null || $id === null) {
+            throw $this->unexpected('Document number or id blank');
+        }
+
+        return new ExistingDocumentDTO($docNumber, $id, $type);
     }
 
     /**

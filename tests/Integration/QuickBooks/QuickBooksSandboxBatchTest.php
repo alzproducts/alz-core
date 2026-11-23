@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Integration\QuickBooks;
 
+use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\DocumentCoreDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\GoodsLineDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\InvoiceDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
@@ -20,6 +22,7 @@ use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\OrderSync\Enums\FixedRefKey;
 use App\Domain\QuickBooks\OrderSync\Enums\PaymentKey;
 use App\Domain\QuickBooks\OrderSync\Enums\TaxKey;
@@ -39,6 +42,8 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use QuickBooksOnline\API\Data\IPPInvoice;
+use QuickBooksOnline\API\Data\IPPSalesReceipt;
 use Tests\TestCase;
 
 /**
@@ -204,6 +209,65 @@ final class QuickBooksSandboxBatchTest extends TestCase
         self::report('rate probe', ['calls' => self::RATE_PROBE_CALLS, 'seconds' => \round($seconds, 2), 'statuses' => $counts]);
         self::assertArrayNotHasKey(self::TOO_MANY_REQUESTS, $counts, 'OVERTURN: 40 batch calls a minute drew a 429');
         self::assertSame([200 => self::RATE_PROBE_CALLS], $counts);
+    }
+
+    #[Test]
+    public function a_document_lookup_finds_exactly_the_posted_invoice_and_receipt(): void
+    {
+        $refs = $this->refs();
+        $invoice = $this->invoiceDocument($refs);
+        $receipt = $this->receiptDocument($refs);
+        $outcomes = $this->creator()->create($this->accessToken, [$invoice, $receipt], self::deadline());
+        self::assertSame([BatchOutcomeKind::Created, BatchOutcomeKind::Created], \array_column($outcomes, 'kind'));
+
+        $numbers = [$invoice->draft->core->docNumber, $receipt->draft->core->docNumber, self::docNumber()];
+        $found = $this->app->make(QuickBooksOrderPostingInterface::class)
+            ->findDocuments($this->accessToken, \array_map(\mb_strtolower(...), $numbers), self::deadline())->documents;
+
+        self::report('document lookup probe', $found);
+        self::assertEquals([
+            new ExistingDocumentDTO($numbers[0], (string) $outcomes[0]->qboId, DocType::Invoice),
+            new ExistingDocumentDTO($numbers[1], (string) $outcomes[1]->qboId, DocType::SalesReceipt),
+        ], $found);
+    }
+
+    /**
+     * Reports, without judging, whether the lookup still returns a voided document.
+     */
+    #[Test]
+    public function a_document_lookup_reports_whether_voided_documents_match(): void
+    {
+        $refs = $this->refs();
+        $invoice = $this->invoiceDocument($refs);
+        $receipt = $this->receiptDocument($refs);
+        $outcomes = $this->creator()->create($this->accessToken, [$invoice, $receipt], self::deadline());
+        self::assertSame([BatchOutcomeKind::Created, BatchOutcomeKind::Created], \array_column($outcomes, 'kind'));
+
+        $numbers = ['Invoice' => $invoice->draft->core->docNumber, 'SalesReceipt' => $receipt->draft->core->docNumber];
+        $this->void(new IPPInvoice(), (string) $outcomes[0]->qboId, 'Invoice');
+        $this->void(new IPPSalesReceipt(), (string) $outcomes[1]->qboId, 'SalesReceipt');
+
+        $result = $this->app->make(QuickBooksOrderPostingInterface::class)->findDocuments($this->accessToken, \array_values($numbers), self::deadline());
+
+        self::report('voided lookup probe', \array_map(static fn(string $number): string => $result->forDocNumber($number) === [] ? 'not returned' : 'returned', $numbers));
+    }
+
+    private function void(IPPInvoice|IPPSalesReceipt $entity, string $qboId, string $name): void
+    {
+        $posted = $this->first("SELECT * FROM {$name} WHERE Id = '{$qboId}'");
+        $entity->Id = $qboId;
+        $entity->SyncToken = $posted->SyncToken ?? null;
+        $entity->sparse = 'true';
+
+        // intentional: raw SDK, as the transport has no void
+        $dataService = $this->app->make(QuickBooksDataServiceFactory::class)->create($this->accessToken)->dataService;
+        $dataService->Void($entity);
+        self::assertNull(QuickBooksFaultMapper::faultOrNull($dataService->getLastError()), "QBO refused to void the {$name}");
+
+        $voided = $this->first("SELECT * FROM {$name} WHERE Id = '{$qboId}'");
+        self::assertNotNull($voided, "QBO no longer returns the voided {$name} by Id");
+        self::assertSame(0.0, (float) (self::text($voided->TotalAmt ?? null) ?? '-1'), "QBO did not zero the {$name}");
+        self::assertStringContainsStringIgnoringCase('void', self::text($voided->PrivateNote ?? null) ?? '', "QBO did not mark the {$name} voided");
     }
 
     private function creator(): QuickBooksDocumentBatchCreator
