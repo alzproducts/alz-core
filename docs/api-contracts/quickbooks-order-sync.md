@@ -156,6 +156,8 @@ Syncs the given references in the request and returns one outcome per reference.
 
 An empty array, more than 10 items, a duplicate or a non-integer item returns 422 `validation_error` keyed under `references` (or `references.<index>` for one item).
 
+A request with any reference whose order was placed before the floor date (see [Range limits](#range-limits)) returns 422 `validation_error` keyed under `references`, and nothing in it is synced. Until the floor date is set, every request fails closed the same way. A reference with no order passes this check and returns `skipped` (`order_not_found`).
+
 ### Responses
 
 | Status | Body |
@@ -313,7 +315,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | `skipped` | `cancelled` | `false` | `POST sync` | The order is cancelled; no row is written |
 | `skipped` | `order_not_found` | `false` | `POST sync` | No order has this reference; no row is written |
 | `skipped` | `previously_failed` | `true` | `POST sync` | A stored `failed` row exists and `force_retry` was not set; the row stays `failed` |
-| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead) |
+| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead), or the order's payment method was not stored |
 | `failed` | `item_missing` | `true` | `POST sync`, `GET failed` | A line's SKU has no matching QBO item; succeeds once the item exists |
 | `failed` | `zero_lines` | `false` | `POST sync`, `GET failed` | The order produced no document lines |
 | `failed` | `tax_rate_unsupported` | `false` | `POST sync`, `GET failed` | A VAT rate on the order is one the sync has no tax key for (only 20% and 0% are supported) |
@@ -324,7 +326,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | `not_attempted` | `in_progress` | `true` | `POST sync` | Another worker holds a live lease on this reference |
 | `not_attempted` | `deadline_exceeded` | `true` | `POST sync` | The request's server deadline passed before this reference was reached |
 
-- Every raw ShopWired payment method routes to a document type, so no payment method is skipped.
+- Every raw ShopWired payment method routes to a document type, so no payment method is skipped. An order whose payment method was not stored fails with `mapping_missing`.
 - A range run produces the same outcomes, but only `failed` rows are visible to ADM afterwards, through `GET failed`.
 
 ---
@@ -363,7 +365,7 @@ For each reference, first match wins:
 | Endpoint | Success | Body / query limits |
 |----------|---------|---------------------|
 | `POST /api/quickbooks/orders/sync-range` | 202 `{message, run_id, candidate_count}` | `from`, `to` `YYYY-MM-DD`; `to` ≥ `from`; `to` ≤ today; ≤ 31 days inclusive; `from` ≥ floor; `force_retry` optional |
-| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; `force_retry` optional |
+| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; every order placed ≥ floor; `force_retry` optional |
 | `GET /api/quickbooks/orders/failed` | 200 `{data, links, meta}` | `status` `failed` \| `changed_after_sync`; `page`; `per_page` ≤ 1000, default 50 |
 
 | Response | ADM action |

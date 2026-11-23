@@ -240,7 +240,7 @@ A **mapping key** whose row holds a QBO ref for the connected company's realm; a
 _Avoid_: treating "mapped" and "resolved" as different states
 
 **Backfill floor date**:
-The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
+The earliest ShopWired order date the sync accepts, at both entry points: a date-range sync may not start before it, and a sync by **reference** rejects any reference whose order was placed before it.
 
 **Token lease**:
 A sandbox access token handed from the developer's **QBO connection** to a verify stack, which uses it but can never refresh it.
@@ -260,6 +260,6 @@ The per-run DocNumber prefix and customer-name suffix that keep one verify run's
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
 - "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
-- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled or unmapped-payment order gets `skipped` with no row written.
+- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled order gets `skipped` with no row written.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
 - "stand-in" was used for both the ADR-0015 integration class and objects migrations create to imitate Supabase's — resolved (COR-291): **Stand-in** keeps the ADR-0015 meaning; the migration objects are **Supabase look-alikes**.
