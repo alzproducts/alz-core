@@ -153,9 +153,29 @@ set_evidence() {
 
 state_get() { sed -n "s/^$1=//p" "$STATE/state.env" | tail -1; }
 
+# run_mode: the run's recorded mode; a state file from before modes existed is own-postgres.
+run_mode() {
+    local mode
+    mode="$(state_get mode 2>/dev/null || true)"
+    printf '%s' "${mode:-own-postgres}"
+}
+
+# dc: the run's Compose files and profiles, from its recorded mode.
 dc() {
-    docker compose -p "$PROJECT" --project-directory "$STATE" -f "$STATE/compose.yaml" \
-        --env-file "$STATE/compose.env" --profile own-postgres "$@"
+    local model=(-f "$STATE/compose.yaml")
+    if [ "$(run_mode)" = caller-supabase ]; then
+        model+=(-f "$STATE/compose.caller-supabase.yaml")
+    else
+        model+=(--profile own-postgres)
+    fi
+    docker compose -p "$PROJECT" --project-directory "$STATE" "${model[@]}" --env-file "$STATE/compose.env" "$@"
+}
+
+# service_state <service> <go template>: one field of a run container, running or not; blank when there is none.
+service_state() {
+    local id
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1" | head -1)"
+    [ -z "$id" ] || docker inspect -f "$2" "$id" 2>/dev/null || true
 }
 
 project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
@@ -372,20 +392,24 @@ cmd_up() {
         # intentional: www-data (uid 33) writes storage/logs through this bind mount (COR-320 P12).
         chmod 0777 "$EVIDENCE/logs/$svc"
     done
-    cp "$SKILL_DIR/compose.yaml" "$STATE/compose.yaml"
+    cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
 
     local sha env_file env_missing=no
     sha="$(git -C "$REPO" rev-parse HEAD)"
     env_file="$(main_env_file)"
+    # intentional: a path nothing creates; the caller's Supabase never gets the main .env's integration keys (ADR-0020).
+    [ "$MODE" = own-postgres ] || env_file="$STATE/no-main.env"
     [ -f "$env_file" ] || env_missing=yes
     {
+        echo "mode=$MODE"
+        [ "$MODE" = own-postgres ] || echo "db_hostport=$SB_DB_HOSTPORT"
         echo "project=$PROJECT"
         echo "top=$REPO"
         echo "sha=$sha"
         echo "env_file=$env_file"
         echo "env_missing=$env_missing"
     } >"$STATE/state.env"
-    note "up project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
+    note "up mode=$MODE project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
 
     # Fill-if-blank keys (D9), then the overrides; compose reads this env_file after the main .env.
     local run_env="$STATE/run.env"
@@ -420,7 +444,15 @@ cmd_up() {
         echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
         echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
         echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
-        echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        if [ "$MODE" = own-postgres ]; then
+            echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        else
+            echo "VERIFY_RELAY_IMAGE=$PROJECT-relay:run"
+            echo "VERIFY_DB_PASSWORD=$SB_DB_PASSWORD"
+            echo "VERIFY_DB_PORT=$SB_DB_PORT"
+            echo "VERIFY_SUPABASE_URL=$SB_URL"
+            echo "VERIFY_SUPABASE_API_PORT=$SB_API_PORT"
+        fi
         echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
         echo "VERIFY_ENV_FILE=$env_file"
         echo "VERIFY_RUN_ENV=$run_env"
@@ -430,8 +462,12 @@ cmd_up() {
     } >"$STATE/compose.env"
 
     # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
-    local t0 pair
-    for pair in app:runtime seed:test pgsql:pgsql; do
+    local t0 pair pairs='app:runtime seed:test pgsql:pgsql' front=app
+    if [ "$MODE" != own-postgres ]; then
+        pairs='app:runtime seed:test relay:relay'
+        front=relay
+    fi
+    for pair in $pairs; do
         t0="$(date +%s)"
         dc --progress plain build "${pair%%:*}" >"$EVIDENCE/build/${pair#*:}.log" 2>&1 ||
             { note "up FAIL ${pair#*:} build (build/${pair#*:}.log)"; die 1 "${pair#*:} image build failed: $EVIDENCE/build/${pair#*:}.log (run down to clean up)"; }
@@ -440,18 +476,37 @@ cmd_up() {
     rm -rf "$src"
 
     t0="$(date +%s)"
-    if ! dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1; then
+    local up_rc=0 seed_logs='seed auth-migrate'
+    dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1 || up_rc=1
+    if [ "$MODE" != own-postgres ]; then
+        seed_logs='seed relay'
+        dc logs --no-color --no-log-prefix seed >"$EVIDENCE/logs/seed/seed.log" 2>&1 || true
+    fi
+    if [ "$up_rc" -ne 0 ]; then
         {
             echo '--- ps'
             dc ps -a
             echo '--- seed'
-            dc logs --no-color seed auth-migrate
+            dc logs --no-color $seed_logs
         } >>"$EVIDENCE/logs/compose-up.log" 2>&1 || true
+        if [ "$MODE" != own-postgres ]; then
+            case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+                'exited 0' | 'created '* | 'running '* | '') ;;
+                *)
+                    note "up FAIL seed (logs/seed/seed.log)"
+                    die 1 "the seed failed: $EVIDENCE/logs/seed/seed.log (run down to clean up)"
+                    ;;
+            esac
+            if [ "$(service_state relay '{{.State.Status}} {{.State.Health.Status}}')" != 'running healthy' ]; then
+                note "up FAIL relay not healthy (logs/compose-up.log)"
+                die 75 "the relay to the caller's Supabase is not healthy: $EVIDENCE/logs/compose-up.log (run down to clean up)"
+            fi
+        fi
         note "up FAIL compose up (logs/compose-up.log)"
         die 1 "stack did not become ready: $EVIDENCE/logs/compose-up.log (run down to clean up)"
     fi
     local hostport base_url
-    hostport="$(dc port app 8000 | tail -1)"
+    hostport="$(dc port "$front" 8000 | tail -1)"
     base_url="http://$hostport"
     echo "base_url=$base_url" >>"$STATE/state.env"
     note "up ready in $(($(date +%s) - t0))s base_url=$base_url"
@@ -466,8 +521,7 @@ cmd_down() {
     local fail=0 ids
     note "down project=$PROJECT"
     if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
-        docker compose -p "$PROJECT" --project-directory "$STATE" -f "$STATE/compose.yaml" --env-file "$STATE/compose.env" \
-            --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
+        dc --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
             note "down: compose down failed (logs/compose-down.log); removing by label"
     fi
     # Label sweep: catches a run whose evidence dir is gone or whose up failed part-way. Never touches another project.
