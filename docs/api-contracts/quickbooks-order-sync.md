@@ -292,7 +292,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 |-------|------|-------|
 | `reference` | integer | |
 | `order_external_id` | integer | The ShopWired order id the attempt used |
-| `order_placed_at` | string | ISO 8601 |
+| `order_placed_at` | string \| null | ISO 8601; `null` once the order no longer exists |
 | `doc_type` | string \| null | `invoice`, `sales_receipt` or `null` when the failure came before the document type was known |
 | `status` | string | The stored row state: `failed` |
 | `attempts` | integer | Attempts made on this row |
