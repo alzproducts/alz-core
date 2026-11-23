@@ -425,7 +425,7 @@ cmd_up() {
     # Build context: committed HEAD only (COR-317 D2); no bind mount of the worktree.
     local src="$STATE/src"
     mkdir -p "$src"
-    (umask 022 && git -C "$REPO" archive --format=tar HEAD | tar -x -C "$src") || die 1 "git archive of HEAD failed"
+    (umask 022 && git -C "$REPO" archive --format=tar "$sha" | tar -x -C "$src") || die 1 "git archive of HEAD failed"
     local pg_version auth_version
     pg_version="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$src/database/baseline/versions.env")"
     auth_version="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")"
