@@ -6,6 +6,8 @@ namespace App\Presentation\Console\Commands;
 
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingFindingDTO;
+use App\Application\QuickBooks\Mappings\Results\MappingAutoResolveResult;
+use App\Application\QuickBooks\Mappings\UseCases\AutoResolveMappingsUseCase;
 use App\Application\QuickBooks\Mappings\UseCases\CheckMappingsUseCase;
 use App\Application\QuickBooks\Mappings\UseCases\ListMappingCandidatesUseCase;
 use App\Application\QuickBooks\Mappings\UseCases\ListUnresolvedMappingsUseCase;
@@ -34,7 +36,8 @@ final class QuickBooksMappingsResolveCommand extends Command
 
     protected $signature = 'quickbooks:mappings:resolve
                             {--key= : Prompt for this key alone, even when it is resolved}
-                            {--check : Report problems with the stored mappings and change none}';
+                            {--check : Report problems with the stored mappings and change none}
+                            {--auto : Resolve every unresolved key without prompts, in the sandbox only}';
 
     protected $description = 'Resolve QuickBooks mapping keys to entities of the configured company';
 
@@ -42,15 +45,15 @@ final class QuickBooksMappingsResolveCommand extends Command
         ListUnresolvedMappingsUseCase $unresolved,
         ListMappingCandidatesUseCase $candidates,
         RecordMappingPickUseCase $record,
-        CheckMappingsUseCase $check,
     ): int {
-        if ($this->option('key') !== null && $this->option('check') === true) {
-            return $this->fails('Use only one of --key and --check', 'the options given');
+        if ($this->optionsClash()) {
+            return $this->fails('Use only one of --key, --check and --auto', 'the options given');
         }
 
         try {
             return match (true) {
-                $this->option('check') === true => $this->check($check),
+                $this->option('check') === true => $this->check(\app(CheckMappingsUseCase::class)),
+                $this->option('auto') === true => $this->auto(\app(AutoResolveMappingsUseCase::class)),
                 $this->option('key') !== null => $this->resolveKey($candidates, $record),
                 default => $this->resolveAll($unresolved, $candidates, $record),
             };
@@ -82,6 +85,46 @@ final class QuickBooksMappingsResolveCommand extends Command
         ));
 
         return self::FAILURE;
+    }
+
+    private function optionsClash(): bool
+    {
+        return \count(\array_filter([
+            $this->option('key') !== null,
+            $this->option('check') === true,
+            $this->option('auto') === true,
+        ])) > 1;
+    }
+
+    /**
+     * @throws DomainException
+     */
+    private function auto(AutoResolveMappingsUseCase $auto): int
+    {
+        $result = $auto->execute();
+        if ($result->refused) {
+            return $this->fails('Auto mode runs in the sandbox only', 'QUICKBOOKS_ENVIRONMENT');
+        }
+
+        return $this->reportAuto($result);
+    }
+
+    private function reportAuto(MappingAutoResolveResult $result): int
+    {
+        foreach ($result->resolved as $key) {
+            $this->info("Resolved {$key->value}");
+        }
+        if ($result->unmatched === []) {
+            $this->info('No unresolved mapping is left');
+
+            return self::SUCCESS;
+        }
+
+        foreach ($result->unmatched as $left) {
+            $this->line("  {$left->key->value}: {$left->reason}");
+        }
+
+        return $this->fails('Some keys are still unresolved', 'the reasons above, then run it again');
     }
 
     /**
