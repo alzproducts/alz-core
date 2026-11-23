@@ -15,6 +15,8 @@ final class SpyCurl extends BaseCurl
     /** @var array<int, mixed> */
     public array $options = [];
 
+    public bool $warnBeforeResponse = false;
+
     public function __construct(
         private readonly string $rawHeaders,
         private readonly string $body,
@@ -42,6 +44,11 @@ final class SpyCurl extends BaseCurl
     #[Override]
     public function execute(): string
     {
+        if ($this->warnBeforeResponse) {
+            \hex2bin('z'); // raises a real E_WARNING
+        }
+
+
         return $this->rawHeaders . $this->body;
     }
 

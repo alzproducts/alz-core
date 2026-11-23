@@ -18,6 +18,7 @@ use Closure;
 use Illuminate\Support\Sleep;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
+use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
 use QuickBooksOnline\API\Data\IPPIntuitEntity;
 use QuickBooksOnline\API\DataService\Batch;
 use QuickBooksOnline\API\DataService\DataService;
@@ -330,7 +331,7 @@ final readonly class QuickBooksTransport
     {
         $previous = null;
         $previous = \set_error_handler(static function (int $level, string $message, string $file, int $line) use (&$previous, $httpClient): bool {
-            if (($level & \E_WARNING) !== 0 && $httpClient->responseBody() === null) {
+            if (($level & \E_WARNING) !== 0 && self::isEmptySuccessBody($httpClient)) {
                 return true;
             }
 
@@ -342,6 +343,16 @@ final readonly class QuickBooksTransport
         } finally {
             \restore_error_handler();
         }
+    }
+
+    private static function isEmptySuccessBody(QuickBooksCurlHttpClient $httpClient): bool
+    {
+        $response = $httpClient->getLastResponse();
+
+        return $response instanceof IntuitResponse
+            && $response->getStatusCode() >= 200
+            && $response->getStatusCode() < 300
+            && $httpClient->responseBody() === null;
     }
 
     /**

@@ -413,6 +413,18 @@ final class QuickBooksTransportTest extends TestCase
     }
 
     #[Test]
+    public function a_warning_raised_before_any_response_still_reaches_the_previous_handler(): void
+    {
+        $curl = self::curl('', 200, 'text/html');
+        $curl->warnBeforeResponse = true;
+        $transport = $this->transport([self::sdkSession($curl)]);
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        self::withWarningsAsExceptions(static fn() => $transport->query(self::token(), self::QUERY, self::deadline()));
+    }
+
+    #[Test]
     public function an_empty_html_2xx_query_body_is_unexpected_and_logged_once_when_warnings_are_exceptions(): void
     {
         $logger = new RecordingLogger();
