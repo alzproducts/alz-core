@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\DatabaseConnectivityInterface;
 use App\Application\Contracts\DatabaseGatewayInterface;
 use App\Application\Contracts\EscalationsConfigRepositoryInterface;
 use App\Application\Contracts\Operations\PricePeriodRepositoryInterface;
 use App\Application\Contracts\Operations\SkuChangeRepositoryInterface;
+use App\Infrastructure\Database\DatabaseConnectivityClient;
 use App\Infrastructure\Database\DatabaseGateway;
 use App\Infrastructure\Operations\Repositories\EloquentPricePeriodRepository;
 use App\Infrastructure\Operations\Repositories\EloquentSkuChangeRepository;
@@ -48,6 +50,8 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
             DatabaseGateway::class,
             static fn(Application $app): DatabaseGateway => $app->make(DatabaseGatewayInterface::class),
         );
+
+        $this->app->bind(DatabaseConnectivityInterface::class, DatabaseConnectivityClient::class);
     }
 
     private function registerRepositories(): void
@@ -66,6 +70,7 @@ final class DatabaseServiceProvider extends ServiceProvider implements Deferrabl
         return [
             DatabaseGatewayInterface::class,
             DatabaseGateway::class,
+            DatabaseConnectivityInterface::class,
             EscalationsConfigRepositoryInterface::class,
             PricePeriodRepositoryInterface::class,
             SkuChangeRepositoryInterface::class,

@@ -114,9 +114,9 @@ final readonly class DatabaseGateway implements DatabaseGatewayInterface
      *
      * @see DatabaseGateway class docblock for injection pattern guidance
      */
-    public function connection(): ConnectionInterface
+    public function connection(?string $name = null): ConnectionInterface
     {
-        return $this->db->connection();
+        return $this->db->connection($name);
     }
 
     /**
