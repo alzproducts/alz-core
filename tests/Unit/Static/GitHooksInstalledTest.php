@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Static;
 
+use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -21,7 +22,7 @@ final class GitHooksInstalledTest extends TestCase
 {
     private string $sandbox = '';
 
-    #[\Override]
+    #[Override]
     protected function tearDown(): void
     {
         if ($this->sandbox !== '') {
