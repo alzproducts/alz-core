@@ -413,6 +413,23 @@ final class QuickBooksTransportTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_html_2xx_query_body_is_unexpected_and_logged_once_when_warnings_are_exceptions(): void
+    {
+        $logger = new RecordingLogger();
+        $transport = $this->transport([self::sdkSession(self::curl('', 200, 'text/html'))], logger: $logger);
+
+        try {
+            self::withWarningsAsExceptions(static fn() => $transport->query(self::token(), self::QUERY, self::deadline()));
+            $this->fail('Expected UnexpectedApiResultException');
+        } catch (UnexpectedApiResultException) {
+            $this->assertSame(
+                [['QuickBooks API returned an unexpected query result', ['result_type' => 'null', 'intuit_tid' => 'tid-1']]],
+                $logger->records,
+            );
+        }
+    }
+
+    #[Test]
     public function a_malformed_2xx_query_body_is_unavailable_not_zero_rows(): void
     {
         foreach (['application/xml', 'text/html'] as $contentType) {

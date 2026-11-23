@@ -99,7 +99,7 @@ final readonly class QuickBooksTransport
         $body = null;
         $intuitTid = null;
         $rows = $this->send($accessToken, $deadline, false, static function (DataService $dataService, QuickBooksCurlHttpClient $httpClient) use ($query, &$body, &$intuitTid): mixed {
-            $result = $dataService->Query($query);
+            $result = self::withoutEmptyBodyWarning($httpClient, static fn(): mixed => $dataService->Query($query));
             $body = $httpClient->responseBody();
             $intuitTid = $httpClient->intuitTid();
 
@@ -317,6 +317,31 @@ final readonly class QuickBooksTransport
             $httpClient->intuitTid(),
             new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, $retryAfter ?? (int) \ceil($wait)),
         );
+    }
+
+    /**
+     * intentional: only an empty body is exempt. libxml 2.9 stays silent on `simplexml_load_string('')` and 2.13 warns, and a
+     * malformed body must keep raising its warning, so the SDK query is not wrapped in `QuickBooksXmlParsing::quietly()`.
+     *
+     * @param-immediately-invoked-callable $call
+     * @param Closure(): mixed $call
+     */
+    private static function withoutEmptyBodyWarning(QuickBooksCurlHttpClient $httpClient, Closure $call): mixed
+    {
+        $previous = null;
+        $previous = \set_error_handler(static function (int $level, string $message, string $file, int $line) use (&$previous, $httpClient): bool {
+            if (($level & \E_WARNING) !== 0 && $httpClient->responseBody() === null) {
+                return true;
+            }
+
+            return \is_callable($previous) && $previous($level, $message, $file, $line) !== false;
+        });
+
+        try {
+            return $call();
+        } finally {
+            \restore_error_handler();
+        }
     }
 
     /**
