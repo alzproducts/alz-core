@@ -15,7 +15,6 @@ use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Carbon\CarbonImmutable;
 use Closure;
-use Exception;
 use Illuminate\Support\Sleep;
 use Psr\Log\LoggerInterface;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
@@ -59,6 +58,7 @@ final readonly class QuickBooksTransport
      * @throws AuthenticationExpiredException      on a 401 or 403, or an Authentication or Authorization Fault
      * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a full limiter, or a 429
      * @throws QuickBooksFaultException            on any other Fault
+     * @throws UnexpectedApiResultException        on a 2xx Fault
      */
     public function companyInfo(#[SensitiveParameter] ApiKeyToken $accessToken): mixed
     {
@@ -68,6 +68,10 @@ final readonly class QuickBooksTransport
         $result = $this->attempt($session, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
 
         $error = QuickBooksFaultMapper::faultOrNull($session->dataService->getLastError());
+        if ($error === null && $result === null && QuickBooksFaultMapper::hasFault($session->httpClient->responseBody())) {
+            throw $this->unexpectedNullResult('company info', 'CompanyInfo response is a Fault', $session->httpClient->intuitTid());
+        }
+
         if ($error === null) {
             return $result;
         }
@@ -88,13 +92,25 @@ final readonly class QuickBooksTransport
      * @throws ExternalServiceUnavailableException
      * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
-     * @throws UnexpectedApiResultException        when the parsed response is neither rows nor empty
+     * @throws UnexpectedApiResultException        on a 2xx Fault, or when the response is neither rows nor an empty query response
      */
     public function query(#[SensitiveParameter] ApiKeyToken $accessToken, string $query, Deadline $deadline): array
     {
-        $rows = $this->send($accessToken, $deadline, false, static fn(DataService $dataService): mixed => $dataService->Query($query));
+        $body = null;
+        $intuitTid = null;
+        $rows = $this->send($accessToken, $deadline, false, static function (DataService $dataService, QuickBooksCurlHttpClient $httpClient) use ($query, &$body, &$intuitTid): mixed {
+            $result = $dataService->Query($query);
+            $body = $httpClient->responseBody();
+            $intuitTid = $httpClient->intuitTid();
 
-        // intentional: the SDK returns null for a Fault too, but send() has already thrown on the Fault it recorded
+            return $result;
+        });
+
+        // intentional: the SDK also returns null for a 2xx Fault, which it does not record, and for a body that is no query response
+        if ($rows === null && !QuickBooksFaultMapper::isZeroRows($body)) {
+            throw $this->unexpectedNullResult('query', 'Query response is a Fault or not a query response', $intuitTid);
+        }
+
         if ($rows === null) {
             return [];
         }
@@ -149,6 +165,13 @@ final readonly class QuickBooksTransport
         }
 
         return $created;
+    }
+
+    private function unexpectedNullResult(string $call, string $reason, ?string $intuitTid): UnexpectedApiResultException
+    {
+        $this->logger->error(self::LOG_PREFIX . " returned an unexpected {$call} result", ['result_type' => 'null', 'intuit_tid' => $intuitTid]);
+
+        return new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, $reason);
     }
 
     private function unexpectedCreateResult(mixed $created, ?string $intuitTid): UnexpectedApiResultException
@@ -309,7 +332,7 @@ final readonly class QuickBooksTransport
 
         try {
             $result = $call($session->dataService, $session->httpClient);
-        } catch (Exception $e) { // @ignoreException - curl and SDK errors are transport failures; translated below
+        } catch (Throwable $e) { // @ignoreException - curl and SDK errors, PHP Errors included, are transport failures; translated below
             $thrown = $e::class;
         }
 

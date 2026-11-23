@@ -15,6 +15,7 @@ use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
 use QuickBooksOnline\API\Data\IPPIntuitEntity;
 use QuickBooksOnline\API\DataService\IntuitBatchResponse;
 use QuickBooksOnline\API\Exception\ValidationException;
+use SimpleXMLElement;
 
 /**
  * Turns QuickBooks Faults into Domain errors. The only place Intuit fault codes are read.
@@ -92,6 +93,38 @@ final readonly class QuickBooksFaultMapper
             element: null,
             message: self::text($exception->getMessage()),
         );
+    }
+
+    /**
+     * Whether a 2xx body holds a Fault, which the SDK never records: directly under the root, or inside `QueryResponse`.
+     */
+    public static function hasFault(?string $body): bool
+    {
+        $xml = self::xml($body);
+
+        return $xml !== null && (isset($xml->Fault) || isset($xml->QueryResponse->Fault));
+    }
+
+    /**
+     * Whether a body the SDK read no rows from is a query response without a Fault.
+     */
+    public static function isZeroRows(?string $body): bool
+    {
+        $xml = self::xml($body);
+
+        // intentional: isset, not truthiness, because an empty SimpleXML element casts to false
+        return $xml !== null && isset($xml->QueryResponse) && !self::hasFault($body);
+    }
+
+    private static function xml(?string $body): ?SimpleXMLElement
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        $xml = QuickBooksXmlParsing::quietly(static fn(): SimpleXMLElement|false => \simplexml_load_string($body));
+
+        return $xml === false ? null : $xml;
     }
 
     /**

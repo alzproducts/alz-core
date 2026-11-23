@@ -24,6 +24,7 @@ use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
 use App\Infrastructure\Support\TransientLogThrottle;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use ErrorException;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Sleep;
@@ -45,6 +46,7 @@ use QuickBooksOnline\API\DataService\DataService;
 use QuickBooksOnline\API\Exception\IdsException;
 use QuickBooksOnline\API\Exception\SdkException;
 use Throwable;
+use ValueError;
 
 #[CoversClass(QuickBooksTransport::class)]
 final class QuickBooksTransportTest extends TestCase
@@ -354,10 +356,133 @@ final class QuickBooksTransportTest extends TestCase
         $this->assertSame([$customer], $this->transport([$this->querySession([$customer], false)])->query(self::token(), self::QUERY, self::deadline()));
     }
 
-    #[Test]
-    public function a_null_query_result_with_no_fault_is_zero_rows(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function zeroRowBodies(): array
     {
-        $this->assertSame([], $this->transport([$this->querySession(null, false)])->query(self::token(), self::QUERY, self::deadline()));
+        return [
+            'self-closed' => ['<IntuitResponse xmlns="http://schema.intuit.com/finance/v3"><QueryResponse/></IntuitResponse>'],
+            'open and close tags' => ['<IntuitResponse xmlns="http://schema.intuit.com/finance/v3"><QueryResponse></QueryResponse></IntuitResponse>'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('zeroRowBodies')]
+    public function a_2xx_empty_query_response_is_zero_rows(string $body): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->assertSame([], $this->transport([self::sdkSession(self::curl($body))], logger: $logger)->query(self::token(), self::QUERY, self::deadline()));
+        $this->assertSame([], $logger->records);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function unusableQueryBodies(): array
+    {
+        $fault = '<Fault type="ValidationFault"><Error code="4001"><Message>' . self::SENTINEL . '</Message></Error></Fault>';
+
+        return [
+            'fault under IntuitResponse' => ["<IntuitResponse xmlns=\"http://schema.intuit.com/finance/v3\">{$fault}</IntuitResponse>", 'application/xml'],
+            'fault inside QueryResponse' => ["<IntuitResponse xmlns=\"http://schema.intuit.com/finance/v3\"><QueryResponse>{$fault}</QueryResponse></IntuitResponse>", 'application/xml'],
+            'fault beside an empty QueryResponse' => ["<IntuitResponse xmlns=\"http://schema.intuit.com/finance/v3\"><QueryResponse/>{$fault}</IntuitResponse>", 'application/xml'],
+            'well-formed HTML page' => ['<html><body>' . self::SENTINEL . '</body></html>', 'text/html'],
+            'empty HTML body' => ['', 'text/html'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('unusableQueryBodies')]
+    public function a_2xx_query_body_with_a_fault_or_no_query_response_is_unexpected_not_zero_rows(string $body, string $contentType): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $this->transport([self::sdkSession(self::curl($body, 200, $contentType))], logger: $logger)->query(self::token(), self::QUERY, self::deadline());
+            $this->fail('Expected UnexpectedApiResultException');
+        } catch (UnexpectedApiResultException $e) {
+            $this->assertNull($e->getPrevious());
+        }
+
+        $this->assertSame(
+            [['QuickBooks API returned an unexpected query result', ['result_type' => 'null', 'intuit_tid' => 'tid-1']]],
+            $logger->records,
+        );
+    }
+
+    #[Test]
+    public function a_malformed_2xx_query_body_is_unavailable_not_zero_rows(): void
+    {
+        foreach (['application/xml', 'text/html'] as $contentType) {
+            $session = self::sdkSession(self::curl('<IntuitResponse><QueryResponse>', 200, $contentType));
+
+            self::withWarningsAsExceptions(fn() => $this->assertLoggedOnce(
+                fn(RecordingLogger $logger): mixed => $this->transport([$session], logger: $logger)->query(self::token(), self::QUERY, self::deadline()),
+                null,
+                'tid-1',
+                ExternalServiceUnavailableException::class,
+            ));
+        }
+    }
+
+    #[Test]
+    public function a_2xx_company_info_fault_is_unexpected_and_logged_with_its_intuit_tid(): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $this->transport([self::sdkSession(self::curl(self::faultXml('100', '')))], logger: $logger)->companyInfo(self::token());
+            $this->fail('Expected UnexpectedApiResultException');
+        } catch (UnexpectedApiResultException $e) {
+            $this->assertNull($e->getPrevious());
+        }
+
+        $this->assertSame(
+            [['QuickBooks API returned an unexpected company info result', ['result_type' => 'null', 'intuit_tid' => 'tid-1']]],
+            $logger->records,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{int, string}>
+     */
+    public static function emptyXmlResponses(): iterable
+    {
+        foreach ([200, 429, 503] as $status) {
+            foreach (['query', 'add', 'companyInfo'] as $call) {
+                yield "{$status} {$call}" => [$status, $call];
+            }
+        }
+    }
+
+    /**
+     * Runs the real SDK, whose response logging throws a ValueError on an empty XML body.
+     */
+    #[Test]
+    #[DataProvider('emptyXmlResponses')]
+    public function a_php_error_from_the_sdk_is_unavailable_without_a_retry(int $status, string $call): void
+    {
+        $session = self::sdkSession(self::curl('', $status));
+
+        self::withWarningsAsExceptions(fn() => $this->assertLoggedOnce(
+            function (RecordingLogger $logger) use ($session, $call): mixed {
+                $transport = $this->transport([$session], logger: $logger);
+
+                return match ($call) {
+                    'query' => $transport->query(self::token(), self::QUERY, self::deadline()),
+                    'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+                    default => $transport->companyInfo(self::token()),
+                };
+            },
+            null,
+            'tid-1',
+            ExternalServiceUnavailableException::class,
+            ValueError::class,
+        ));
+
+        $this->assertSame([], $this->slept);
     }
 
     #[Test]
@@ -512,15 +637,23 @@ final class QuickBooksTransportTest extends TestCase
 
     /**
      * @param callable(RecordingLogger): mixed $call
+     * @param class-string<Throwable>|null     $expected
+     * @param class-string<Throwable>|null     $loggedClass
      */
-    private function assertLoggedOnce(callable $call, ?int $status, ?string $intuitTid): void
+    private function assertLoggedOnce(callable $call, ?int $status, ?string $intuitTid, ?string $expected = null, ?string $loggedClass = null): void
     {
         $logger = new RecordingLogger();
 
         try {
             $call($logger);
             $this->fail('Expected a translated failure');
-        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException|QuickBooksFaultException) {
+        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException|QuickBooksFaultException $e) {
+            $this->assertInstanceOf($expected ?? $e::class, $e);
+            $this->assertNull($e->getPrevious());
+        }
+
+        if ($loggedClass !== null) {
+            $this->assertSame($loggedClass, $logger->records[0][1]['exception'] ?? null);
         }
 
         $this->assertCount(1, $logger->records);
@@ -563,6 +696,33 @@ final class QuickBooksTransportTest extends TestCase
               </Fault>
             </IntuitResponse>
             XML;
+    }
+
+    private static function curl(string $body, int $status = 200, string $contentType = 'application/xml'): SpyCurl
+    {
+        return new SpyCurl("HTTP/1.1 {$status} Status\r\nContent-Type: {$contentType}\r\nintuit_tid: tid-1\r\n\r\n", $body, $status);
+    }
+
+    /**
+     * Converts PHP warnings to exceptions, as Laravel does.
+     *
+     * @param callable(): void $run
+     */
+    private static function withWarningsAsExceptions(callable $run): void
+    {
+        \set_error_handler(static function (int $level, string $message, string $file, int $line): bool {
+            if (($level & (\E_WARNING | \E_USER_WARNING)) === 0) {
+                return false;
+            }
+
+            throw new ErrorException($message, 0, $level, $file, $line);
+        });
+
+        try {
+            $run();
+        } finally {
+            \restore_error_handler();
+        }
     }
 
     private static function sdkSession(SpyCurl $curl): QuickBooksDataServiceSession
@@ -627,6 +787,7 @@ final class QuickBooksTransportTest extends TestCase
         $httpClient = Mockery::mock(QuickBooksCurlHttpClient::class);
         $httpClient->shouldReceive('retryAfterSeconds')->andReturn($seconds);
         $httpClient->shouldReceive('intuitTid')->andReturn($intuitTid);
+        $httpClient->shouldReceive('responseBody')->andReturn(null);
 
         return $httpClient;
     }
