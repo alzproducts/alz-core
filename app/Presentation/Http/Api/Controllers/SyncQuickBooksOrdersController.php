@@ -10,11 +10,14 @@ use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\KeyEncryptionFailedException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Presentation\Http\Api\DTOs\SyncQuickBooksOrdersRequestDTO;
@@ -33,7 +36,10 @@ use Illuminate\Http\Request;
  * @throws InvalidConfigurationException
  * @throws KeyEncryptionFailedException
  * @throws LockAcquisitionException
+ * @throws QuickBooksDeadlineExceededException
+ * @throws QuickBooksFaultException
  * @throws QuickBooksMappingsUnresolvedException
+ * @throws UnexpectedApiResultException
  * @throws ValidationFailedException
  */
 final readonly class SyncQuickBooksOrdersController
@@ -54,7 +60,10 @@ final readonly class SyncQuickBooksOrdersController
      * @throws InvalidConfigurationException
      * @throws KeyEncryptionFailedException
      * @throws LockAcquisitionException
+     * @throws QuickBooksDeadlineExceededException
+     * @throws QuickBooksFaultException
      * @throws QuickBooksMappingsUnresolvedException
+     * @throws UnexpectedApiResultException
      * @throws ValidationFailedException
      */
     public function __invoke(SyncQuickBooksOrdersRequestDTO $data, Request $request): JsonResponse

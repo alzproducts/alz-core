@@ -28,6 +28,16 @@ final readonly class OrderSyncResultDTO
         return new self($reference, SyncOutcome::AlreadySynced, $docType, $qboDocNumber, $qboTxnId, null, null);
     }
 
+    public static function ofOutcome(OrderSyncOutcomeDTO $outcome): self
+    {
+        $reference = $outcome->order->row->reference;
+        $detail = $outcome->detail;
+
+        return $detail instanceof OrderSyncPostedDTO
+            ? new self($reference, $outcome->outcome, $detail->docType, $detail->qboDocNumber, $detail->qboTxnId, null, null)
+            : new self($reference, $outcome->outcome, $outcome->docType, null, null, $detail->code, $detail->message);
+    }
+
     public static function refused(int $reference, SyncReasonCode $reason): self
     {
         return new self($reference, $reason->outcome(), null, null, null, $reason, $reason->message());

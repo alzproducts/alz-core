@@ -20,11 +20,14 @@ use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\KeyEncryptionFailedException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\ValidationFailedException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Psr\Log\LoggerInterface;
@@ -53,7 +56,10 @@ final readonly class SyncOrdersByReferenceUseCase
      * @throws InvalidConfigurationException
      * @throws KeyEncryptionFailedException
      * @throws LockAcquisitionException
+     * @throws QuickBooksDeadlineExceededException
+     * @throws QuickBooksFaultException
      * @throws QuickBooksMappingsUnresolvedException
+     * @throws UnexpectedApiResultException
      * @throws ValidationFailedException when the floor is unset or an order predates it
      */
     public function execute(array $references, bool $forceRetry, Deadline $deadline): OrderSyncResultsResult

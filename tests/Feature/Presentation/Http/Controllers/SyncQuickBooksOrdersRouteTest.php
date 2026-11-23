@@ -7,21 +7,25 @@ namespace Tests\Feature\Presentation\Http\Controllers;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
-use Mockery;
 use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Feature\Concerns\SendsRoleTokens;
+use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
 use Tests\TestCase;
 
 #[CoversNothing]
@@ -38,10 +42,19 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
 
     private const int OTHER_REFERENCE = 890000002;
 
-    private const array PORT_METHODS = ['findItems', 'findDocuments', 'findOrCreateCustomers', 'createDocuments'];
+    private const array LIVE = [
+        'status' => 'processing',
+        'claim_token' => '00000000-0000-4000-8000-000000000001',
+        'lease_expires_at' => '2099-01-01 00:00:00+00',
+    ];
 
-    /** @var list<string> */
-    private array $portCalls = [];
+    private const array LAPSED = [
+        'status' => 'processing',
+        'claim_token' => '00000000-0000-4000-8000-000000000001',
+        'lease_expires_at' => '2026-01-01 00:00:00+00',
+    ];
+
+    private FakeQuickBooksOrderPosting $posting;
 
     #[Override]
     protected function setUp(): void
@@ -250,7 +263,7 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
                 'warnings' => [],
                 'reason' => null,
             ]]);
-        self::assertSame([], $this->portCalls);
+        self::assertSame([], $this->posting->calls);
     }
 
     #[Test]
@@ -266,7 +279,7 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
             ->assertJsonPath('results.0.outcome', 'skipped')
             ->assertJsonPath('results.0.reason.code', 'previously_failed');
         self::assertEquals($before, DB::table('quickbooks.order_syncs')->get()->toArray());
-        self::assertSame([], $this->portCalls);
+        self::assertSame([], $this->posting->calls);
     }
 
     #[Test]
@@ -289,6 +302,425 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
 
         $this->sync(['references' => [self::REFERENCE]])->assertStatus(503);
         $this->assertNothingSynced();
+    }
+
+    #[Test]
+    public function ten_references_over_every_outcome_are_counted_with_their_fields(): void
+    {
+        $this->connect();
+        $this->posting->missingSkus = ['SKU-GONE'];
+        $references = \range(self::REFERENCE, self::REFERENCE + 9);
+        [$new, $synced, $cancelled, $unknown, $failed, $noItem, $leased, $lapsed, $pending, $new2] = $references;
+        foreach ([$new, $synced, $failed, $leased, $lapsed, $pending, $new2] as $reference) {
+            $this->insertOrder($reference);
+        }
+        $this->insertOrder($cancelled, state: ['lifecycle_status' => 'cancelled']);
+        $this->insertOrder($noItem, sku: 'SKU-GONE');
+        $this->insertSync(['status' => 'synced', 'doc_type' => 'invoice', 'qbo_doc_number' => 'DOC-1', 'qbo_txn_id' => 'txn-1'], $synced);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'item_missing'], $failed);
+        $this->insertSync(self::LIVE, $leased);
+        $this->insertSync(self::LAPSED, $lapsed);
+        $this->insertSync(['status' => 'pending'], $pending);
+
+        $response = $this->sync(['references' => $references])
+            ->assertOk()
+            ->assertJsonPath('total', 10)
+            ->assertJsonPath('counts', ['synced' => 4, 'already_synced' => 1, 'skipped' => 3, 'failed' => 1, 'not_attempted' => 1]);
+
+        self::assertSame([
+            self::expected($new, 'synced', 'sales_receipt', "A{$new}", "txn-A{$new}"),
+            self::expected($synced, 'already_synced', 'invoice', 'DOC-1', 'txn-1'),
+            self::expected($cancelled, 'skipped', reason: ['code' => 'cancelled', 'retryable' => false]),
+            self::expected($unknown, 'skipped', reason: ['code' => 'order_not_found', 'retryable' => false]),
+            self::expected($failed, 'skipped', reason: ['code' => 'previously_failed', 'retryable' => true]),
+            self::expected($noItem, 'failed', 'sales_receipt', reason: ['code' => 'item_missing', 'retryable' => true]),
+            self::expected($leased, 'not_attempted', reason: ['code' => 'in_progress', 'retryable' => true]),
+            self::expected($lapsed, 'synced', 'sales_receipt', "A{$lapsed}", "txn-A{$lapsed}"),
+            self::expected($pending, 'synced', 'sales_receipt', "A{$pending}", "txn-A{$pending}"),
+            self::expected($new2, 'synced', 'sales_receipt', "A{$new2}", "txn-A{$new2}"),
+        ], self::withoutMessages($response));
+        $this->assertRow($new, ['status' => 'synced', 'qbo_doc_number' => "A{$new}", 'qbo_txn_id' => "txn-A{$new}", 'doc_type' => 'sales_receipt']);
+        $this->assertRow($noItem, ['status' => 'failed', 'last_error_code' => 'item_missing']);
+    }
+
+    #[Test]
+    public function one_reference_is_totalled_alone(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+
+        $response = $this->sync(['references' => [self::REFERENCE]])
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('counts', ['synced' => 1, 'already_synced' => 0, 'skipped' => 0, 'failed' => 0, 'not_attempted' => 0]);
+
+        $number = 'A' . self::REFERENCE;
+        self::assertSame([self::expected(self::REFERENCE, 'synced', 'sales_receipt', $number, "txn-{$number}")], self::withoutMessages($response));
+    }
+
+    #[Test]
+    public function an_order_placed_exactly_at_the_floor_is_synced(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, '2026-06-30 23:00:00+00');
+
+        $this->sync(['references' => [self::REFERENCE]])->assertOk()->assertJsonPath('results.0.outcome', 'synced');
+    }
+
+    #[Test]
+    public function a_failed_row_is_synced_with_force_retry(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'item_missing']);
+
+        $this->sync(['references' => [self::REFERENCE], 'force_retry' => true])->assertOk()->assertJsonPath('results.0.outcome', 'synced');
+        $this->assertRow(self::REFERENCE, ['status' => 'synced']);
+    }
+
+    #[Test]
+    public function a_mixed_request_refuses_by_order_then_row(): void
+    {
+        $this->connect();
+        [$failed, $leased, $unknown, $live, $lapsed] = $references = \range(self::REFERENCE, self::REFERENCE + 4);
+        $this->insertOrder($failed, state: ['lifecycle_status' => 'cancelled']);
+        $this->insertOrder($leased, state: ['lifecycle_status' => 'cancelled']);
+        $this->insertOrder($live);
+        $this->insertOrder($lapsed);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'item_missing'], $failed);
+        $this->insertSync(self::LIVE, $leased);
+        $this->insertSync(self::LIVE, $live);
+        $this->insertSync(self::LAPSED, $lapsed);
+
+        $response = $this->sync(['references' => $references])->assertOk();
+
+        self::assertSame([
+            self::expected($failed, 'skipped', reason: ['code' => 'cancelled', 'retryable' => false]),
+            self::expected($leased, 'skipped', reason: ['code' => 'cancelled', 'retryable' => false]),
+            self::expected($unknown, 'skipped', reason: ['code' => 'order_not_found', 'retryable' => false]),
+            self::expected($live, 'not_attempted', reason: ['code' => 'in_progress', 'retryable' => true]),
+            self::expected($lapsed, 'synced', 'sales_receipt', "A{$lapsed}", "txn-A{$lapsed}"),
+        ], self::withoutMessages($response));
+    }
+
+    #[Test]
+    public function a_second_request_during_the_first_is_not_attempted(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $second = null;
+        $this->posting->duringCreate = function () use (&$second): void {
+            $second = $this->sync(['references' => [self::REFERENCE]]);
+        };
+
+        $this->sync(['references' => [self::REFERENCE]])->assertOk()->assertJsonPath('results.0.outcome', 'synced');
+
+        self::assertInstanceOf(TestResponse::class, $second);
+        $second->assertOk()
+            ->assertJsonPath('results.0.outcome', 'not_attempted')
+            ->assertJsonPath('results.0.reason.code', 'in_progress');
+        self::assertCount(1, \array_keys($this->posting->calls, 'createDocuments', true));
+    }
+
+    #[Test]
+    public function every_call_gets_the_arrival_deadline(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $arrival = \microtime(true) - 3.5;
+
+        $this->withServerVariables(['REQUEST_TIME_FLOAT' => $arrival])->sync(['references' => [self::REFERENCE]])->assertOk();
+
+        self::assertSame(['findDocuments', 'findItems', 'findOrCreateCustomers', 'createDocuments'], $this->posting->calls);
+        foreach ($this->posting->deadlines as $deadline) {
+            self::assertEqualsWithDelta($arrival + 25, (float) $deadline->at->format('U.u'), 0.001);
+        }
+    }
+
+    #[Test]
+    public function a_mapping_key_never_seeded_fails_the_order(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        DB::table('quickbooks.mappings')->where('key', 'department')->delete();
+
+        $this->assertFailed('mapping_missing', ['references' => [self::REFERENCE]]);
+        self::assertSame([], $this->posting->documents);
+    }
+
+    #[Test]
+    public function a_missing_item_fails_its_order_before_any_customer(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, state: ['billing_name' => 'Gone Buyer'], sku: 'SKU-GONE');
+        $this->insertOrder(self::OTHER_REFERENCE);
+        $this->posting->missingSkus = ['SKU-GONE'];
+
+        $this->assertFailed('item_missing', ['references' => [self::REFERENCE, self::OTHER_REFERENCE]])
+            ->assertJsonPath('results.1.outcome', 'synced');
+
+        self::assertSame(['Test Buyer, TE1 1ST'], \array_column($this->posting->customers, 'displayName'));
+        self::assertCount(1, $this->posting->documents);
+    }
+
+    #[Test]
+    public function a_missing_item_replaces_a_stored_unknown_outcome(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, sku: 'SKU-GONE');
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+        $this->posting->missingSkus = ['SKU-GONE'];
+
+        $this->assertFailed('item_missing', ['references' => [self::REFERENCE], 'force_retry' => true]);
+    }
+
+    #[Test]
+    public function an_order_without_a_payment_method_fails_before_quickbooks(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, state: ['payment_method_raw' => null]);
+
+        $this->assertFailed('mapping_missing', ['references' => [self::REFERENCE]]);
+        self::assertSame([], $this->posting->calls);
+    }
+
+    #[Test]
+    public function a_build_failure_keeps_a_stored_unknown_outcome(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, state: ['payment_method_raw' => null]);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+
+        $response = $this->assertFailed('outcome_unknown', ['references' => [self::REFERENCE], 'force_retry' => true])
+            ->assertJsonPath('results.0.reason.retryable', true);
+
+        self::assertStringContainsString('mapping_missing', (string) \json_encode($response->json('results.0.reason.message')));
+        self::assertStringContainsString('mapping_missing', (string) \json_encode(DB::table('quickbooks.order_syncs')->value('last_error_message')));
+        self::assertSame(['mapping_missing'], DB::table('quickbooks.order_sync_errors')->pluck('reason_code')->all());
+    }
+
+    #[Test]
+    public function every_document_is_looked_up_before_anything_is_created(): void
+    {
+        $this->connect();
+        $references = \range(self::REFERENCE, self::REFERENCE + 3);
+        foreach ($references as $reference) {
+            $this->insertOrder($reference);
+        }
+        $this->insertSync(['status' => 'pending'], $references[1]);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'outcome_unknown'], $references[2]);
+        $this->insertSync(self::LAPSED, $references[3]);
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertOk()->assertJsonPath('counts.synced', 4);
+
+        self::assertSame(['findDocuments', 'findItems', 'findOrCreateCustomers', 'createDocuments'], $this->posting->calls);
+        self::assertEqualsCanonicalizing(\array_map(static fn(int $reference): string => "A{$reference}", $references), $this->posting->lookedUp);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>|null, bool, DocType}>
+     */
+    public static function existingDocuments(): iterable
+    {
+        $sources = [
+            'new' => [null, false],
+            'new forced' => [null, true],
+            'pending' => [['status' => 'pending'], false],
+            'pending forced' => [['status' => 'pending'], true],
+            'lapsed' => [self::LAPSED, false],
+            'lapsed forced' => [self::LAPSED, true],
+            'failed forced' => [['status' => 'failed', 'last_error_code' => 'item_missing'], true],
+        ];
+        // intentional: a voided document reaches the port as an ordinary match, so it repeats its type's data set.
+        $documents = ['invoice' => DocType::Invoice, 'sales receipt' => DocType::SalesReceipt, 'voided' => DocType::SalesReceipt];
+        foreach ($sources as $source => [$state, $forceRetry]) {
+            foreach ($documents as $document => $type) {
+                yield "{$source}, {$document}" => [$state, $forceRetry, $type];
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed>|null $state
+     */
+    #[Test]
+    #[DataProvider('existingDocuments')]
+    public function an_existing_document_is_already_synced(?array $state, bool $forceRetry, DocType $type): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        if ($state !== null) {
+            $this->insertSync($state);
+        }
+        $number = 'A' . self::REFERENCE;
+        $this->posting->existing = [new ExistingDocumentDTO($number, 'qbo-7', $type)];
+
+        $response = $this->sync(['references' => [self::REFERENCE], 'force_retry' => $forceRetry])->assertOk();
+
+        self::assertSame([self::expected(self::REFERENCE, 'already_synced', $type->value, $number, 'qbo-7')], self::withoutMessages($response));
+        $this->assertRow(self::REFERENCE, ['status' => 'synced', 'doc_type' => $type->value, 'qbo_doc_number' => $number, 'qbo_txn_id' => 'qbo-7']);
+        self::assertSame(['findDocuments'], $this->posting->calls);
+    }
+
+    #[Test]
+    public function an_existing_document_of_the_orders_own_type_is_preferred(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $number = 'A' . self::REFERENCE;
+        $this->posting->existing = [
+            new ExistingDocumentDTO($number, 'qbo-7', DocType::Invoice),
+            new ExistingDocumentDTO($number, 'qbo-8', DocType::SalesReceipt),
+        ];
+
+        $response = $this->sync(['references' => [self::REFERENCE]])->assertOk();
+
+        self::assertSame([self::expected(self::REFERENCE, 'already_synced', 'sales_receipt', $number, 'qbo-8')], self::withoutMessages($response));
+    }
+
+    #[Test]
+    public function only_orders_whose_customer_is_in_another_currency_fail(): void
+    {
+        $this->connect();
+        [$usd, $gbp, $none] = $references = \range(self::REFERENCE, self::REFERENCE + 2);
+        foreach (['usd' => $usd, 'gbp' => $gbp, 'none' => $none] as $name => $reference) {
+            $this->insertOrder($reference, state: ['billing_name' => "Buyer {$name}", 'billing_email' => "{$name}@example.test"]);
+        }
+        $this->posting->currencies = ['usd@example.test' => 'USD', 'gbp@example.test' => 'GBP', 'none@example.test' => null];
+
+        $response = $this->assertFailed('qbo_validation', ['references' => $references])
+            ->assertJsonPath('results.1.outcome', 'synced')
+            ->assertJsonPath('results.2.outcome', 'synced');
+
+        self::assertStringContainsString('USD', (string) \json_encode($response->json('results.0.reason.message')));
+        self::assertCount(2, $this->posting->documents);
+    }
+
+    #[Test]
+    public function a_lost_lease_is_logged_and_the_posted_outcome_returned(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->posting->duringCreate = static function (): void {
+            DB::table('quickbooks.order_syncs')->update(['claim_token' => '00000000-0000-4000-8000-000000000002']);
+        };
+        $errors = [];
+        Event::listen(MessageLogged::class, static function (MessageLogged $log) use (&$errors): void {
+            if ($log->level === 'error') {
+                $errors[] = [$log->message, $log->context];
+            }
+        });
+
+        $this->sync(['references' => [self::REFERENCE]])
+            ->assertOk()
+            ->assertJsonPath('results.0.outcome', 'synced')
+            ->assertJsonPath('results.0.qbo_txn_id', 'txn-A' . self::REFERENCE);
+
+        self::assertSame([[
+            'QuickBooks order sync lease lost before its outcome was recorded',
+            ['reference' => self::REFERENCE, 'outcome' => 'synced', 'reason' => null, 'qbo_txn_id' => 'txn-A' . self::REFERENCE],
+        ]], $errors);
+        $this->assertRow(self::REFERENCE, ['status' => 'processing', 'qbo_txn_id' => null]);
+    }
+
+    #[Test]
+    public function run_labels_reach_the_drafts(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        \config(['quickbooks.doc_number_prefix' => 'T1', 'quickbooks.customer_name_suffix' => 'T1S']);
+
+        $this->sync(['references' => [self::REFERENCE]])->assertOk()->assertJsonPath('results.0.qbo_doc_number', 'T1A' . self::REFERENCE);
+
+        self::assertStringEndsWith('T1S', $this->posting->customers[0]->displayName);
+    }
+
+    #[Test]
+    public function a_run_label_outside_the_sandbox_is_a_server_error_before_any_claim(): void
+    {
+        \config(['app.env' => 'production', 'quickbooks.environment' => 'production']);
+        $this->app->forgetInstance(QuickBooksConfig::class);
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->insertOrder(self::OTHER_REFERENCE);
+
+        $this->sync(['references' => [self::OTHER_REFERENCE]])->assertOk()->assertJsonPath('results.0.outcome', 'synced');
+        \config(['quickbooks.doc_number_prefix' => 'T1']);
+        $this->posting->calls = [];
+
+        $this->sync(['references' => [self::REFERENCE]])->assertStatus(500);
+        self::assertSame(0, DB::table('quickbooks.order_syncs')->where('reference', self::REFERENCE)->count());
+        self::assertSame([], $this->posting->calls);
+    }
+
+    /**
+     * @param array{code: string, retryable: bool}|null $reason
+     *
+     * @return array<string, mixed>
+     */
+    private static function expected(
+        int $reference,
+        string $outcome,
+        ?string $docType = null,
+        ?string $docNumber = null,
+        ?string $txnId = null,
+        ?array $reason = null,
+    ): array {
+        return [
+            'reference' => $reference,
+            'outcome' => $outcome,
+            'doc_type' => $docType,
+            'qbo_doc_number' => $docNumber,
+            'qbo_txn_id' => $txnId,
+            'warnings' => [],
+            'reason' => $reason,
+        ];
+    }
+
+    /**
+     * @param TestResponse<Response> $response
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function withoutMessages(TestResponse $response): array
+    {
+        $results = [];
+        foreach ($response->json('results') as $result) {
+            if ($result['reason'] !== null) {
+                self::assertIsString($result['reason']['message']);
+                self::assertNotSame('', $result['reason']['message']);
+                unset($result['reason']['message']);
+            }
+            $results[] = $result;
+        }
+
+        return $results;
+    }
+
+    /**
+     * The first reference failed with this code, in the response and in its row.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return TestResponse<Response>
+     */
+    private function assertFailed(string $code, array $body): TestResponse
+    {
+        $response = $this->sync($body)
+            ->assertOk()
+            ->assertJsonPath('results.0.outcome', 'failed')
+            ->assertJsonPath('results.0.reason.code', $code);
+        $this->assertRow(self::REFERENCE, ['status' => 'failed', 'last_error_code' => $code]);
+
+        return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $expected
+     */
+    private function assertRow(int $reference, array $expected): void
+    {
+        self::assertSame($expected, (array) DB::table('quickbooks.order_syncs')->where('reference', $reference)->first(\array_keys($expected)));
     }
 
     /**
@@ -327,20 +759,13 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
     private function assertNothingSynced(): void
     {
         self::assertSame(0, DB::table('quickbooks.order_syncs')->count());
-        self::assertSame([], $this->portCalls);
+        self::assertSame([], $this->posting->calls);
     }
 
     private function fakePosting(): void
     {
-        $posting = Mockery::mock(QuickBooksOrderPostingInterface::class);
-        foreach (self::PORT_METHODS as $method) {
-            $posting->shouldReceive($method)->andReturnUsing(function () use ($method): never {
-                $this->portCalls[] = $method;
-
-                self::fail("Unexpected QBO call: {$method}");
-            });
-        }
-        $this->app->instance(QuickBooksOrderPostingInterface::class, $posting);
+        $this->posting = new FakeQuickBooksOrderPosting();
+        $this->app->instance(QuickBooksOrderPostingInterface::class, $this->posting);
     }
 
     private function connect(): void
@@ -367,19 +792,22 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
     /**
      * @param array<string, mixed> $state
      */
-    private function insertSync(array $state): void
+    private function insertSync(array $state, int $reference = self::REFERENCE): void
     {
         DB::table('quickbooks.order_syncs')->insert([
             'realm_id' => self::REALM,
-            'reference' => self::REFERENCE,
-            'order_external_id' => self::REFERENCE,
+            'reference' => $reference,
+            'order_external_id' => $reference,
             'attempts' => 1,
             'last_attempted_at' => '2026-11-01 12:00:00+00',
             ...$state,
         ]);
     }
 
-    private function insertOrder(int $reference, string $placedAt = '2026-11-01 10:00:00+00'): void
+    /**
+     * @param array<string, mixed> $state
+     */
+    private function insertOrder(int $reference, string $placedAt = '2026-11-01 10:00:00+00', array $state = [], string $sku = 'SKU-10'): void
     {
         $orderId = DB::table('shopwired.orders')->insertGetId([
             'external_id' => $reference,
@@ -412,13 +840,14 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
             'order_placed_at' => $placedAt,
             'created_at' => $placedAt,
             'updated_at' => $placedAt,
+            ...$state,
         ]);
         DB::table('shopwired.order_products')->insert([
             'order_id' => $orderId,
             'order_external_id' => $reference,
             'external_id' => 10,
             'title' => 'Line',
-            'sku' => 'SKU-10',
+            'sku' => $sku,
             'price' => '12.5',
             'price_vat' => '2.5',
             'total' => '25.0',
