@@ -18,9 +18,7 @@ final class DatabasePingCommandTest extends TestCase
     #[Test]
     public function a_reachable_connection_exits_successfully(): void
     {
-        \config()->set('database.connections.ping_ok', ['driver' => 'sqlite', 'database' => ':memory:']);
-
-        $this->artisan('db:ping', ['connection' => 'ping_ok'])
+        $this->artisan('db:ping', ['connection' => 'pgsql'])
             ->expectsOutputToContain('Database connection OK')
             ->assertSuccessful();
     }
