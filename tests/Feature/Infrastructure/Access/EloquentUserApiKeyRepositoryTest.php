@@ -37,9 +37,20 @@ final class EloquentUserApiKeyRepositoryTest extends TestCase
         $this->userId = new Guid((string) Str::uuid());
     }
 
+    private function createAuthUser(): void
+    {
+        // intentional: the local signup trigger copies first_name into public.profiles, where it is NOT NULL.
+        DB::table('auth.users')->insert([
+            'id' => $this->userId->value,
+            'email' => "{$this->userId->value}@example.test",
+            'raw_user_meta_data' => \json_encode(['first_name' => 'Test', 'last_name' => 'User'], \JSON_THROW_ON_ERROR),
+        ]);
+    }
+
     #[Test]
     public function it_round_trips_a_key_encrypted_at_rest(): void
     {
+        $this->createAuthUser();
         $this->repository->save($this->userId, ThirdPartyService::ClickUp, new ApiKeyToken('pk_round_trip_secret_123'));
 
         $stored = DB::table(self::TABLE)->where('user_id', $this->userId->value)->value('encrypted_key');
@@ -57,6 +68,7 @@ final class EloquentUserApiKeyRepositoryTest extends TestCase
     #[Test]
     public function it_replaces_the_key_on_a_second_save_and_forgets_it_on_delete(): void
     {
+        $this->createAuthUser();
         $this->repository->save($this->userId, ThirdPartyService::HelpScout, new ApiKeyToken('first-key-value'));
         $this->repository->save($this->userId, ThirdPartyService::HelpScout, new ApiKeyToken('second-key-value'));
 
