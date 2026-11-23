@@ -143,6 +143,25 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     }
 
     #[Test]
+    public function the_key_option_leaves_another_unresolved_key_unprompted(): void
+    {
+        $this->clearRow(MappingKey::SalesClass);
+        $this->adapter->shouldReceive('candidates')
+            ->once()
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Department)
+            ->andReturn([new MappingCandidateDTO('9', 'Other', true)]);
+
+        $this->resolve(['--key' => 'department'])
+            ->expectsQuestion(self::question(MappingKey::Department), '[id 9] Other')
+            ->doesntExpectOutputToContain('class')
+            ->assertSuccessful()
+            ->run();
+
+        $this->assertSame(['9', 'Other', self::REALM], $this->row(MappingKey::Department));
+        $this->assertSame([null, null, null], $this->row(MappingKey::SalesClass));
+    }
+
+    #[Test]
     public function no_choice_starts_with_a_digit_so_a_typed_index_never_autocompletes_to_a_tax_code(): void
     {
         $this->adapterReturns([new MappingCandidateDTO('5', '0.0% Z', true), new MappingCandidateDTO('6', '20.0% S', true)]);
@@ -182,11 +201,12 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     }
 
     #[Test]
-    public function an_unknown_key_fails_with_the_valid_keys_and_no_read(): void
+    public function an_unknown_key_fails_with_the_valid_keys_and_no_read_or_write(): void
     {
         $this->adapter->shouldNotReceive('candidates');
 
         $this->resolve(['--key' => 'nope'])->expectsOutputToContain('custom_field.po_number')->assertFailed()->run();
+        $this->assertSame([], $this->updates);
     }
 
     #[Test]

@@ -22,6 +22,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Data\IPPAccount;
+use QuickBooksOnline\API\Data\IPPClass;
+use QuickBooksOnline\API\Data\IPPDepartment;
+use QuickBooksOnline\API\Data\IPPPaymentMethod;
 use QuickBooksOnline\API\Data\IPPPreferences;
 use QuickBooksOnline\API\Data\IPPTaxCode;
 use QuickBooksOnline\API\Data\IPPTerm;
@@ -74,6 +77,52 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
             [new MappingCandidateDTO('35', 'Cash:PayPal', false, 'Bank'), new MappingCandidateDTO('36', 'Opayo', true, 'Bank')],
             $this->candidates(MappingEntity::Account),
         );
+    }
+
+    /**
+     * @return array<string, array{MappingEntity, object, string, MappingCandidateDTO}>
+     */
+    public static function namedEntities(): array
+    {
+        $nested = ['Id' => '7', 'Name' => 'Leaf', 'FullyQualifiedName' => 'Parent:Leaf', 'Active' => 'true'];
+
+        return [
+            'payment method' => [
+                MappingEntity::PaymentMethod,
+                self::row(new IPPPaymentMethod(), ['Id' => '7', 'Name' => 'Card', 'Active' => 'true']),
+                'PaymentMethod',
+                new MappingCandidateDTO('7', 'Card', true),
+            ],
+            'department' => [
+                MappingEntity::Department,
+                self::row(new IPPDepartment(), $nested),
+                'Department',
+                new MappingCandidateDTO('7', 'Parent:Leaf', true),
+            ],
+            'class' => [
+                MappingEntity::SalesClass,
+                self::row(new IPPClass(), $nested),
+                'Class',
+                new MappingCandidateDTO('7', 'Parent:Leaf', true),
+            ],
+            'term' => [
+                MappingEntity::Term,
+                self::row(new IPPTerm(), ['Id' => '7', 'Name' => 'Net 30', 'Active' => 'true']),
+                'Term',
+                new MappingCandidateDTO('7', 'Net 30', true),
+            ],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('namedEntities')]
+    public function each_entity_is_read_by_its_own_table_and_name_field(MappingEntity $entity, object $row, string $table, MappingCandidateDTO $expected): void
+    {
+        $this->transport->shouldReceive('query')->once()
+            ->with(Mockery::any(), "SELECT * FROM {$table} WHERE Active IN (true, false) STARTPOSITION 1 MAXRESULTS 1000", Mockery::any())
+            ->andReturn([$row]);
+
+        $this->assertEquals([$expected], $this->candidates($entity));
     }
 
     #[Test]
