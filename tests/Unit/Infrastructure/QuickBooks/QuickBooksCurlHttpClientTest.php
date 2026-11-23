@@ -107,6 +107,31 @@ final class QuickBooksCurlHttpClientTest extends TestCase
     }
 
     #[Test]
+    public function the_intuit_tid_is_read_in_any_header_case_from_an_error_response(): void
+    {
+        foreach (['intuit_tid', 'Intuit_Tid', 'INTUIT_TID'] as $name) {
+            $client = new QuickBooksCurlHttpClient(new SpyCurl("HTTP/1.1 503 Service Unavailable\r\n{$name}: 1-abc-def\r\n\r\n", '', 503));
+            $client->makeAPICall('https://example.test', 'GET', ['Accept' => 'application/xml'], null, null, false);
+
+            $this->assertSame('1-abc-def', $client->intuitTid(), $name);
+        }
+    }
+
+    #[Test]
+    public function the_intuit_tid_is_null_without_a_value_headers_or_a_response(): void
+    {
+        $rawHeaders = ["HTTP/1.1 500\r\nContent-Type: text/plain\r\n\r\n", "HTTP/1.1 500\r\nintuit_tid: \r\n\r\n", "HTTP/1.1 500\r\n\r\n"];
+        foreach ($rawHeaders as $raw) {
+            $client = new QuickBooksCurlHttpClient(new SpyCurl($raw, '', 500));
+            $client->makeAPICall('https://example.test', 'GET', ['Accept' => 'application/xml'], null, null, false);
+
+            $this->assertNull($client->intuitTid(), $raw);
+        }
+
+        $this->assertNull(new QuickBooksCurlHttpClient(new SpyCurl('', '', 0))->intuitTid());
+    }
+
+    #[Test]
     public function retry_after_is_null_before_any_response(): void
     {
         $this->assertNull(new QuickBooksCurlHttpClient(new SpyCurl('', '', 0))->retryAfterSeconds());

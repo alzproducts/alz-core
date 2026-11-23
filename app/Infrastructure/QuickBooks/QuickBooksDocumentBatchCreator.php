@@ -53,7 +53,7 @@ final readonly class QuickBooksDocumentBatchCreator
         foreach ($entities as $index => $entity) {
             $batchItemId = (string) ($index + 1);
             $outcome = $execution->outcomeFor($batchItemId, $entity::class);
-            $this->logUnlessCreated($batchItemId, $outcome);
+            $this->logUnlessCreated($batchItemId, $outcome, $execution->intuitTid);
             $outcomes[] = $outcome;
         }
 
@@ -67,7 +67,7 @@ final readonly class QuickBooksDocumentBatchCreator
             : QuickBooksSalesReceiptMapper::toEntity($document->draft, $document->refs);
     }
 
-    private function logUnlessCreated(string $batchItemId, BatchItemOutcomeResult $outcome): void
+    private function logUnlessCreated(string $batchItemId, BatchItemOutcomeResult $outcome, ?string $intuitTid): void
     {
         if ($outcome->kind === BatchOutcomeKind::Created) {
             return;
@@ -77,6 +77,7 @@ final readonly class QuickBooksDocumentBatchCreator
             'batch_item_id' => $batchItemId,
             'outcome' => $outcome->kind->value,
             'code' => $outcome->fault?->code,
+            'intuit_tid' => $intuitTid,
         ]);
     }
 }

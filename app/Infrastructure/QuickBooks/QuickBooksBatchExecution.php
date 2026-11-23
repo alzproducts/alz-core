@@ -19,19 +19,20 @@ final readonly class QuickBooksBatchExecution
     private function __construct(
         private array $responses,
         private ?BatchItemOutcomeResult $everyItem,
+        public ?string $intuitTid,
     ) {}
 
     /**
      * @param array<array-key, mixed> $responses the SDK's batch item responses, keyed by bId
      */
-    public static function responses(array $responses): self
+    public static function responses(array $responses, ?string $intuitTid = null): self
     {
-        return new self($responses, null);
+        return new self($responses, null, $intuitTid);
     }
 
-    public static function everyItem(BatchItemOutcomeResult $outcome): self
+    public static function everyItem(BatchItemOutcomeResult $outcome, ?string $intuitTid = null): self
     {
-        return new self([], $outcome);
+        return new self([], $outcome, $intuitTid);
     }
 
     /**
