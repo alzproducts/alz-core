@@ -10,6 +10,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
@@ -21,9 +22,11 @@ use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksConfigFactory;
 use App\Infrastructure\QuickBooks\QuickBooksOAuthClient;
+use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Redis\Factory as RedisFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -47,7 +50,22 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(OrderSyncErrorRepositoryInterface::class, EloquentOrderSyncErrorRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
+        $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
+        $this->registerRateLimiter();
         $this->registerCacheBackedStores();
+    }
+
+    private function registerRateLimiter(): void
+    {
+        $this->app->bind(
+            QuickBooksRateLimiter::class,
+            static fn(Application $app): QuickBooksRateLimiter => new QuickBooksRateLimiter(
+                redis: $app->make(RedisFactory::class),
+                realmId: $app->make(QuickBooksConfig::class)->realmId,
+                logger: $app->make(LoggerInterface::class),
+                buckets: QuickBooksRateLimiter::defaultBuckets(),
+            ),
+        );
     }
 
     private function registerCacheBackedStores(): void
@@ -83,6 +101,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             OrderSyncErrorRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,
             QuickBooksClientInterface::class,
+            QuickBooksOrderPostingInterface::class,
+            QuickBooksRateLimiter::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,
         ];
