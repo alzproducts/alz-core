@@ -26,7 +26,7 @@ make test
 2. `composer install`.
 3. Registers the `pre-commit` and `pre-push` git hooks (`bin/install-git-hooks`) in the hooks directory git resolves for the checkout (`core.hooksPath` and worktrees honoured, so every worktree of a repo shares one pair). Each hook runs `php artisan git-hooks:<hook>` in the checkout git runs it from. Re-running rewrites them identically.
 4. `php artisan key:generate`, only when `APP_KEY` is blank.
-5. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN` and resets a stack it starts from empty with `make db-reset-full`, or skips both when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead (see [`database/AGENTS.md`](../../database/AGENTS.md)).
+5. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN` and resets a stack it starts from empty with `make db-reset-full`, or skips both when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead, unless a dependent's verify run supplies its own Supabase (see [`database/AGENTS.md`](../../database/AGENTS.md)).
 6. `make redis`: starts Redis in Docker.
 7. `php artisan migrate`: forward-only migrations against the shared local database. It never resets or wipes it.
 

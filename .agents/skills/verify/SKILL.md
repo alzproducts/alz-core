@@ -10,7 +10,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 `up` builds the runtime image from `git archive HEAD`, so uncommitted changes are not in the run: commit first.
 
 **Env:**
-- The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run.
+- The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run, and a run on a caller-supplied Supabase never loads it (§Caller-supplied Supabase).
 - The stack sets its own DB, Redis and app keys, so the env file can never point the run at other services, and fills the keys a run needs when the env file leaves them blank ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md) lists both).
 - The network allows outbound calls, so any integration key the env file sets is live. Blank it with `--env-override KEY=` when a journey must not reach the vendor.
 
@@ -20,7 +20,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 
 | Verb | Args | Does |
 |---|---|---|
-| `up` | `[--env-override KEY=VALUE]...` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
+| `up` | `[--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
 | `down` | | Removes the run's containers, volumes, networks and images; checks residue |
 | `doctor` | | Pass/FAIL report under `doctor/` |
 | `http` | `<METHOD> <path> [--data <json>] [--expect <code>]` | One request from inside the app container, as the X-Local-Bypass test user |
@@ -80,6 +80,51 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 
    Done when: `down` exits 0. Exit 1 with `down FAIL` lines means residue remains: report it, never remove containers by name.
 
+## Caller-supplied Supabase
+
+For a dependent that boots alz-core beside its own local Supabase, so both share one Postgres and one Auth ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)):
+
+```bash
+.agents/skills/verify/verify up --evidence <abs dir> \
+  --supabase-url http://127.0.0.1:<api port> \
+  --supabase-db-url postgresql://postgres:<password>@127.0.0.1:<db port>/postgres
+```
+
+`up` starts no Postgres and no `auth-migrate`. A `relay` container forwards the caller's two ports, and `up` migrates and seeds the caller's Postgres.
+
+**The caller provides:**
+- A running Supabase with its own migrations applied and its users created before `up`.
+- A Postgres without alz-core's seed. A second `up` on the same Postgres exits 1 naming `logs/seed/seed.log` and leaves the seeded rows as they were. `down` never removes rows from the caller's Postgres.
+- aal2 tokens for its own requests to `base_url`: `GET /api/user` with an aal1 token returns 403 "MFA verification required.".
+
+**Blank run:** this mode never loads the main checkout's `.env`, in a clone (which has none) or in a linked worktree (which may), so integrations are off. `--env-override` still applies.
+
+**Refusals**, all before any Docker call. A message names the flag, with `host:port` where that is safe to print, never the URL:
+
+| Exit | When |
+|---|---|
+| 64 | Only one of the flags, a flag given twice, or `--flag=value` |
+| 64 | A host other than `127.0.0.1` or `localhost`, spelled exactly (`[::1]` is refused on every port) |
+| 64 | A port that is missing, has a leading zero, exceeds 65535, is 8000, 54321 or 54322, or is the same for both flags |
+| 64 | `--supabase-url` that is not a bare `http://<host>:<port>` |
+| 64 | `--supabase-db-url` that is not `postgresql://`, has a user or database other than `postgres`, a password outside `[A-Za-z0-9._~-]`, or a query string |
+| 64 | An issuer other than `<supabase-url>/auth/v1` (both are named): pass the host spelling that Supabase reports |
+| 75 | Nothing answers at either address, or no readable issuer at `--supabase-url` |
+
+Both probes connect to `127.0.0.1` whichever spelling was passed. After the build, `up` exits 75 naming `logs/compose-up.log` when the relay is not healthy.
+
+**Verbs in this mode:**
+
+| Verb | Difference |
+|---|---|
+| `doctor` | Expects the database at `127.0.0.1:<caller db port>`; FAILs on an unhealthy relay |
+| `db` | Read-only `psql` in the relay, against the caller's Postgres |
+| `test` | Exits 69 |
+| `exec`, `logs` | Exit 69 for `pgsql` and `auth-migrate`; accept `relay` |
+| `down` | Removes this run's own resources only; the caller's Supabase keeps running |
+
+Every verb that needs the app running also needs the relay running, and exits 75 naming it when it is gone. `http` keeps the X-Local-Bypass persona.
+
 ## Evidence
 
 The evidence dir survives `down`.
@@ -87,6 +132,7 @@ The evidence dir survives `down`.
 - `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
 - `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call (`test/`: `<stamp>-pest.log`). `http/` captures redact the bypass secret.
 - `logs/<service>/`: each PHP service's `storage/logs`, e.g. `logs/app/laravel.log`, `logs/worker/laravel.log`. Also `logs/compose-up.log`, `logs/compose-down.log` and `logs/<stamp>-<service>.txt` from `logs`.
+- `logs/seed/seed.log`: the seed's output, on a caller-supplied Supabase only.
 - `build/` holds the image build logs; `.verify/` the run bookkeeping, where `compose.env` and `run.env` hold run secrets, so quote nothing from them.
 
 Proof standard: drive the real route a client calls, capture request and response, and back side effects with a `db` read.

@@ -57,7 +57,7 @@ C4Context
 
 **Key relationships:**
 - **Shared database** — alz-core and the Admin Dashboard share the same Supabase PostgreSQL. Supabase manages `auth.*`; Laravel manages `shopwired.*` and `public.*`.
-- **Production-matched databases** — every database alz-core migrates outside production runs the pinned Supabase baseline images, with migrations run as the non-superuser `postgres` role ([ADR-0016](adr/0016-migrate-on-the-supabase-baseline.md)).
+- **Production-matched databases** — every database alz-core migrates outside production runs the pinned Supabase baseline images, with migrations run as the non-superuser `postgres` role; a dependent's verify run may supply its own Supabase instead ([ADR-0016](adr/0016-migrate-on-the-supabase-baseline.md)).
 - **Webhook-driven** — ShopWired pushes real-time events via HMAC-signed webhooks. alz-core saves the partial payload, then dispatches a job to re-fetch the full entity from the API.
 - **Analytics pipeline** — Order and ad spend data flow into Mixpanel via scheduled jobs.
 

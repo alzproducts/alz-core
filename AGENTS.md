@@ -135,7 +135,7 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
-**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production (see `database/AGENTS.md`)
+**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production, except a dependent's verify run that supplies its own Supabase (see `database/AGENTS.md`)
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
