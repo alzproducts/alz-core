@@ -10,6 +10,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncSourceViewModel;
+use Illuminate\Database\Eloquent\Collection;
 use Override;
 
 final readonly class EloquentOrderSyncSourceQueryRepository implements OrderSyncSourceQueryRepositoryInterface
@@ -32,11 +33,15 @@ final readonly class EloquentOrderSyncSourceQueryRepository implements OrderSync
             return [];
         }
 
+        // intentional: whereKey inlines the integers; a bound one above int4 would fail the whole lookup.
+        /** @var Collection<int, OrderSyncSourceViewModel> $rows */
+        $rows = $this->eloquentGateway->query(
+            static fn(): Collection => OrderSyncSourceViewModel::query()->whereKey($references)->get(),
+        );
+
         $orders = [];
-        foreach ($this->eloquentGateway->findMany(OrderSyncSourceViewModel::class, 'reference', $references) as $row) {
-            if ($row instanceof OrderSyncSourceViewModel) {
-                $orders[$row->reference] = $row->toDomain();
-            }
+        foreach ($rows as $row) {
+            $orders[$row->reference] = $row->toDomain();
         }
 
         return $orders;

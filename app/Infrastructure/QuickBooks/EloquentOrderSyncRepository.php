@@ -103,7 +103,7 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     {
         // intentional: the chained exceptions hold the bound message, which can be customer data, so both rethrows drop them.
         try {
-            return $this->eloquentGateway->transact(fn(): bool => $this->writeFailure($orderSyncId, $claimToken, $failure));
+            return $this->eloquentGateway->transact(static fn(): bool => self::writeFailure($orderSyncId, $claimToken, $failure));
         } catch (DatabaseOperationFailedException $e) {
             throw self::withoutChain($e);
         } catch (ExternalServiceUnavailableException $e) {
@@ -122,20 +122,18 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
         return $this->updateClaimed($orderSyncId, $claimToken, ['status' => new Expression(self::RELEASED_STATUS_SQL)]);
     }
 
-    /**
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     */
-    private function writeFailure(string $orderSyncId, string $claimToken, OrderSyncFailureDTO $failure): bool
+    private static function writeFailure(string $orderSyncId, string $claimToken, OrderSyncFailureDTO $failure): bool
     {
-        $recorded = $this->updateClaimed($orderSyncId, $claimToken, [
+        // intentional: no gateway write here, as a deadlock in its nested transaction is logged with the bound message.
+        $recorded = OrderSyncModel::query()->where(self::claimed($orderSyncId, $claimToken))->update([
             'status' => OrderSyncRowStatus::Failed->value,
             'doc_type' => $failure->docType?->value,
             'last_error_code' => $failure->code->value,
             'last_error_message' => $failure->message,
+            'claim_token' => null,
+            'lease_expires_at' => null,
         ]);
-        if (!$recorded) {
+        if ($recorded === 0) {
             return false;
         }
 
@@ -148,6 +146,14 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
             'qbo_fault_element' => $failure->fault?->element,
             'message' => $failure->message,
         ])->save();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function claimed(string $orderSyncId, string $claimToken): array
+    {
+        return ['id' => $orderSyncId, 'status' => 'processing', 'claim_token' => $claimToken];
     }
 
     private static function withoutChain(DatabaseOperationFailedException $e): DatabaseOperationFailedException
@@ -171,7 +177,7 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     {
         return $this->eloquentGateway->updateWhereAll(
             OrderSyncModel::class,
-            ['id' => $orderSyncId, 'status' => 'processing', 'claim_token' => $claimToken],
+            self::claimed($orderSyncId, $claimToken),
             [...$data, 'claim_token' => null, 'lease_expires_at' => null],
         ) > 0;
     }

@@ -16,8 +16,10 @@ use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncRepository;
 use DateTimeImmutable;
+use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -251,8 +253,14 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
     {
         $this->seedRow([...self::lapsed(), 'doc_type' => 'sales_receipt']);
         $claim = $this->claim();
+        $transactions = 0;
+        Event::listen(TransactionBeginning::class, static function () use (&$transactions): void {
+            ++$transactions;
+        });
 
         self::assertTrue($this->repository->recordFailed($claim->orderSyncId, $claim->claimToken, self::failure($docType)));
+        // A nested transaction turns a deadlock into a logged message that holds the bound values.
+        self::assertSame(1, $transactions);
 
         $row = self::row();
         self::assertSame(['failed', 'outcome_unknown', 'Timed out', $docType?->value], [$row->status, $row->last_error_code, $row->last_error_message, $row->doc_type]);

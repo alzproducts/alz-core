@@ -172,7 +172,7 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
         $this->insertOrder([], [[]]);
         $this->insertOrder(['reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID, 'payment_method_raw' => null], [[]]);
 
-        $orders = $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE, 2147450699]);
+        $orders = $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE, 2147450699, 2147483648]);
 
         self::assertEqualsCanonicalizing([self::REFERENCE, self::OTHER_REFERENCE], \array_keys($orders));
         self::assertNotNull($orders[self::REFERENCE]->order);
