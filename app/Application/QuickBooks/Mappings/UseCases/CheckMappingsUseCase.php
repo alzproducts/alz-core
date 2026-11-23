@@ -135,8 +135,7 @@ final readonly class CheckMappingsUseCase
         }
 
         $findings = [];
-        // intentional: only an unlabelled custom-field slot has an empty name, and it has nothing to drift from.
-        if ($current->name !== '' && $current->name !== $row->refName) {
+        if ($current->name !== $row->refName) {
             $findings[] = new MappingFindingDTO($row->key, MappingFindingKind::NameDrift, $row->refName, $current->name);
         }
         if (!$current->active) {

@@ -151,6 +151,7 @@ final class MappingUseCasesTest extends TestCase
             ['class', MappingFindingKind::OtherRealm->value, 'Web', null],
             ['department', MappingFindingKind::NameDrift->value, 'Sales', 'Renamed'],
             ['department', MappingFindingKind::Inactive->value, 'Sales', 'Renamed'],
+            ['custom_field.po_number', MappingFindingKind::NameDrift->value, 'P.O. Number', ''],
             ['custom_field.transaction_id', MappingFindingKind::NotFound->value, 'Transaction ID', null],
         ], \array_map(
             static fn(MappingFindingDTO $finding): array => [$finding->key->value, $finding->kind->value, $finding->storedName, $finding->currentName],
@@ -166,6 +167,21 @@ final class MappingUseCasesTest extends TestCase
         $this->adapter->shouldReceive('candidates')
             ->times(\count(MappingEntity::cases()))
             ->andReturn([new MappingCandidateDTO('ref', 'Name', true)]);
+
+        $this->assertSame([], $this->check()->execute()->findings);
+    }
+
+    #[Test]
+    public function a_slot_unlabelled_since_its_pick_has_not_drifted(): void
+    {
+        $rows = self::rows();
+        $rows['custom_field.po_number'] = new MappingDTO(MappingKey::PoNumberField, 'unlabelled', '', self::REALM);
+        $this->mappings->shouldReceive('all')->andReturn(\array_values($rows));
+        $this->mappings->shouldReceive('unresolvedKeys')->andReturn([]);
+        $this->adapter->shouldReceive('candidates')->andReturn([
+            new MappingCandidateDTO('ref', 'Name', true),
+            new MappingCandidateDTO('unlabelled', '', true),
+        ]);
 
         $this->assertSame([], $this->check()->execute()->findings);
     }
