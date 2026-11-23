@@ -40,7 +40,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     private MockInterface&QuickBooksMappingCandidatesInterface $adapter;
 
     /** @var list<string> */
-    private array $updates = [];
+    private array $writes = [];
 
     #[Override]
     protected function setUp(): void
@@ -64,8 +64,8 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->app->instance(QuickBooksMappingCandidatesInterface::class, $this->adapter);
 
         DB::listen(function (QueryExecuted $query): void {
-            if (\str_starts_with(\mb_strtolower($query->sql), 'update') && \str_contains($query->sql, 'mappings')) {
-                $this->updates[] = $query->sql;
+            if (\preg_match('/^\s*(insert|update|delete|merge|truncate|with)\b/i', $query->sql) === 1 && \str_contains($query->sql, 'mappings')) {
+                $this->writes[] = $query->sql;
             }
         });
     }
@@ -82,6 +82,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             new MappingCandidateDTO('4', 'Old', false),
         ]);
 
+        $this->writes = [];
         $options = ['Skip', '[id 1] P.O. Number', '[id 2] (unnamed)', '[id 3] Transaction ID'];
         $this->resolve()
             ->expectsChoice(self::question(MappingKey::PoNumberField), '[id 1] P.O. Number', $options, true)
@@ -92,12 +93,14 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->assertSame(['1', 'P.O. Number', self::REALM], $this->row(MappingKey::PoNumberField));
         $this->assertSame(['3', 'Transaction ID', self::REALM], $this->row(MappingKey::TransactionIdField));
 
+        $this->assertCount(2, $this->writes);
+
         $refs = $this->app->make(QuickBooksMappingRepositoryInterface::class)->resolvedRefs(self::REALM);
         $this->assertSame(['1', '3'], [$refs->poNumberField(), $refs->transactionIdField()]);
 
-        $this->updates = [];
+        $this->writes = [];
         $this->resolve()->expectsOutputToContain('No unresolved mapping is left')->assertSuccessful()->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -105,7 +108,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     {
         $this->clearRow(MappingKey::Department);
         $this->clearRow(MappingKey::SalesClass);
-        $this->updates = [];
+        $this->writes = [];
         $this->adapter->shouldReceive('candidates')->andReturnUsing(
             static fn(ApiKeyToken $token, MappingEntity $entity): array => $entity === MappingKey::Department->entity()
                 ? [new MappingCandidateDTO('1', 'Off', false)]
@@ -119,7 +122,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             ->assertSuccessful()
             ->run();
 
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -132,7 +135,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             ->expectsOutputToContain('already holds')
             ->assertSuccessful()
             ->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
 
         $this->resolve(['--key' => 'department'])
             ->expectsQuestion(self::question(MappingKey::Department), '[id 9] Other')
@@ -179,6 +182,30 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     }
 
     #[Test]
+    public function interactive_mode_lists_each_account_with_its_account_type(): void
+    {
+        $this->clearRow(MappingKey::DepositAccountPayPal);
+        $this->adapter->shouldReceive('candidates')
+            ->once()
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Account)
+            ->andReturn([
+                new MappingCandidateDTO('35', 'Cash:PayPal', true, 'Bank'),
+                new MappingCandidateDTO('36', 'Sales', true, 'Income'),
+            ]);
+
+        $this->resolve()
+            ->expectsChoice(
+                self::question(MappingKey::DepositAccountPayPal),
+                '[id 35] Cash:PayPal (Bank)',
+                ['Skip', '[id 35] Cash:PayPal (Bank)', '[id 36] Sales (Income)'],
+                true,
+            )
+            ->assertSuccessful()
+            ->run();
+        $this->assertSame(['35', 'Cash:PayPal', self::REALM], $this->row(MappingKey::DepositAccountPayPal));
+    }
+
+    #[Test]
     public function the_key_option_fails_on_a_skip(): void
     {
         $this->adapterReturns([new MappingCandidateDTO('9', 'Other', true)]);
@@ -188,7 +215,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             ->expectsOutputToContain('department: skipped')
             ->assertFailed()
             ->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -197,7 +224,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->adapterReturns([new MappingCandidateDTO('9', 'Other', false)]);
 
         $this->resolve(['--key' => 'department'])->expectsOutputToContain('no active candidate')->assertFailed()->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -206,7 +233,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->adapter->shouldNotReceive('candidates');
 
         $this->resolve(['--key' => 'nope'])->expectsOutputToContain('custom_field.po_number')->assertFailed()->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -239,12 +266,12 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     public function a_run_that_cannot_prompt_fails_before_any_write(array $options): void
     {
         $this->clearRow(MappingKey::Department);
-        $this->updates = [];
+        $this->writes = [];
         $this->adapterReturns([new MappingCandidateDTO('9', 'Other', true)]);
 
         $this->resolve([...$options, '--no-interaction' => true])->expectsOutputToContain('cannot prompt')->assertFailed()->run();
 
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
@@ -276,13 +303,14 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->adapterReturns([new MappingCandidateDTO('ref', 'Name', true)]);
 
         $this->resolve(['--check' => true])->assertSuccessful()->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]
     public function a_check_reports_findings_a_deleted_row_included_and_fails(): void
     {
         DB::table('quickbooks.mappings')->where('key', 'department')->delete();
+        $this->writes = [];
         $this->adapterReturns([new MappingCandidateDTO('ref', 'Renamed', true)]);
 
         $this->resolve(['--check' => true])
@@ -290,7 +318,35 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             ->expectsOutputToContain('unresolved')
             ->assertFailed()
             ->run();
-        $this->assertSame([], $this->updates);
+        $this->assertSame([], $this->writes);
+    }
+
+    #[Test]
+    public function a_check_renders_every_finding_kind_against_its_own_entity(): void
+    {
+        $this->clearRow(MappingKey::TaxZero);
+        DB::table('quickbooks.mappings')->where('key', 'tax.eu_goods')->update(['realm_id' => 'realm-other']);
+        $this->writes = [];
+        $this->adapter->shouldReceive('candidates')->andReturnUsing(
+            static fn(ApiKeyToken $token, MappingEntity $entity): array => match ($entity) {
+                MappingEntity::Department => [new MappingCandidateDTO('ref', 'Renamed', true)],
+                MappingEntity::SalesClass => [new MappingCandidateDTO('ref', 'Name', false)],
+                MappingEntity::Term => [new MappingCandidateDTO('other', 'Name', true)],
+                default => [new MappingCandidateDTO('ref', 'Name', true)],
+            },
+        );
+
+        $this->resolve(['--check' => true])
+            ->expectsTable(['Key', 'Finding', 'Stored name', 'QuickBooks name'], [
+                ['tax.zero', 'unresolved', '-', '-'],
+                ['tax.eu_goods', 'other realm', 'Name', '-'],
+                ['department', 'name drift', 'Name', 'Renamed'],
+                ['class', 'inactive', 'Name', 'Name'],
+                ['default_terms', 'not found', 'Name', '-'],
+            ])
+            ->assertFailed()
+            ->run();
+        $this->assertSame([], $this->writes);
     }
 
     #[Test]

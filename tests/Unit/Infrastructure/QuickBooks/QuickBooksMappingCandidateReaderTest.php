@@ -68,10 +68,12 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
     #[Test]
     public function an_account_takes_its_full_name_and_type(): void
     {
-        $this->transport->shouldReceive('query')->once()->andReturn([
-            self::row(new IPPAccount(), ['Id' => 35, 'Name' => 'PayPal', 'FullyQualifiedName' => 'Cash:PayPal', 'AccountType' => 'Bank', 'Active' => false]),
-            self::row(new IPPAccount(), ['Id' => '36', 'Name' => 'Opayo', 'FullyQualifiedName' => 'Opayo', 'AccountType' => (object) ['value' => 'Bank'], 'Active' => 'true']),
-        ]);
+        $this->transport->shouldReceive('query')->once()
+            ->with(Mockery::any(), 'SELECT * FROM Account WHERE Active IN (true, false) STARTPOSITION 1 MAXRESULTS 1000', Mockery::any())
+            ->andReturn([
+                self::row(new IPPAccount(), ['Id' => 35, 'Name' => 'PayPal', 'FullyQualifiedName' => 'Cash:PayPal', 'AccountType' => 'Bank', 'Active' => false]),
+                self::row(new IPPAccount(), ['Id' => '36', 'Name' => 'Opayo', 'FullyQualifiedName' => 'Opayo', 'AccountType' => (object) ['value' => 'Bank'], 'Active' => 'true']),
+            ]);
 
         $this->assertEquals(
             [new MappingCandidateDTO('35', 'Cash:PayPal', false, 'Bank'), new MappingCandidateDTO('36', 'Opayo', true, 'Bank')],
