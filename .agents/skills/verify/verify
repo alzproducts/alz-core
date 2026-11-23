@@ -66,12 +66,12 @@ die() {
 
 HELP='up --evidence <abs dir> [--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]   build HEAD, boot, migrate and seed; prints run_id= and base_url=
 down --evidence <dir>   remove the run stack and images; keeps the evidence
-doctor --evidence <dir>   pass/FAIL report: SHA, image digest, DB/Redis hosts, drivers, credential defaults and names
+doctor --evidence <dir>   pass/FAIL report: SHA, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
 http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
-exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app)
+exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
-db --evidence <dir> <sql>   read-only SQL against the run Postgres
-test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static
+db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
+test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static (exit 69 in caller-supabase mode)
 note --evidence <dir> <text>   append a line to run-notes.md
 browser   not supported (exit 69)'
 
@@ -186,6 +186,13 @@ require_run() {
     [ "$(state_get project)" = "$PROJECT" ] || die 64 "evidence dir belongs to project $(state_get project), not this worktree's $PROJECT"
     [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=app")" ] ||
         die 75 "the run's app container is not running: $PROJECT"
+    [ "$(run_mode)" = own-postgres ] || [ "$(service_state relay '{{.State.Status}}')" = running ] ||
+        die 75 "the run's relay container is not running: $PROJECT"
+}
+
+# refuse_in_mode <what>: 69 when the run uses a caller-supplied Supabase.
+refuse_in_mode() {
+    [ "$(run_mode)" = own-postgres ] || die 69 "$1 is not supported in caller-supabase mode"
 }
 
 # ---- argument split: --evidence anywhere before `--`; the rest stays in order ----
@@ -586,7 +593,18 @@ cmd_doctor() {
             doctor_line FAIL "$svc image $app_image is not the runtime image"
         fi
     done
-    if [ "$(state_get env_missing)" = yes ]; then
+    local db_want='pgsql:5432' relay
+    if [ "$(run_mode)" != own-postgres ]; then
+        db_want="$(state_get db_hostport)"
+        db_want="127.0.0.1:${db_want##*:}"
+        relay="$(service_state relay '{{.State.Health.Status}}')"
+        if [ "$relay" = healthy ]; then
+            doctor_line ok "relay healthy"
+        else
+            doctor_line FAIL "relay health is ${relay:-unknown}"
+        fi
+        doctor_line info "env file not loaded in caller-supabase mode (blank run)"
+    elif [ "$(state_get env_missing)" = yes ]; then
         doctor_line info "env file missing: $(state_get env_file) (blank run)"
     else
         doctor_line info "env file $(state_get env_file)"
@@ -597,7 +615,7 @@ cmd_doctor() {
         [ -n "$out" ] || { doctor_line FAIL "$svc config did not resolve"; continue; }
         while IFS=' ' read -r kind name value; do
             case "$kind" in
-                db) want='pgsql:5432' ;;
+                db) want="$db_want" ;;
                 redis) want='redis:6379' ;;
                 driver) want='redis' ;;
                 info) doctor_line info "$svc $name=$value"; continue ;;
@@ -711,6 +729,7 @@ cmd_exec() {
     [ "$#" -gt 0 ] && [ "$1" = -- ] && shift
     [ "$#" -gt 0 ] || die 64 "exec wants [<service>] [--] <argv>"
     set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "exec $svc" ;; esac
     require_run
     note "exec $svc $*"
     capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
@@ -724,6 +743,7 @@ cmd_logs() {
         in_list "$svc" "$SERVICES" || die 64 "unknown service: $svc (one of: $SERVICES)"
     fi
     set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "logs $svc" ;; esac
     [ -f "$STATE/compose.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
     out="$(unique_file "$EVIDENCE/logs" "${svc:-all}.txt")"
     note "logs ${svc:-all}"
@@ -747,6 +767,12 @@ cmd_db() {
     set_evidence "$EVIDENCE_ARG" existing
     require_run
     note "db ${ARGS[0]}"
+    if [ "$(run_mode)" != own-postgres ]; then
+        # The relay's environment holds the connection (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
+        capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' relay \
+            psql -v ON_ERROR_STOP=1 -c "${ARGS[0]}" </dev/null || return 1
+        return 0
+    fi
     # shellcheck disable=SC2016
     capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql sh -c \
         'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "$1"' \
@@ -756,6 +782,7 @@ cmd_db() {
 cmd_test() {
     [ "${#ARGS[@]}" -ge 1 ] || die 64 "test wants <paths>..."
     set_evidence "$EVIDENCE_ARG" existing
+    refuse_in_mode test
     require_run
     local out rc=0
     out="$(unique_file "$EVIDENCE/test" pest.log)"
@@ -789,6 +816,12 @@ if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
 fi
 split_args "$@"
 resolve_repo
+case "$verb" in
+    exec | logs)
+        STATE="$EVIDENCE_ARG/.verify"
+        [ "$(run_mode)" = own-postgres ] || SERVICES="$SERVICES relay"
+        ;;
+esac
 case "$verb" in
     up) cmd_up ;;
     down) cmd_down ;;
