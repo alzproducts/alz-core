@@ -11,6 +11,7 @@ use App\Presentation\Http\Middleware\SetCloudflareClientIpMiddleware;
 use App\Presentation\Http\Middleware\SetRequestContextMiddleware;
 use App\Presentation\Http\Middleware\SetRlsContextMiddleware;
 use App\Presentation\Http\QuickBooks\QuickBooksCallbackExceptionMapper;
+use App\Presentation\Http\QuickBooks\QuickBooksOrderSyncExceptionMapper;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -89,6 +90,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(QuickBooksCallbackExceptionMapper::render(...));
+        $exceptions->render(QuickBooksOrderSyncExceptionMapper::render(...));
 
         // Universal JSON error envelope for all API routes (consistent shape for frontend)
         $exceptions->render(InternalApiExceptionMapper::render(...));
