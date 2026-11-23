@@ -1,4 +1,4 @@
-.PHONY: help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -21,6 +21,9 @@ endif
 
 # Configuration
 CI ?= false
+GIT_HOOKS_TEST := tests/Unit/Static/GitHooksInstalledTest.php
+# intentional: the empty-suite flag is added only when TEST_ARGS is set (the offline dev image's `--exclude-group=repo-static`), so a missing guard file still fails a plain `make lint`.
+GIT_HOOKS_ARGS := $(TEST_ARGS)$(if $(TEST_ARGS), --do-not-fail-on-empty-test-suite)
 
 # Check if inside Docker container
 IN_DOCKER := $(shell test -f /.dockerenv && echo yes)
@@ -59,12 +62,13 @@ help: ## Show this help message
 
 # Installation & Setup
 # intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
-install: ## Set up a fresh clone or git worktree natively (.env, deps, key, Supabase, Redis, migrate)
+install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key, Supabase, Redis, migrate)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 	@bin/install-env
 	composer install
+	@bin/install-git-hooks
 	@if grep -Eq "^APP_KEY=[\"']?[^\"'[:space:]]" .env; then \
 		echo "APP_KEY already set; kept"; \
 	else \
@@ -92,15 +96,21 @@ lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint-fast)
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered --report-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
 	 (vendor/bin/tlint lint app/ && vendor/bin/tlint lint routes/) > /tmp/alz-lint/5-tlint.txt 2>&1 & P5=$$!; \
-	 E1=0; E2=0; E3=0; E4=0; E5=0; \
-	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; \
+	 $(EXEC) vendor/bin/pest $(GIT_HOOKS_TEST) --no-coverage $(GIT_HOOKS_ARGS) > /tmp/alz-lint/6-git-hooks.txt 2>&1 & P6=$$!; \
+	 E1=0; E2=0; E3=0; E4=0; E5=0; E6=0; \
+	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; wait $$P6 || E6=$$?; \
 	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
 	 echo "=== PHPStan ===" && cat /tmp/alz-lint/2-phpstan.txt; \
 	 echo "=== PHPArkitect ===" && cat /tmp/alz-lint/3-phparkitect.txt; \
 	 echo "=== Deptrac ===" && cat /tmp/alz-lint/4-deptrac.txt; \
 	 echo "=== TLint ===" && cat /tmp/alz-lint/5-tlint.txt; \
+	 echo "=== Git hooks ===" && cat /tmp/alz-lint/6-git-hooks.txt; \
 	 rm -rf /tmp/alz-lint; \
-	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ] && [ $$E5 -eq 0 ]
+	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ] && [ $$E5 -eq 0 ] && [ $$E6 -eq 0 ]
+
+git-hooks-check: ## Fail unless the pre-commit and pre-push hooks are registered (fix: make install)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest $(GIT_HOOKS_TEST) --no-coverage $(GIT_HOOKS_ARGS)
 
 lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
 	@echo "$(MODE)"
@@ -109,6 +119,7 @@ lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac 
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint
+	@$(MAKE) git-hooks-check
 
 lint-full: ## Run full linting (Pint + PHPStan + PHPArkitect + Deptrac + TLint + Psalm)
 	@echo "$(MODE)"
@@ -117,6 +128,7 @@ lint-full: ## Run full linting (Pint + PHPStan + PHPArkitect + Deptrac + TLint +
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint-full
+	@$(MAKE) git-hooks-check
 	@$(MAKE) psalm
 
 fix: ## Auto-fix code style with Pint

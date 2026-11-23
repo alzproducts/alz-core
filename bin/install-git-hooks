@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Registers the pre-commit and pre-push hooks for `make install` (COR-336). Idempotent.
+# intentional: not `php artisan git-hooks:register`. It writes to base_path('.git/hooks'), which fails in a worktree where `.git` is a file.
+set -euo pipefail
+
+HOOKS_DIR="$(git rev-parse --path-format=absolute --git-path hooks)"
+mkdir -p "$HOOKS_DIR"
+
+# intentional: no "$@" forwarded. git passes the remote name and URL to pre-push, and `git-hooks:pre-push` takes no arguments, so forwarding them aborts every push.
+# intentional: the script cds to the checkout git runs it from, so the commit and push checks run in that worktree.
+render() {
+    cat <<EOF
+#!/bin/sh
+cd "\$(git rev-parse --show-toplevel)" || exit 1
+if sh -c ": >/dev/tty" >/dev/null 2>/dev/null; then
+    exec < /dev/tty
+fi
+
+php artisan git-hooks:$1 >&2
+EOF
+}
+
+for hook in pre-commit pre-push; do
+    target="$HOOKS_DIR/$hook"
+    render "$hook" > "$target.tmp"
+    chmod 755 "$target.tmp"
+    mv "$target.tmp" "$target"
+    echo "Registered $hook in $HOOKS_DIR"
+done
