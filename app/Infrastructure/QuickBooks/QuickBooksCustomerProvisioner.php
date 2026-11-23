@@ -166,7 +166,22 @@ final readonly class QuickBooksCustomerProvisioner
             id: $id,
             displayName: self::text($customer->DisplayName) ?? $displayName,
             salesTermRef: self::reference($customer->SalesTermRef),
+            currency: self::currency($customer->CurrencyRef),
         ));
+    }
+
+    /**
+     * intentional: not `reference()`, which reads a value of an unexpected shape as absent; here that is ''.
+     */
+    private static function currency(mixed $reference): ?string
+    {
+        if ($reference === null) {
+            return null;
+        }
+
+        $value = \is_object($reference) && \property_exists($reference, 'value') ? $reference->value : $reference;
+
+        return \is_string($value) ? \mb_trim($value) : '';
     }
 
     /**
