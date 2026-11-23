@@ -128,12 +128,14 @@ final readonly class QuickBooksTransport
         $intuitTid = null;
         $created = $this->send($accessToken, $deadline, false, static function (DataService $dataService, QuickBooksCurlHttpClient $httpClient) use ($entity, &$intuitTid): mixed {
             try {
-                return $dataService->Add($entity);
+                $result = $dataService->Add($entity);
             } catch (IdsException $e) { // @ignoreException - classified below
-                $intuitTid = $httpClient->intuitTid();
-
-                return $e;
+                $result = $e;
             }
+
+            $intuitTid = $httpClient->intuitTid();
+
+            return $result;
         });
 
         // intentional: only a bare IdsException is the SDK refusing the entity before sending; its subclasses (curl errors among them) are transport failures
@@ -143,12 +145,20 @@ final readonly class QuickBooksTransport
 
         // intentional: the SDK returns, not throws, an \Exception when it cannot parse the response, so only the sent type counts as created
         if (!$created instanceof $expected) {
-            $this->logger->error(self::LOG_PREFIX . ' returned an unexpected create result', ['result_type' => \get_debug_type($created)]);
-
-            throw new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Create result is not the entity sent');
+            throw $this->unexpectedCreateResult($created, $intuitTid);
         }
 
         return $created;
+    }
+
+    private function unexpectedCreateResult(mixed $created, ?string $intuitTid): UnexpectedApiResultException
+    {
+        $this->logger->error(self::LOG_PREFIX . ' returned an unexpected create result', [
+            'result_type' => \get_debug_type($created),
+            'intuit_tid' => $intuitTid,
+        ]);
+
+        return new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Create result is not the entity sent');
     }
 
     /**
