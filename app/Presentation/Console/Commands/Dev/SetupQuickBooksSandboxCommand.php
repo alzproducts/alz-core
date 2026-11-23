@@ -8,6 +8,7 @@ use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use Illuminate\Console\Command;
@@ -19,7 +20,7 @@ use Illuminate\Console\Command;
 final class SetupQuickBooksSandboxCommand extends Command
 {
     protected $signature = 'dev:setup-quickbooks-sandbox
-                            {--dry-run : Report what is not set up and change nothing}';
+                            {--dry-run : Report what is not set up and change no QBO entity or mapping; a cold token cache can still refresh the access token}';
 
     protected $description = 'Set up the QuickBooks sandbox company for the order sync';
 
@@ -175,9 +176,11 @@ final class SetupQuickBooksSandboxCommand extends Command
             $this->forgetToken();
         }
 
-        $reason = $e instanceof QuickBooksFaultException
-            ? 'QuickBooks fault ' . QuickBooksSandboxMapper::faultText($e->fault)
-            : \class_basename($e);
+        $reason = match (true) {
+            $e instanceof QuickBooksFaultException => 'QuickBooks fault ' . QuickBooksSandboxMapper::faultText($e->fault),
+            $e instanceof UnexpectedApiResultException => \class_basename($e) . ": {$e->reason}",
+            default => \class_basename($e),
+        };
 
         return $this->fails("Stopped: {$reason}", $e instanceof AuthenticationExpiredException
             ? 'the QuickBooks connection (quickbooks:connect)'

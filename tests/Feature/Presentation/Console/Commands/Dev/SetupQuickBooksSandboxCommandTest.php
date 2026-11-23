@@ -293,6 +293,21 @@ final class SetupQuickBooksSandboxCommandTest extends TestCase
     }
 
     #[Test]
+    public function an_unexpected_result_stops_the_run_with_its_reason(): void
+    {
+        $this->company['Item'] = [];
+        $this->company['Account'] = [];
+
+        [$exit, $output] = $this->runSetup();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString(
+            'Stopped: UnexpectedApiResultException: No active Income account for the Items',
+            $output,
+        );
+    }
+
+    #[Test]
     public function auto_resolve_fills_every_unresolved_key_without_a_prompt(): void
     {
         $this->clearRows(...MappingKey::cases());
