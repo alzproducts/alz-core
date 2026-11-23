@@ -463,14 +463,14 @@ final class QuickBooksTransportTest extends TestCase
     {
         foreach (['tid-1', null] as $intuitTid) {
             $httpClient = self::retryAfter(null, $intuitTid);
-            $thrown = new SdkException('failed');
-
-            $this->assertLoggedOnce(
-                fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession($thrown, false, true, $httpClient)], logger: $logger)
-                    ->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
-                null,
-                $intuitTid,
-            );
+            foreach ([new SdkException('failed'), new Exception('failed')] as $thrown) {
+                $this->assertLoggedOnce(
+                    fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession($thrown, false, true, $httpClient)], logger: $logger)
+                        ->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+                    null,
+                    $intuitTid,
+                );
+            }
         }
     }
 
