@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
+use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
+use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
@@ -25,12 +28,13 @@ use QuickBooksOnline\API\Data\IPPCompanyInfo;
 use QuickBooksOnline\API\Data\IPPItem;
 use SensitiveParameter;
 
-final readonly class QuickBooksClient implements QuickBooksClientInterface, QuickBooksOrderPostingInterface
+final readonly class QuickBooksClient implements QuickBooksClientInterface, QuickBooksMappingCandidatesInterface, QuickBooksOrderPostingInterface
 {
     public function __construct(
         private QuickBooksTransport $transport,
         private QuickBooksCustomerProvisioner $customers,
         private QuickBooksDocumentBatchCreator $documents,
+        private QuickBooksMappingCandidateReader $mappingCandidates,
         private LoggerInterface $logger,
     ) {}
 
@@ -112,6 +116,32 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
     public function createDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $documents, Deadline $deadline): array
     {
         return $this->documents->create($accessToken, $documents, $deadline);
+    }
+
+    /**
+     * @return list<MappingCandidateDTO> active and inactive
+     *
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a call past its time limit
+     * @throws QuickBooksFaultException            when QBO rejects a query
+     * @throws UnexpectedApiResultException        when a row lacks a name or id, or Preferences lacks its sales form section
+     */
+    #[Override]
+    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity): array
+    {
+        return $this->mappingCandidates->candidates($accessToken, $entity);
+    }
+
+    /**
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a call past its time limit
+     * @throws QuickBooksFaultException            when QBO refuses the create
+     * @throws UnexpectedApiResultException        when the created entity lacks a name or id
+     */
+    #[Override]
+    public function create(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, string $name): MappingCandidateDTO
+    {
+        return $this->mappingCandidates->create($accessToken, $entity, $name);
     }
 
     /**

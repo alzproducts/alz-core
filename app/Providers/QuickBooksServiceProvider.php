@@ -9,6 +9,8 @@ use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
@@ -54,6 +56,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
+        $this->app->bind(QuickBooksMappingCandidatesInterface::class, QuickBooksClient::class);
+        $this->app->bind(QuickBooksEnvironmentInterface::class, QuickBooksConfig::class);
         $this->registerRateLimiter();
         $this->registerCacheBackedStores();
     }
@@ -106,6 +110,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksOAuthClientInterface::class,
             QuickBooksClientInterface::class,
             QuickBooksOrderPostingInterface::class,
+            QuickBooksMappingCandidatesInterface::class,
+            QuickBooksEnvironmentInterface::class,
             QuickBooksRateLimiter::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,
