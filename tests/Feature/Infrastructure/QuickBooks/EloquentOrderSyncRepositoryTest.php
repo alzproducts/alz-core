@@ -6,10 +6,20 @@ namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncRepository;
+use DateTimeImmutable;
+use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -27,6 +37,8 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
     private const int REFERENCE = 2147450301;
 
     private const int EXTERNAL_ID = 2147450311;
+
+    private const string TOKEN = '00000000-0000-4000-8000-000000000003';
 
     private OrderSyncRepositoryInterface $repository;
 
@@ -118,7 +130,7 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
     {
         $claim = $this->claim();
 
-        self::assertTrue($this->repository->recordSynced($claim->orderSyncId, $claim->claimToken, new OrderSyncPostedDTO('sales_receipt', 'txn-9', 'DOC-9', 'hash-9')));
+        self::assertTrue($this->repository->recordSynced($claim->orderSyncId, $claim->claimToken, new OrderSyncPostedDTO(DocType::SalesReceipt, 'txn-9', 'DOC-9', 'hash-9')));
 
         $row = self::row();
         self::assertSame('synced', $row->status);
@@ -131,19 +143,178 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         self::assertNull($row->lease_expires_at);
     }
 
+    /**
+     * @return iterable<string, array{array<string, mixed>, bool}>
+     */
+    public static function claimableRowsWithAReason(): iterable
+    {
+        yield 'failed, with force' => [['status' => 'failed'], true];
+        yield 'pending' => [['status' => 'pending'], false];
+        yield 'lapsed lease' => [self::lapsed(), false];
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     */
     #[Test]
-    public function record_failed_with_the_live_token_stores_the_error_and_releases_the_lease(): void
+    #[DataProvider('claimableRowsWithAReason')]
+    public function one_statement_claims_the_row_and_returns_its_lease_and_stored_reason(array $state, bool $forceRetry): void
+    {
+        $this->seedRow([...$state, 'attempts' => 4, 'last_error_code' => 'outcome_unknown', 'last_error_message' => 'Timed out']);
+        DB::enableQueryLog();
+
+        $claim = $this->claim($forceRetry);
+
+        self::assertCount(1, DB::getQueryLog());
+        $row = self::row();
+        self::assertSame($row->id, $claim->orderSyncId);
+        self::assertSame($row->claim_token, $claim->claimToken);
+        self::assertTrue(self::leaseMinutesLeft() > 14.0);
+        self::assertEquals(new DateTimeImmutable($row->lease_expires_at)->format('U'), $claim->leaseExpiresAt->format('U'));
+        self::assertSame(SyncReasonCode::OutcomeUnknown, $claim->storedCode);
+        self::assertSame([5, 5], [$claim->attempts, $row->attempts]);
+        self::assertSame(['outcome_unknown', 'Timed out'], [$row->last_error_code, $row->last_error_message]);
+    }
+
+    #[Test]
+    public function a_claim_without_a_known_stored_reason_carries_none(): void
+    {
+        self::assertNull($this->claim()->storedCode);
+
+        DB::table('quickbooks.order_syncs')->where('realm_id', self::REALM)->update(['status' => 'failed', 'last_error_code' => 'a_code_from_another_release']);
+        self::assertNull($this->claim(forceRetry: true)->storedCode);
+    }
+
+    #[Test]
+    public function release_returns_a_reclaimed_lapsed_row_with_a_reason_to_failed(): void
+    {
+        $this->seedRow([...self::lapsed(), 'attempts' => 3, 'last_error_code' => 'qbo_unavailable', 'last_error_message' => 'Down']);
+        $claim = $this->claim();
+
+        self::assertTrue($this->repository->release($claim->orderSyncId, $claim->claimToken));
+
+        $row = self::row();
+        self::assertSame(['failed', 4, 'qbo_unavailable', 'Down'], [$row->status, $row->attempts, $row->last_error_code, $row->last_error_message]);
+        self::assertNull($row->claim_token);
+        self::assertNull($row->lease_expires_at);
+        self::assertSame([], self::errors());
+    }
+
+    #[Test]
+    public function release_returns_a_row_without_a_reason_to_pending(): void
     {
         $claim = $this->claim();
 
-        self::assertTrue($this->repository->recordFailed($claim->orderSyncId, $claim->claimToken, 'outcome_unknown', 'Timed out'));
+        self::assertTrue($this->repository->release($claim->orderSyncId, $claim->claimToken));
 
         $row = self::row();
-        self::assertSame('failed', $row->status);
-        self::assertSame('outcome_unknown', $row->last_error_code);
-        self::assertSame('Timed out', $row->last_error_message);
+        self::assertSame(['pending', 1, null, null], [$row->status, $row->attempts, $row->last_error_code, $row->last_error_message]);
         self::assertNull($row->claim_token);
         self::assertNull($row->lease_expires_at);
+        self::assertSame([], self::errors());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function unreleasableRows(): iterable
+    {
+        yield 'processing, another token' => ['processing', '00000000-0000-4000-8000-000000000009'];
+        yield 'pending' => ['pending', self::TOKEN];
+        yield 'synced' => ['synced', self::TOKEN];
+        yield 'failed' => ['failed', self::TOKEN];
+    }
+
+    #[Test]
+    #[DataProvider('unreleasableRows')]
+    public function release_changes_no_row_the_caller_does_not_hold(string $status, string $token): void
+    {
+        $this->seedRow(['status' => $status, 'attempts' => 2, 'claim_token' => self::TOKEN, 'lease_expires_at' => '2099-01-01 00:00:00+00', 'last_error_code' => 'item_missing']);
+        $before = self::row();
+
+        self::assertFalse($this->repository->release($before->id, $token));
+
+        self::assertEquals($before, self::row());
+        self::assertSame([], self::errors());
+    }
+
+    /**
+     * @return iterable<string, array{DocType|null}>
+     */
+    public static function docTypes(): iterable
+    {
+        yield 'no doc type' => [null];
+        yield 'invoice' => [DocType::Invoice];
+    }
+
+    #[Test]
+    #[DataProvider('docTypes')]
+    public function record_failed_stores_the_failure_and_appends_one_error_row(?DocType $docType): void
+    {
+        $this->seedRow([...self::lapsed(), 'doc_type' => 'sales_receipt']);
+        $claim = $this->claim();
+        $transactions = 0;
+        Event::listen(TransactionBeginning::class, static function () use (&$transactions): void {
+            ++$transactions;
+        });
+
+        self::assertTrue($this->repository->recordFailed($claim->orderSyncId, $claim->claimToken, self::failure($docType)));
+        // A nested transaction turns a deadlock into a logged message that holds the bound values.
+        self::assertSame(1, $transactions);
+
+        $row = self::row();
+        self::assertSame(['failed', 'outcome_unknown', 'Timed out', $docType?->value], [$row->status, $row->last_error_code, $row->last_error_message, $row->doc_type]);
+        self::assertNull($row->claim_token);
+        self::assertNull($row->lease_expires_at);
+
+        $errors = self::errors();
+        self::assertCount(1, $errors);
+        $error = $errors[0];
+        self::assertSame(
+            [$claim->orderSyncId, 'item_missing', 'range', 'run-7', '6000', 'Line.Amount', 'Timed out'],
+            [$error->order_sync_id, $error->reason_code, $error->trigger, $error->run_id, $error->qbo_fault_code, $error->qbo_fault_element, $error->message],
+        );
+        self::assertNotNull($error->created_at);
+    }
+
+    #[Test]
+    public function record_failed_without_a_run_or_fault_stores_neither(): void
+    {
+        $claim = $this->claim();
+
+        self::assertTrue($this->repository->recordFailed($claim->orderSyncId, $claim->claimToken, new OrderSyncFailureDTO(
+            SyncReasonCode::ZeroLines,
+            SyncReasonCode::ZeroLines,
+            'No lines',
+            null,
+            null,
+            OrderSyncTrigger::Manual,
+            null,
+        )));
+
+        $error = self::errors()[0];
+        self::assertSame(['manual', null, null, null], [$error->trigger, $error->run_id, $error->qbo_fault_code, $error->qbo_fault_element]);
+    }
+
+    #[Test]
+    public function record_failed_leaves_the_row_when_the_error_insert_fails_and_keeps_the_message_out_of_the_exception(): void
+    {
+        $claim = $this->claim();
+        $before = self::row();
+
+        $thrown = null;
+        try {
+            // "\xFF" is not valid UTF-8, so Postgres rejects the error row's run id.
+            $this->repository->recordFailed($claim->orderSyncId, $claim->claimToken, self::failure(DocType::Invoice, "\xFF"));
+        } catch (DatabaseOperationFailedException $e) {
+            $thrown = $e;
+        }
+
+        self::assertNotNull($thrown);
+        self::assertEquals($before, self::row());
+        self::assertSame([], self::errors());
+        self::assertNull($thrown->getPrevious());
+        self::assertStringNotContainsString('Timed out', $thrown->reason . $thrown->getMessage());
     }
 
     #[Test]
@@ -154,8 +325,10 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         $second = $this->claim();
         $before = self::row();
 
-        self::assertFalse($this->repository->recordSynced($first->orderSyncId, $first->claimToken, new OrderSyncPostedDTO('invoice', 'txn-1', null, null)));
-        self::assertFalse($this->repository->recordFailed($first->orderSyncId, $first->claimToken, 'qbo_fault', 'Rejected'));
+        self::assertFalse($this->repository->recordSynced($first->orderSyncId, $first->claimToken, new OrderSyncPostedDTO(DocType::Invoice, 'txn-1', null, null)));
+        self::assertFalse($this->repository->recordFailed($first->orderSyncId, $first->claimToken, self::failure()));
+        self::assertFalse($this->repository->release($first->orderSyncId, $first->claimToken));
+        self::assertSame([], self::errors());
 
         self::assertEquals($before, self::row());
         self::assertSame($second->claimToken, self::row()->claim_token);
@@ -170,6 +343,35 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
 
         self::assertNotNull($other);
         self::assertSame('synced', self::row()->status);
+    }
+
+    private static function failure(?DocType $docType = null, string $runId = 'run-7'): OrderSyncFailureDTO
+    {
+        return new OrderSyncFailureDTO(
+            SyncReasonCode::OutcomeUnknown,
+            SyncReasonCode::ItemMissing,
+            'Timed out',
+            $docType,
+            new QuickBooksFault(QuickBooksFaultKind::Validation, '6000', 'Line.Amount', 'Amount is invalid'),
+            OrderSyncTrigger::Range,
+            $runId,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function lapsed(): array
+    {
+        return ['status' => 'processing', 'claim_token' => self::TOKEN, 'lease_expires_at' => '2026-01-01 00:00:00+00'];
+    }
+
+    /**
+     * @return list<stdClass>
+     */
+    private static function errors(): array
+    {
+        return \array_values(DB::table('quickbooks.order_sync_errors')->where('order_sync_id', self::row()->id)->get()->all());
     }
 
     private function claim(bool $forceRetry = false): OrderSyncClaimDTO

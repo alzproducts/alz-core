@@ -6,7 +6,10 @@ namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncQueryRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\FailedOrderSyncDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncStateDTO;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncRowStatus;
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
+use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\Shared\Pagination\ValueObjects\PageRequest;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncQueryRepository;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -73,6 +76,33 @@ final class EloquentOrderSyncQueryRepositoryTest extends TestCase
 
         self::assertSame(SyncReasonCode::OutcomeUnknown, $row->reason);
         self::assertSame(SyncReasonCode::OutcomeUnknown->message(), $row->message);
+    }
+
+    #[Test]
+    public function it_reads_one_companys_row_states_by_reference(): void
+    {
+        $token = '00000000-0000-4000-8000-000000000001';
+        $this->insertSync(890000021, ['status' => 'processing', 'claim_token' => $token, 'lease_expires_at' => DB::raw("now() + interval '1 minute'")]);
+        $this->insertSync(890000022, ['status' => 'processing', 'claim_token' => $token, 'lease_expires_at' => DB::raw('now()')]);
+        $this->insertSync(890000023, ['status' => 'pending']);
+        $this->insertSync(890000024, ['status' => 'failed', 'doc_type' => 'sales_receipt']);
+        $this->insertSync(890000025, ['status' => 'synced', 'doc_type' => 'invoice', 'qbo_doc_number' => 'DOC-9', 'qbo_txn_id' => 'txn-9']);
+        $this->insertSync(890000026, ['realm_id' => 'another-company']);
+        $this->insertSync(890000028);
+
+        $this->travel(1)->years();
+        $states = $this->repository->statesFor(self::REALM, [890000021, 890000022, 890000023, 890000024, 890000025, 890000026, 890000027]);
+        $this->travelBack();
+
+        \ksort($states);
+        self::assertEquals([
+            890000021 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, true, null, null, null),
+            890000022 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, false, null, null, null),
+            890000023 => new OrderSyncStateDTO(OrderSyncRowStatus::Pending, false, null, null, null),
+            890000024 => new OrderSyncStateDTO(OrderSyncRowStatus::Failed, false, DocType::SalesReceipt, null, null),
+            890000025 => new OrderSyncStateDTO(OrderSyncRowStatus::Synced, false, DocType::Invoice, 'DOC-9', 'txn-9'),
+        ], $states);
+        self::assertSame([], $this->repository->statesFor(self::REALM, []));
     }
 
     /**

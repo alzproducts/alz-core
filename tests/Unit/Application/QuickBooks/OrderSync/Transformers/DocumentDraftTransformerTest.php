@@ -11,7 +11,6 @@ use App\Application\QuickBooks\OrderSync\DTOs\SalesReceiptDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
 use App\Application\QuickBooks\OrderSync\Enums\BuildStatus;
 use App\Application\QuickBooks\OrderSync\Enums\FailReason;
-use App\Application\QuickBooks\OrderSync\Enums\SkipReason;
 use App\Application\QuickBooks\OrderSync\Results\DocumentBuildResult;
 use App\Application\QuickBooks\OrderSync\Transformers\CustomerDraftTransformer;
 use App\Application\QuickBooks\OrderSync\Transformers\DocumentDraftTransformer;
@@ -72,7 +71,6 @@ final class DocumentDraftTransformerTest extends TestCase
 
         self::assertSame(BuildStatus::Built, $outcome->status);
         self::assertSame($expected, $outcome->draft?->docType());
-        self::assertNull($outcome->skipReason);
         self::assertNull($outcome->failReason);
     }
 
@@ -109,26 +107,12 @@ final class DocumentDraftTransformerTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_a_cancelled_order_before_any_other_check(): void
-    {
-        $outcome = self::build(SyncOrderFixture::order(
-            lines: [],
-            paymentMethod: RawPaymentMethod::Credit,
-            cancelled: true,
-        ));
-
-        self::assertSame(BuildStatus::Skipped, $outcome->status);
-        self::assertSame(SkipReason::Cancelled, $outcome->skipReason);
-    }
-
-    #[Test]
-    public function it_fails_a_zero_line_credit_order_rather_than_skipping_it(): void
+    public function it_fails_a_zero_line_credit_order(): void
     {
         $outcome = self::build(SyncOrderFixture::order(lines: [], paymentMethod: RawPaymentMethod::Credit));
 
         self::assertSame(BuildStatus::Failed, $outcome->status);
         self::assertSame(FailReason::ZeroLines, $outcome->failReason);
-        self::assertNull($outcome->skipReason);
     }
 
     #[Test]
@@ -143,7 +127,6 @@ final class DocumentDraftTransformerTest extends TestCase
         self::assertSame(BuildStatus::Failed, $outcome->status);
         self::assertSame(FailReason::ZeroLines, $outcome->failReason);
         self::assertNull($outcome->draft);
-        self::assertNull($outcome->skipReason);
     }
 
     /**
@@ -429,6 +412,5 @@ final class DocumentDraftTransformerTest extends TestCase
         self::assertSame(BuildStatus::Failed, $outcome->status);
         self::assertSame(FailReason::TaxRateUnsupported, $outcome->failReason);
         self::assertNull($outcome->draft);
-        self::assertNull($outcome->skipReason);
     }
 }

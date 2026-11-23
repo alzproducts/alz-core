@@ -27,8 +27,8 @@ flowchart LR
 |-----------|----------------|
 | Source views | The synced ShopWired order, line and customer data the sync reads; never written by the sync |
 | Sync-source view | Gives exactly one order per `reference`, through `shopwired.orders_deduplicated` |
-| Document builder | An Application transformer over Domain tax and routing policy. Turns one order into an Invoice or SalesReceipt draft holding mapping keys, never QBO IDs (ADR-0018), or into a `skipped` (`cancelled`) or `failed` (`zero_lines`, `tax_rate_unsupported`) outcome; it owns the cancelled skip |
-| Sync use case | Picks candidates, applies the stored-row rules, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk and records each outcome |
+| Document builder | An Application transformer over Domain tax and routing policy. Turns one order into an Invoice or SalesReceipt draft holding mapping keys, never QBO IDs (ADR-0018), or into a `failed` (`zero_lines`, `tax_rate_unsupported`) outcome |
+| Sync use case | Picks candidates, applies the row-state rules through `OrderEligibilityResolver`, which owns the cancelled skip, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk and records each outcome |
 | QBO adapter | Finds items by SKU, finds and creates customers, maps resolved drafts to QBO payloads, and posts each chunk's documents as one SDK batch call (ADR-0019). It resolves no mapping keys: the use case passes it resolved refs |
 
 - An edited ShopWired order keeps its `reference` and the original row is cancelled. `shopwired.orders_deduplicated` picks the live row, and the cancelled skip is checked on that chosen row, so an edited order is not skipped for its cancelled original.
