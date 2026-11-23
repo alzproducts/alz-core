@@ -235,14 +235,26 @@ A warning on a posted **order sync** whose reference now has a different live Sh
 A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 
+**Resolved mapping key**:
+A **mapping key** whose row holds a QBO ref for the connected company's realm; a null ref or another realm's ref leaves it unresolved.
+_Avoid_: treating "mapped" and "resolved" as different states
+
 **Backfill floor date**:
 The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
+
+**Token lease**:
+A sandbox access token handed from the developer's **QBO connection** to a verify stack, which uses it but can never refresh it.
+_Avoid_: token sharing, token copy (the stack never holds the refresh token)
+
+**Run labels**:
+The per-run DocNumber prefix and customer-name suffix that keep one verify run's sandbox documents apart from another's; blank outside a verify run.
 
 ## Relationships (QuickBooks order sync)
 
 - A ShopWired order **reference** has at most one **order sync** per QBO company
 - An **order sync** records at most one posted document (an unrecorded post can repeat: ADR-0019)
 - One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
+- A verify stack reaches the sandbox only through a **token lease**; the **QBO connection** that issues it stays in the developer's database
 
 ## Flagged ambiguities
 
