@@ -13,7 +13,11 @@ SERVICES='app worker seed pgsql redis auth-migrate test'
 # Keys the stack owns (COR-320 D9, D11): set in compose environment: or filled per run, never overridable.
 STACK_KEYS='DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE DB_URL
 REDIS_HOST REDIS_PORT REDIS_PASSWORD REDIS_URL REDIS_USERNAME APP_URL SUPABASE_URL APP_ENV PORT
-APP_KEY API_KEY_ENCRYPTION_SECRET SUPABASE_LOCAL_BYPASS_SECRET SUPABASE_LOCAL_TEST_EMAIL SHOPWIRED_SALE_CATEGORY_ID'
+APP_KEY API_KEY_ENCRYPTION_SECRET SUPABASE_LOCAL_BYPASS_SECRET SUPABASE_LOCAL_TEST_EMAIL SHOPWIRED_SALE_CATEGORY_ID
+QBO_RUN_DOC_NUMBER_PREFIX QBO_RUN_CUSTOMER_NAME_SUFFIX'
+
+# Below QuickBooksTokenService::LEASE_FLOOR_SECONDS, so a leased token outlives the interval.
+LEASE_INTERVAL_SECONDS=600
 
 # Credential keys without a credential-shaped name; the name pattern below covers the rest.
 CREDENTIAL_NAMES='APP_KEY APP_PREVIOUS_KEYS AWS_ACCESS_KEY_ID MAIL_URL HORIZON_USER'
@@ -64,7 +68,7 @@ die() {
     exit "$code"
 }
 
-HELP='up --evidence <abs dir> [--env-override KEY=VALUE]...   build HEAD, boot, migrate and seed; prints run_id= and base_url=
+HELP='up --evidence <abs dir> [--qbo-sandbox] [--env-override KEY=VALUE]...   build HEAD, boot, migrate and seed; prints run_id= and base_url=
 down --evidence <dir>   remove the run stack and images; keeps the evidence
 doctor --evidence <dir>   pass/FAIL report: SHA, image digest, DB/Redis hosts, drivers, credential defaults and names
 http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
@@ -221,10 +225,117 @@ env_file_sets() {
         }' "$1"
 }
 
+# ---- QBO sandbox token lease (up --qbo-sandbox) ----
+
+lease_run() {
+    # intentional: a bare environment, so only the main env file configures the lease.
+    env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" LANG="${LANG:-C}" \
+        php "$STATE/lease/artisan" "$@" --no-interaction </dev/null
+}
+
+# lease_prepare <sha>: a host checkout of the stack's commit, configured by the main env file.
+lease_prepare() {
+    local log="$EVIDENCE/build/lease.log" hint='cannot run php artisan quickbooks:lease-access-token on the host'
+    command -v php >/dev/null 2>&1 || { note "up FAIL lease: php not found"; die 1 "$hint: php not found (run down to clean up)"; }
+    command -v composer >/dev/null 2>&1 || { note "up FAIL lease: composer not found"; die 1 "$hint: composer not found (run down to clean up)"; }
+    mkdir -p "$STATE/lease"
+    if ! {
+        git -C "$REPO" archive --format=tar "$1" | tar -x -C "$STATE/lease" &&
+            ln -s "$(state_get env_file)" "$STATE/lease/.env" &&
+            composer install --working-dir="$STATE/lease" --no-interaction --no-scripts --no-dev --no-progress </dev/null &&
+            lease_run quickbooks:lease-access-token --help
+    } >"$log" 2>&1; then
+        note "up FAIL lease checkout (build/lease.log)"
+        die 1 "$hint: $log (run down to clean up)"
+    fi
+}
+
+# lease_token: the token goes host stdout -> stack stdin and nowhere else.
+# Prints the expiry, or on failure the exit codes of both ends.
+lease_token() {
+    local rc='' expiry
+    expiry="$(lease_run quickbooks:lease-access-token |
+        dc exec -T app php artisan quickbooks:import-access-token --no-interaction ||
+        { rc="lease=${PIPESTATUS[0]} import=${PIPESTATUS[1]}"; echo "$rc"; exit 1; })" || rc=failed
+    printf '%s\n' "$expiry" | tail -1
+    [ -z "$rc" ]
+}
+
+lease_start() {
+    local out
+    if ! out="$(lease_token)"; then
+        dc exec -T app php artisan tinker --no-interaction \
+            --execute='app(\App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface::class)->forget();' \
+            </dev/null >/dev/null 2>&1 || true
+        note "up FAIL first QBO sandbox lease ($out)"
+        die 1 "first QBO sandbox lease failed ($out): php artisan quickbooks:lease-access-token needs local Supabase and Redis up and a sandbox connection (quickbooks:connect) in the main checkout (run down to clean up)"
+    fi
+    note "qbo-sandbox leased, token expires $out"
+    echo "qbo_app=$(dc ps -q app)" >>"$STATE/state.env"
+    # intentional: job control gives the loop its own process group, so a signal to up's group never reaches it.
+    set -m
+    /bin/bash "$SKILL_DIR/verify" _lease-loop --evidence "$EVIDENCE" </dev/null >/dev/null 2>&1 &
+    echo "qbo_loop_pid=$!" >>"$STATE/state.env"
+    set +m
+}
+
+# The PID may have been reused, so the command line must name this run's loop.
+lease_loop_alive() {
+    local pid
+    pid="$(state_get qbo_loop_pid)"
+    [ -n "$pid" ] || return 1
+    case "$(ps -ww -o command= -p "$pid" 2>/dev/null)" in
+        *" _lease-loop --evidence $EVIDENCE") return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# intentional: TERM only, to the loop shell only. Bash runs the trap after the foreground command, so a
+# lease that is mid-refresh still stores the rotated refresh token.
+lease_stop() {
+    local waited=0
+    [ -f "$STATE/state.env" ] || return 0
+    if lease_loop_alive; then
+        kill -TERM "$(state_get qbo_loop_pid)" 2>/dev/null || true
+        while lease_loop_alive; do
+            [ "$waited" -lt 90 ] || return 1
+            sleep 1
+            waited=$((waited + 1))
+        done
+        note "qbo-sandbox lease loop stopped"
+    fi
+    rm -rf "$STATE/lease"
+}
+
+cmd_lease_loop() {
+    set_evidence "$EVIDENCE_ARG" existing
+    trap '' HUP
+    trap 'exit 0' TERM
+    local app next running out
+    app="$(state_get qbo_app)"
+    next=$(($(date +%s) + LEASE_INTERVAL_SECONDS))
+    while :; do
+        sleep 5
+        [ -f "$STATE/state.env" ] || exit 0
+        # A failed docker call says nothing about the stack; only a listing without the container does.
+        if running="$(docker ps -q --filter "id=$app" 2>/dev/null)" && [ -z "$running" ]; then
+            note "qbo-sandbox lease loop exit: the stack is gone"
+            exit 0
+        fi
+        [ "$(date +%s)" -ge "$next" ] || continue
+        if out="$(lease_token 2>/dev/null)"; then
+            note "qbo-sandbox re-leased, token expires $out"
+        else
+            note "qbo-sandbox re-lease FAIL ($out); the stack keeps its token, retry in ${LEASE_INTERVAL_SECONDS}s"
+        fi
+        next=$(($(date +%s) + LEASE_INTERVAL_SECONDS))
+    done
+}
+
 # ---- verbs ----
 
 cmd_up() {
-    local overrides=() kv key value
+    local overrides=() kv key value qbo=no
     set -- ${ARGS[@]+"${ARGS[@]}"}
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -243,6 +354,7 @@ cmd_up() {
                 overrides+=("$key='$value'")
                 shift 2
                 ;;
+            --qbo-sandbox) qbo=yes; shift ;;
             --with) die 64 "--with: this repo declares no dependencies" ;;
             *) die 64 "up: unknown argument: $1" ;;
         esac
@@ -276,8 +388,10 @@ cmd_up() {
         echo "sha=$sha"
         echo "env_file=$env_file"
         echo "env_missing=$env_missing"
+        echo "qbo_sandbox=$qbo"
     } >"$STATE/state.env"
-    note "up project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
+    note "up project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing qbo_sandbox=$qbo"
+    [ "$qbo" = no ] || lease_prepare "$sha"
 
     # Fill-if-blank keys (D9), then the overrides; compose reads this env_file after the main .env.
     local run_env="$STATE/run.env"
@@ -294,6 +408,15 @@ cmd_up() {
     note "filled if blank: $(sed 's/=.*//' "$run_env" | tr '\n' ' ')"
     # intentional: the entrypoint's db:show probe needs ext-intl, which the runtime image lacks; seed's exit 0 gates the start (COR-320 P24, ADR-0020).
     echo "SKIP_DB_CHECK='true'" >>"$run_env"
+    if [ "$qbo" = yes ]; then
+        local label
+        # intentional: the run id is fixed per worktree, so successive runs need fresh randomness.
+        label="$(openssl rand -hex 2)"
+        {
+            echo "QBO_RUN_DOC_NUMBER_PREFIX='V$label-'"
+            echo "QBO_RUN_CUSTOMER_NAME_SUFFIX=' [v$label]'"
+        } | tee -a "$run_env" >>"$STATE/state.env"
+    fi
     for kv in ${overrides[@]+"${overrides[@]}"}; do
         echo "$kv" >>"$run_env"
         note "env-override ${kv%%=*}"
@@ -347,6 +470,7 @@ cmd_up() {
     base_url="http://$hostport"
     echo "base_url=$base_url" >>"$STATE/state.env"
     note "up ready in $(($(date +%s) - t0))s base_url=$base_url"
+    [ "$qbo" = no ] || lease_start
     echo "run_id=$PROJECT"
     echo "base_url=$base_url"
     echo "evidence=$EVIDENCE"
@@ -357,6 +481,7 @@ cmd_down() {
     set_evidence "$EVIDENCE_ARG" create
     local fail=0 ids
     note "down project=$PROJECT"
+    lease_stop || { echo "down FAIL QBO lease loop still running: pid $(state_get qbo_loop_pid)"; fail=1; }
     if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
         docker compose -p "$PROJECT" --project-directory "$STATE" -f "$STATE/compose.yaml" --env-file "$STATE/compose.env" \
             --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
@@ -467,6 +592,17 @@ EOF
 
     out="$({ container_php app "$KEYS_PHP" || true; } | sort | tr '\n' ' ')"
     doctor_line info "non-blank credential keys in app: ${out:-none}"
+
+    if [ "$(state_get qbo_sandbox)" = yes ]; then
+        local loop=dead
+        ! lease_loop_alive || loop=alive
+        out="$(container_tinker app 'echo "VERIFY:" . (app(\App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface::class)->expiresAt()?->format(DATE_ATOM) ?? "none") . PHP_EOL;' || true)"
+        kind=ok
+        [ "$loop" = alive ] && [ -n "$out" ] && [ "$out" != none ] || kind=FAIL
+        doctor_line "$kind" "QBO sandbox active, token expires ${out:-unknown}, lease loop $loop"
+    else
+        doctor_line info "QBO sandbox inactive"
+    fi
 
     if [ "$DOCTOR_FAIL" -eq 0 ]; then
         doctor_line ok "doctor pass"
@@ -617,7 +753,7 @@ verb="$1"
 shift
 case "$verb" in
     browser) echo "verify: browser is not supported" >&2; exit 69 ;;
-    up | down | doctor | http | exec | logs | db | test | note) ;;
+    up | down | doctor | http | exec | logs | db | test | note | _lease-loop) ;;
     -h | --help) usage ;;
     *) echo "verify: unknown verb: $verb" >&2; usage ;;
 esac
@@ -637,4 +773,5 @@ case "$verb" in
     db) cmd_db ;;
     test) cmd_test ;;
     note) cmd_note ;;
+    _lease-loop) cmd_lease_loop ;;
 esac

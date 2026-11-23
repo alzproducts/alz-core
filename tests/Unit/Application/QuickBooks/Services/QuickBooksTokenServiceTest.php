@@ -36,6 +36,12 @@ final class QuickBooksTokenServiceTest extends TestCase
 {
     private ?ApiKeyToken $cachedAccessToken = null;
 
+    private ?DateTimeImmutable $cachedExpiresAt = null;
+
+    private ?DateTimeImmutable $grantedExpiresAt = null;
+
+    private int $lockHolds = 0;
+
     private ?QuickBooksConnection $storedConnection = null;
 
     /** @var list<string> */
@@ -205,6 +211,88 @@ final class QuickBooksTokenServiceTest extends TestCase
         $this->assertNull($this->cachedAccessToken);
     }
 
+    #[Test]
+    public function a_lease_above_the_floor_returns_the_cached_token_in_one_lock_hold_without_a_request(): void
+    {
+        $this->cachedAccessToken = new ApiKeyToken('cached');
+        // Two seconds of slack: the service reads the real clock.
+        $this->cachedExpiresAt = self::secondsFromNow(QuickBooksTokenService::LEASE_FLOOR_SECONDS + 2);
+
+        $lease = $this->service->lease();
+
+        $this->assertSame('cached', $lease?->accessToken->value);
+        $this->assertSame($this->cachedExpiresAt, $lease->expiresAt);
+        $this->assertSame([], $this->sentRefreshTokens);
+        $this->assertSame(1, $this->lockHolds);
+    }
+
+    #[Test]
+    public function a_lease_below_the_floor_refreshes_in_the_same_lock_hold(): void
+    {
+        $this->cachedAccessToken = new ApiKeyToken('cached');
+        $this->cachedExpiresAt = self::secondsFromNow(QuickBooksTokenService::LEASE_FLOOR_SECONDS - 1);
+        $this->grantedExpiresAt = self::secondsFromNow(3600);
+
+        $lease = $this->service->lease();
+
+        $this->assertSame('access-1', $lease?->accessToken->value);
+        $this->assertSame($this->grantedExpiresAt, $lease->expiresAt);
+        $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
+        $this->assertSame('refresh-1', $this->storedConnection?->refreshToken->value);
+        $this->assertSame(1, $this->lockHolds);
+    }
+
+    #[Test]
+    public function a_lease_of_a_token_with_unknown_expiry_refreshes(): void
+    {
+        $this->cachedAccessToken = new ApiKeyToken('cached');
+
+        $this->assertSame('access-1', $this->service->lease()?->accessToken->value);
+        $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
+    }
+
+    #[Test]
+    public function a_lease_with_no_cached_token_refreshes(): void
+    {
+        $this->assertSame('access-1', $this->service->lease()?->accessToken->value);
+        $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
+    }
+
+    #[Test]
+    public function two_concurrent_leases_below_the_floor_send_one_token_request(): void
+    {
+        $this->cachedAccessToken = new ApiKeyToken('cached');
+        $this->cachedExpiresAt = self::secondsFromNow(60);
+        $this->grantedExpiresAt = self::secondsFromNow(3600);
+        $holder = null;
+        $this->whileWaitingForLock = function () use (&$holder): void {
+            $this->whileWaitingForLock = null;
+            $holder = $this->service->lease();
+        };
+
+        $contender = $this->service->lease();
+
+        $this->assertSame('access-1', $holder?->accessToken->value);
+        $this->assertSame('access-1', $contender?->accessToken->value);
+        $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
+    }
+
+    #[Test]
+    public function a_lease_without_a_connection_returns_nothing_even_with_a_cached_token(): void
+    {
+        $this->storedConnection = null;
+        $this->cachedAccessToken = new ApiKeyToken('cached');
+        $this->cachedExpiresAt = self::secondsFromNow(3600);
+
+        $this->assertNull($this->service->lease());
+        $this->assertSame([], $this->sentRefreshTokens);
+    }
+
+    private static function secondsFromNow(int $seconds): DateTimeImmutable
+    {
+        return new DateTimeImmutable('@' . (\time() + $seconds));
+    }
+
     private function oauthClient(): QuickBooksOAuthClientInterface
     {
         $client = Mockery::mock(QuickBooksOAuthClientInterface::class);
@@ -214,7 +302,7 @@ final class QuickBooksTokenServiceTest extends TestCase
 
             return new QuickBooksTokenGrant(
                 accessToken: new ApiKeyToken("access-{$n}"),
-                accessTokenExpiresAt: new DateTimeImmutable('2026-11-18T11:00:00+00:00'),
+                accessTokenExpiresAt: $this->grantedExpiresAt ?? new DateTimeImmutable('2026-11-18T11:00:00+00:00'),
                 connection: self::connection("refresh-{$n}"),
             );
         });
@@ -240,11 +328,13 @@ final class QuickBooksTokenServiceTest extends TestCase
     {
         $cache = Mockery::mock(QuickBooksAccessTokenCacheInterface::class);
         $cache->shouldReceive('get')->andReturnUsing(fn(): ?ApiKeyToken => $this->cachedAccessToken);
-        $cache->shouldReceive('put')->andReturnUsing(function (ApiKeyToken $token): void {
+        $cache->shouldReceive('expiresAt')->andReturnUsing(fn(): ?DateTimeImmutable => $this->cachedExpiresAt);
+        $cache->shouldReceive('put')->andReturnUsing(function (ApiKeyToken $token, DateTimeImmutable $expiresAt): void {
             if ($this->cachePutFails) {
                 throw new ExternalServiceUnavailableException('QuickBooks token cache');
             }
             $this->cachedAccessToken = $token;
+            $this->cachedExpiresAt = $expiresAt;
         });
         $cache->shouldReceive('forget')->andReturnUsing(function (): void {
             $this->cachedAccessToken = null;
@@ -263,6 +353,7 @@ final class QuickBooksTokenServiceTest extends TestCase
             if ($this->whileWaitingForLock !== null) {
                 ($this->whileWaitingForLock)();
             }
+            $this->lockHolds++;
 
             return $callback();
         });

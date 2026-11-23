@@ -5,7 +5,7 @@ description: Verify alz-core's HTTP API end to end in a private, throwaway Compo
 
 # Verify alz-core
 
-One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)), project `alz-verify-<slug>-<hash8>` (the worktree basename plus a hash of its path). It covers the HTTP API only; the dashboard and storefront live in alz-admin. Journeys live in the feature map, [`features/README.md`](features/README.md). Run every verb with cwd = the worktree under test; nothing here runs PHP, Octane or a queue worker on the host.
+One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)), project `alz-verify-<slug>-<hash8>` (the worktree basename plus a hash of its path). It covers the HTTP API only; the dashboard and storefront live in alz-admin. Journeys live in the feature map, [`features/README.md`](features/README.md). Run every verb with cwd = the worktree under test; nothing here runs PHP, Octane or a queue worker on the host, except the `--qbo-sandbox` token lease.
 
 `up` builds the runtime image from `git archive HEAD`, so uncommitted changes are not in the run: commit first.
 
@@ -13,6 +13,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 - The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run.
 - The stack sets its own DB, Redis and app keys, so the env file can never point the run at other services, and fills the keys a run needs when the env file leaves them blank ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md) lists both).
 - The network allows outbound calls, so any integration key the env file sets is live. Blank it with `--env-override KEY=` when a journey must not reach the vendor.
+- The stack holds no QuickBooks connection, so a QBO call fails with `AuthenticationExpiredException` unless `up` had `--qbo-sandbox`.
 
 ## Verbs
 
@@ -20,7 +21,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 
 | Verb | Args | Does |
 |---|---|---|
-| `up` | `[--env-override KEY=VALUE]...` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
+| `up` | `[--qbo-sandbox] [--env-override KEY=VALUE]...` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
 | `down` | | Removes the run's containers, volumes, networks and images; checks residue |
 | `doctor` | | Pass/FAIL report under `doctor/` |
 | `http` | `<METHOD> <path> [--data <json>] [--expect <code>]` | One request from inside the app container, as the X-Local-Bypass test user |
@@ -37,15 +38,20 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 
 1. **Up.**
    ```bash
-   .agents/skills/verify/verify up --evidence <abs dir> [--env-override KEY=VALUE]...
+   .agents/skills/verify/verify up --evidence <abs dir> [--qbo-sandbox] [--env-override KEY=VALUE]...
    ```
    - A first build takes several minutes: run `up` in the background.
+   - `--qbo-sandbox` lets the stack call the shared QuickBooks sandbox company.
+     - It needs host `php` and `composer`, the main checkout's local Supabase and Redis running, and a sandbox connection made there with `quickbooks:connect`.
+     - A host loop re-leases the token until `down`; re-lease outcomes go to `run-notes.md`.
+     - Never run `quickbooks:lease-access-token` through `exec`: its output is the token.
    - The evidence dir must sit outside every git work tree and hold no `.verify/` from an earlier run.
    - `--env-override KEY=VALUE` is repeatable and replaces one env-file key for the run.
      - It refuses (exit 64) `APP_ENV`, `PATH`, `HOME` and every stack-owned key.
      - A credential key may only be blanked (`KEY=`), never set.
-   - Exit 75: Docker is down, or this worktree already has a run up. Run `down` on that run; when its evidence dir is lost, `down --evidence <any new dir>` still removes it, because `down` finds the run's resources by the project label.
-   - Exit 1: a build log under `build/` or `logs/compose-up.log` names the failure. Run `down` to clean up.
+   - Failed exits:
+     - Exit 75: Docker is down, or this worktree already has a run up. Run `down` on that run; when its evidence dir is lost, `down --evidence <any new dir>` still removes it, because `down` finds the run's resources by the project label.
+     - Exit 1: the message, a log under `build/` or `logs/compose-up.log` names the failure. Run `down` to clean up.
 
    Done when: `up` exits 0 and prints `base_url=http://127.0.0.1:<port>`: migrated, seeded, the app's `/up` healthy and `horizon:status` passing.
 

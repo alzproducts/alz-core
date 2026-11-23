@@ -48,6 +48,21 @@ final readonly class CacheQuickBooksAccessTokenCache implements QuickBooksAccess
     /**
      * @throws ExternalServiceUnavailableException
      */
+    public function expiresAt(): ?DateTimeImmutable
+    {
+        try {
+            $value = $this->store->get($this->expiryKey());
+        } catch (Exception|CacheException $e) {
+            throw $this->unavailable($e);
+        }
+
+        // intentional: the redis store returns an integer as a numeric string.
+        return \is_numeric($value) ? CarbonImmutable::createFromTimestampUTC((int) $value) : null;
+    }
+
+    /**
+     * @throws ExternalServiceUnavailableException
+     */
     public function put(#[SensitiveParameter] ApiKeyToken $accessToken, DateTimeImmutable $expiresAt): void
     {
         $ttl = $expiresAt->getTimestamp() - CarbonImmutable::now()->getTimestamp() - self::EXPIRY_MARGIN_SECONDS;
@@ -57,7 +72,10 @@ final readonly class CacheQuickBooksAccessTokenCache implements QuickBooksAccess
         }
 
         try {
+            // intentional: the expiry is dropped first and written last, so a failure between reads as unknown, never as another token's expiry.
+            $this->store->forget($this->expiryKey());
             $this->store->put($this->key(), $accessToken->value, $ttl);
+            $this->store->put($this->expiryKey(), $expiresAt->getTimestamp(), $ttl);
         } catch (Exception $e) {
             throw $this->unavailable($e);
         }
@@ -70,6 +88,7 @@ final readonly class CacheQuickBooksAccessTokenCache implements QuickBooksAccess
     {
         try {
             $this->store->forget($this->key());
+            $this->store->forget($this->expiryKey());
         } catch (Exception $e) {
             throw $this->unavailable($e);
         }
@@ -78,6 +97,11 @@ final readonly class CacheQuickBooksAccessTokenCache implements QuickBooksAccess
     private function key(): string
     {
         return 'quickbooks:access-token:' . $this->config->environment->value;
+    }
+
+    private function expiryKey(): string
+    {
+        return $this->key() . ':expires-at';
     }
 
     private function unavailable(Throwable $e): ExternalServiceUnavailableException

@@ -20,6 +20,13 @@ interface QuickBooksAccessTokenCacheInterface
     public function get(): ?ApiKeyToken;
 
     /**
+     * When the cached access token expires at Intuit; null when nothing is cached or the expiry is unknown.
+     *
+     * @throws ExternalServiceUnavailableException when the cache store is unreachable
+     */
+    public function expiresAt(): ?DateTimeImmutable;
+
+    /**
      * Stores the token until shortly before it expires; an already-expiring token is not stored.
      *
      * @throws ExternalServiceUnavailableException when the cache store is unreachable
