@@ -5,7 +5,7 @@ The maintained source for verifying alz-core's HTTP API. Read this index, then u
 ## Baseline preconditions
 
 - A run brought up with `.agents/skills/verify/verify up` from the worktree under test; `doctor` exits 0 on its evidence dir.
-- Data comes only from `dev:seed-fake` (products slice); brands, orders and customers stay empty (ADR-0013).
+- Data comes only from `dev:seed-fake` (see `SeedFakeDataCommand`).
 
 ## Driving conventions
 
