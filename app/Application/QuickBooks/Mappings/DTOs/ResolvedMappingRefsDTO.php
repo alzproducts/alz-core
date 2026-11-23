@@ -10,7 +10,7 @@ use App\Domain\QuickBooks\OrderSync\Enums\PaymentKey;
 use App\Domain\QuickBooks\OrderSync\Enums\TaxKey;
 
 /**
- * The QBO ids resolved for one realm; an unresolved key reads as null.
+ * An unresolved key reads as null.
  */
 final readonly class ResolvedMappingRefsDTO
 {

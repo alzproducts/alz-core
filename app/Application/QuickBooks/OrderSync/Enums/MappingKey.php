@@ -9,7 +9,7 @@ use App\Domain\QuickBooks\OrderSync\Enums\PaymentKey;
 use App\Domain\QuickBooks\OrderSync\Enums\TaxKey;
 
 /**
- * The seeded mapping keys; the factories are the only route from a semantic key to its row (ADR-0018).
+ * The factories are the only route from a semantic key to its row (ADR-0018).
  */
 enum MappingKey: string
 {

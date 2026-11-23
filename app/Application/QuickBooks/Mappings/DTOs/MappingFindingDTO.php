@@ -10,8 +10,7 @@ use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 final readonly class MappingFindingDTO
 {
     /**
-     * @param string|null $storedName  the row's snapshot
-     * @param string|null $currentName QBO's name, when it returned the entity
+     * @param string|null $currentName null when QBO did not return the entity
      */
     public function __construct(
         public MappingKey $key,

@@ -16,8 +16,6 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 interface QuickBooksMappingRepositoryInterface
 {
     /**
-     * Database only, so a preflight can read it before any QBO call (ADR-0018).
-     *
      * @return list<MappingKey> seeded keys with no ref for the realm
      *
      * @throws DatabaseOperationFailedException
@@ -43,7 +41,7 @@ interface QuickBooksMappingRepositoryInterface
     public function all(): array;
 
     /**
-     * Writes unconditionally, so an equal pick still touches the row: callers go through RecordMappingPickUseCase.
+     * A pick equal to the row still touches its timestamps.
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
