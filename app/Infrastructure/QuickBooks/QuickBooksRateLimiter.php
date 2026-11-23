@@ -8,7 +8,6 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Carbon\CarbonImmutable;
-use Closure;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
 use Illuminate\Contracts\Redis\LimiterTimeoutException;
 use Psr\Log\LoggerInterface;
@@ -22,7 +21,7 @@ final readonly class QuickBooksRateLimiter
 {
     public const string CONNECTION = 'quickbooks-limiter';
 
-    /** The longest a call with no deadline waits for room. */
+    /** The longest a call with no deadline waits for room, across all its buckets. */
     public const int NO_DEADLINE_WAIT_SECONDS = 10;
 
     private const string KEY_PREFIX = 'quickbooks-limiter:';
@@ -59,7 +58,7 @@ final readonly class QuickBooksRateLimiter
     public function acquire(bool $batchCall): void
     {
         try {
-            $this->throttle($batchCall, static fn(): int => self::NO_DEADLINE_WAIT_SECONDS);
+            $this->throttle($batchCall, Deadline::after(CarbonImmutable::now(), self::NO_DEADLINE_WAIT_SECONDS));
         } catch (LimiterTimeoutException $e) {
             throw new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, null, $e);
         }
@@ -72,26 +71,27 @@ final readonly class QuickBooksRateLimiter
     public function acquireBy(bool $batchCall, Deadline $startBy): void
     {
         try {
-            $this->throttle($batchCall, static fn(): int => \max(0, (int) \floor($startBy->secondsLeft(CarbonImmutable::now()))));
+            $this->throttle($batchCall, $startBy);
         } catch (LimiterTimeoutException $e) {
             throw new QuickBooksDeadlineExceededException($startBy->secondsLeft(CarbonImmutable::now()), $e);
         }
     }
 
     /**
-     * @param Closure(): int $timeoutSeconds read as each bucket starts waiting
+     * @param Deadline $startBy shared by every bucket, so the waits add up to no more than the time left
      *
      * @throws ExternalServiceUnavailableException
      * @throws LimiterTimeoutException
      */
-    private function throttle(bool $batchCall, Closure $timeoutSeconds): void
+    private function throttle(bool $batchCall, Deadline $startBy): void
     {
         try {
             $connection = $this->redis->connection(self::CONNECTION);
             foreach ($this->buckets as $bucket) {
                 if ($batchCall || !$bucket->batchOnly) {
+                    $timeoutSeconds = \max(0, (int) \floor($startBy->secondsLeft(CarbonImmutable::now())));
                     $connection->throttle(self::KEY_PREFIX . $this->realmId . ':' . $bucket->name)
-                        ->allow($bucket->limit)->every($bucket->decaySeconds)->block($timeoutSeconds())->sleep(self::POLL_MS)
+                        ->allow($bucket->limit)->every($bucket->decaySeconds)->block($timeoutSeconds)->sleep(self::POLL_MS)
                         ->then(static fn(): bool => true);
                 }
             }

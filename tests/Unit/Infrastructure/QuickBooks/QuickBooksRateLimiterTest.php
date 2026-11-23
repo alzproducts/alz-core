@@ -115,6 +115,21 @@ final class QuickBooksRateLimiterTest extends TestCase
     }
 
     #[Test]
+    public function the_fixed_wait_caps_the_total_across_buckets(): void
+    {
+        $secondBucketFullForSixSeconds = [...\array_fill(0, 24, self::DENIED), self::GRANTED];
+
+        $this->expectException(ExternalServiceUnavailableException::class);
+
+        try {
+            $this->limiter($secondBucketFullForSixSeconds)->acquire(false);
+        } finally {
+            $this->assertSame('quickbooks-limiter:realm:minute', \end($this->keys));
+            $this->assertSame(QuickBooksRateLimiter::NO_DEADLINE_WAIT_SECONDS * 1_000.0, \array_sum($this->slept));
+        }
+    }
+
+    #[Test]
     public function a_redis_error_fails_closed(): void
     {
         $connection = self::connection();
@@ -165,7 +180,7 @@ final class QuickBooksRateLimiterTest extends TestCase
     }
 
     /**
-     * @param list<list<int>>|null $replies one per Redis call, in order; null answers every call with no room
+     * @param list<list<int>>|null $replies one per Redis call, in order, then no room once used up; null is no room throughout
      */
     private function limiter(?array $replies): QuickBooksRateLimiter
     {
@@ -175,7 +190,7 @@ final class QuickBooksRateLimiterTest extends TestCase
             ->andReturnUsing(function (string $method, array $parameters) use (&$replies): mixed {
                 $this->keys[] = $parameters[1][0];
 
-                return $replies === null ? self::DENIED : \array_shift($replies);
+                return $replies === null ? self::DENIED : \array_shift($replies) ?? self::DENIED;
             });
 
         return $this->limiterOn($connection);
