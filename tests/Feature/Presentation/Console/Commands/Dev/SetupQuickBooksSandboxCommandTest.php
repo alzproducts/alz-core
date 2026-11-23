@@ -701,7 +701,7 @@ final class SetupQuickBooksSandboxCommandTest extends TestCase
             fn(ApiKeyToken $token, array $drafts): CustomerResolutionResult => CustomerResolutionResult::of(\array_map(
                 fn(CustomerDraftDTO $draft): CustomerResolutionDTO => $this->customerFails
                     ? CustomerResolutionDTO::failed($draft->displayName, CustomerFailureKind::cases()[0], self::fault())
-                    : CustomerResolutionDTO::matched($draft->displayName, new CustomerMatchDTO('customer', $draft->displayName, null)),
+                    : CustomerResolutionDTO::matched($draft->displayName, new CustomerMatchDTO('customer', $draft->displayName, null, null)),
                 $drafts,
             )),
         );

@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\QuickBooks\Mappers;
 
+use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\InvoiceDraftDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\SalesReceiptDraftDTO;
+use App\Application\QuickBooks\OrderSync\Transformers\DocumentDraftTransformer;
+use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksDocumentPayload;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksInvoiceMapper;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksSalesReceiptMapper;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use QuickBooksOnline\API\Data\IPPCustomField;
@@ -16,6 +22,7 @@ use QuickBooksOnline\API\Data\IPPInvoice;
 use QuickBooksOnline\API\Data\IPPLine;
 use QuickBooksOnline\API\Data\IPPSalesReceipt;
 use Tests\Unit\Application\QuickBooks\OrderSync\DocumentDraftFixture;
+use Tests\Unit\Application\QuickBooks\OrderSync\SyncOrderFixture;
 
 #[CoversClass(QuickBooksInvoiceMapper::class)]
 #[CoversClass(QuickBooksSalesReceiptMapper::class)]
@@ -38,6 +45,31 @@ final class QuickBooksDocumentMappersTest extends TestCase
         $this->assertSame('Royal Mail', self::v($invoice->ShipMethodRef));
         $this->assertSame("Jo Bloggs\n1 High St\nLeeds", $invoice->BillAddr->Line1);
         $this->assertNull($invoice->ShipAddr);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function londonDates(): iterable
+    {
+        yield 'summer time, after London midnight' => ['2026-06-30T23:30:00Z', '2026-07-01'];
+        yield 'winter time, before London midnight' => ['2026-12-31T23:30:00Z', '2026-12-31'];
+    }
+
+    #[Test]
+    #[DataProvider('londonDates')]
+    public function the_txn_date_is_the_london_date_the_order_was_placed(string $placedAt, string $expected): void
+    {
+        $lines = [SyncOrderFixture::line(sku: 'SKU-A')];
+        $labels = new DocumentRunLabelsDTO('', '');
+
+        $invoice = DocumentDraftTransformer::build(SyncOrderFixture::order($lines, RawPaymentMethod::AdminOrder, createdAt: $placedAt), $labels)->draft;
+        $this->assertInstanceOf(InvoiceDraftDTO::class, $invoice);
+        $this->assertSame($expected, QuickBooksInvoiceMapper::toEntity($invoice, DocumentDraftFixture::refs())->TxnDate);
+
+        $receipt = DocumentDraftTransformer::build(SyncOrderFixture::order($lines, RawPaymentMethod::PayPal, createdAt: $placedAt), $labels)->draft;
+        $this->assertInstanceOf(SalesReceiptDraftDTO::class, $receipt);
+        $this->assertSame($expected, QuickBooksSalesReceiptMapper::toEntity($receipt, DocumentDraftFixture::refs())->TxnDate);
     }
 
     #[Test]

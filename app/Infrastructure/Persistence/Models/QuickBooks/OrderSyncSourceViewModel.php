@@ -5,15 +5,9 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence\Models\QuickBooks;
 
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderLineDTO;
-use App\Application\QuickBooks\OrderSync\Enums\SourceOrderDefect;
+use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowLineDTO;
 use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
-use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
-use App\Domain\Catalog\Product\ValueObjects\Sku;
-use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
-use App\Domain\ValueObjects\TaxRate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -78,63 +72,21 @@ final class OrderSyncSourceViewModel extends Model
         ];
     }
 
-    public function toDomain(): SourceOrderDTO
+    public function toDomain(): SourceOrderRowDTO
     {
-        $paymentMethod = RawPaymentMethod::tryFrom($this->payment_method_raw ?? '');
-        $defect = $paymentMethod === null ? SourceOrderDefect::PaymentMethodMissing : $this->contentDefect();
-
-        return new SourceOrderDTO(
+        return new SourceOrderRowDTO(
             reference: $this->reference,
             externalId: $this->external_id,
-            placedAt: $this->order_placed_at,
-            status: $this->lifecycle_status,
-            order: $paymentMethod === null || $defect !== null ? null : $this->syncOrder($paymentMethod),
-            defect: $defect,
-        );
-    }
-
-    private function contentDefect(): ?SourceOrderDefect
-    {
-        return match (true) {
-            \array_any($this->lines, static fn(array $line): bool => \mb_trim($line['sku']) === '') => SourceOrderDefect::SkuMissing,
-            $this->hasInvalidVatRate() => SourceOrderDefect::VatRateInvalid,
-            \array_any($this->lines, static fn(array $line): bool => $line['quantity'] < 1) => SourceOrderDefect::QuantityInvalid,
-            default => null,
-        };
-    }
-
-    private function hasInvalidVatRate(): bool
-    {
-        // intentional: free shipping needs no rate, and an order with no lines is the builder's `zero_lines`.
-        $shippingRate = $this->shipping_vat_rate ?? ($this->lines !== [] && $this->chargesShipping() ? null : '0');
-
-        return self::isInvalidRate($shippingRate)
-            || \array_any($this->lines, static fn(array $line): bool => self::isInvalidRate($line['vat_rate']));
-    }
-
-    private function chargesShipping(): bool
-    {
-        return DecimalMoney::fromString($this->shipping_total_net)->compare(DecimalMoney::fromString('0')) !== 0;
-    }
-
-    private static function isInvalidRate(?string $rate): bool
-    {
-        return $rate === null || (float) $rate < 0;
-    }
-
-    private function syncOrder(RawPaymentMethod $paymentMethod): SyncOrderDTO
-    {
-        return new SyncOrderDTO(
-            reference: (string) $this->reference,
             createdAt: $this->order_placed_at,
-            paymentMethod: $paymentMethod,
+            status: $this->lifecycle_status,
+            paymentMethod: $this->payment_method_raw,
             billing: $this->billing(),
             billingEmail: $this->billing_email,
             billingPhone: $this->billing_telephone ?? '',
             delivery: $this->delivery(),
             shippingMethod: $this->shipping_method ?? '',
-            shippingTotalNet: DecimalMoney::fromString($this->shipping_total_net),
-            shippingVatRate: self::taxRate($this->shipping_vat_rate),
+            shippingTotalNet: $this->shipping_total_net,
+            shippingVatRate: $this->shipping_vat_rate,
             comments: $this->comments ?? '',
             transactionId: $this->transaction_id ?? '',
             lines: \array_map(self::line(...), $this->lines),
@@ -172,20 +124,15 @@ final class OrderSyncSourceViewModel extends Model
     /**
      * @param SourceLine $line
      */
-    private static function line(array $line): SyncOrderLineDTO
+    private static function line(array $line): SourceOrderRowLineDTO
     {
-        return new SyncOrderLineDTO(
-            Sku::fromTrusted($line['sku']),
+        return new SourceOrderRowLineDTO(
+            $line['sku'],
             $line['title'],
             $line['quantity'],
-            DecimalMoney::fromString($line['price']),
-            DecimalMoney::fromString($line['price_vat']),
-            self::taxRate($line['vat_rate']),
+            $line['price'],
+            $line['price_vat'],
+            $line['vat_rate'],
         );
-    }
-
-    private static function taxRate(?string $percentage): ?TaxRate
-    {
-        return $percentage === null ? null : TaxRate::fromPercentage((float) $percentage);
     }
 }

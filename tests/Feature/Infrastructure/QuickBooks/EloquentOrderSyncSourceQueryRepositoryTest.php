@@ -8,6 +8,7 @@ use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
 use App\Application\QuickBooks\OrderSync\Enums\SourceOrderDefect;
+use App\Application\QuickBooks\OrderSync\Transformers\SourceOrderTransformer;
 use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncSourceViewModel;
@@ -89,7 +90,7 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
         $this->insertOrder(['shipping_total_net' => '0', 'shipping_vat_rate' => null], [[]]);
         $this->insertOrder(['reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID, 'shipping_vat_rate' => null], []);
 
-        $orders = $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE]);
+        $orders = \array_map(SourceOrderTransformer::fromRow(...), $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE]));
 
         self::assertNull($orders[self::REFERENCE]->defect);
         self::assertNotNull($orders[self::REFERENCE]->order);
@@ -152,18 +153,44 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
     #[DataProvider('rowsTheTablesRefuse')]
     public function a_row_the_source_tables_do_not_hold_today_fails_closed(string $paymentMethod, ?string $vatRate, SourceOrderDefect $expected): void
     {
-        $row = new OrderSyncSourceViewModel([
+        $model = new OrderSyncSourceViewModel([
             'reference' => 1,
             'external_id' => 2,
             'order_placed_at' => '2026-11-01 10:00:00+00',
             'lifecycle_status' => 'processing',
             'payment_method_raw' => $paymentMethod,
+            'billing_name' => 'Bill Buyer',
+            'billing_company' => null,
+            'billing_address_line1' => '1 Bill Street',
+            'billing_address_line2' => null,
+            'billing_address_line3' => null,
+            'billing_city' => 'Billville',
+            'billing_postcode' => 'BI1 1LL',
+            'billing_country' => 'United Kingdom',
+            'billing_email' => 'bill@example.test',
+            'billing_telephone' => null,
+            'delivery_name' => 'Del Buyer',
+            'delivery_company' => null,
+            'delivery_address_line1' => '2 Del Street',
+            'delivery_address_line2' => null,
+            'delivery_address_line3' => null,
+            'delivery_city' => 'Delville',
+            'delivery_postcode' => 'DE1 1LL',
+            'delivery_country' => 'Ireland',
+            'shipping_method' => null,
             'shipping_total_net' => '0',
             'shipping_vat_rate' => null,
+            'comments' => null,
+            'transaction_id' => null,
             'lines' => [['sku' => 'A', 'title' => 'A', 'quantity' => 1, 'price' => '1', 'price_vat' => '0', 'vat_rate' => $vatRate]],
         ]);
 
-        self::assertSame($expected, $row->toDomain()->defect);
+        $row = $model->toDomain();
+
+        self::assertSame($paymentMethod, $row->paymentMethod);
+        self::assertSame($vatRate, $row->lines[0]->vatRate);
+        self::assertNull($row->shippingVatRate);
+        self::assertSame($expected, SourceOrderTransformer::fromRow($row)->defect);
     }
 
     #[Test]
@@ -172,7 +199,7 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
         $this->insertOrder([], [[]]);
         $this->insertOrder(['reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID, 'payment_method_raw' => null], [[]]);
 
-        $orders = $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE, 2147450699, 2147483648]);
+        $orders = \array_map(SourceOrderTransformer::fromRow(...), $this->repository->findByReferences([self::REFERENCE, self::OTHER_REFERENCE, 2147450699, 2147483648]));
 
         self::assertEqualsCanonicalizing([self::REFERENCE, self::OTHER_REFERENCE], \array_keys($orders));
         self::assertNotNull($orders[self::REFERENCE]->order);
@@ -187,7 +214,7 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
         $orders = $this->repository->findByReferences([self::REFERENCE]);
         self::assertSame([self::REFERENCE], \array_keys($orders));
 
-        return $orders[self::REFERENCE];
+        return SourceOrderTransformer::fromRow($orders[self::REFERENCE]);
     }
 
     /**

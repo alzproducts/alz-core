@@ -23,11 +23,13 @@ use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Data\IPPCustomer;
 use QuickBooksOnline\API\Data\IPPItem;
+use QuickBooksOnline\API\Data\IPPReferenceType;
 
 #[CoversClass(QuickBooksCustomerProvisioner::class)]
 final class QuickBooksCustomerProvisionerTest extends TestCase
@@ -126,6 +128,53 @@ final class QuickBooksCustomerProvisionerTest extends TestCase
         $this->transport->shouldNotReceive('add');
 
         $this->assertSame('3', $this->provision([self::draft(' Jo Bloggs ')])->forDisplayName(' Jo Bloggs ')?->match?->id);
+    }
+
+    #[Test]
+    public function two_names_that_differ_only_by_edge_spaces_both_resolve(): void
+    {
+        $this->transport->shouldReceive('query')->once()->andReturn([]);
+        $this->transport->shouldReceive('add')->once()->andReturn(self::customer('Jo Bloggs', '3'));
+
+        $result = $this->provision([self::draft('Jo Bloggs'), self::draft(' Jo Bloggs ')]);
+
+        $this->assertSame('3', $result->forDisplayName('Jo Bloggs')?->match?->id);
+        $this->assertSame('3', $result->forDisplayName(' Jo Bloggs ')?->match?->id);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string|null}>
+     */
+    public static function currencies(): iterable
+    {
+        yield 'GBP' => ['GBP', 'GBP'];
+        yield 'USD' => ['USD', 'USD'];
+        yield 'reference object' => [new IPPReferenceType(['value' => 'USD']), 'USD'];
+        yield 'absent' => [null, null];
+        yield 'empty text' => ['', ''];
+        yield 'unreadable array' => [['USD'], ''];
+        yield 'unreadable number' => [826, ''];
+        yield 'unreadable object' => [new IPPItem(), ''];
+        yield 'reference object without a value' => [new IPPReferenceType(), ''];
+    }
+
+    #[Test]
+    #[DataProvider('currencies')]
+    public function it_reports_the_currency_of_a_found_and_a_created_customer(mixed $currencyRef, ?string $expected): void
+    {
+        $found = self::customer('Found Ltd', '1');
+        $found->CurrencyRef = $currencyRef;
+        $created = self::customer('New Ltd', '2');
+        $created->CurrencyRef = $currencyRef;
+        $this->transport->shouldReceive('query')->once()->andReturn([$found]);
+        $this->transport->shouldReceive('add')->once()->andReturn($created);
+
+        $result = $this->provision([self::draft('Found Ltd'), self::draft('New Ltd')]);
+
+        $this->assertNotNull($result->forDisplayName('Found Ltd')?->match);
+        $this->assertNotNull($result->forDisplayName('New Ltd')?->match);
+        $this->assertSame($expected, $result->forDisplayName('Found Ltd')->match->currency);
+        $this->assertSame($expected, $result->forDisplayName('New Ltd')->match->currency);
     }
 
     #[Test]
