@@ -224,12 +224,13 @@ deptrac:
       - SentrySdk
       - CarbonDateTime
 
-    # Dev utilities: Same as Presentation + Infrastructure (for testing/debugging commands)
+    # Dev utilities: Same as Presentation + Infrastructure (for testing/debugging commands), plus the QuickBooks SDK for sandbox payloads
     PresentationDev:
       - Application
       - Domain
       - Infrastructure
       - DevToolsCatalog
+      - QuickBooksSdk
       - LaravelFramework
       - SpatieData
       - SymfonyHttp

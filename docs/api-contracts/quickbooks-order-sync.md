@@ -156,6 +156,8 @@ Syncs the given references in the request and returns one outcome per reference.
 
 An empty array, more than 10 items, a duplicate or a non-integer item returns 422 `validation_error` keyed under `references` (or `references.<index>` for one item).
 
+A request with any reference whose order was placed before the floor date (see [Range limits](#range-limits)) returns 422 `validation_error` keyed under `references`, and nothing in it is synced. Until the floor date is set, every request fails closed the same way. A reference with no order passes this check and returns `skipped` (`order_not_found`).
+
 ### Responses
 
 | Status | Body |
@@ -311,12 +313,12 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | `synced` | — | — (no reason) | `POST sync` | Posted now; `doc_type`, `qbo_doc_number` and `qbo_txn_id` set |
 | `already_synced` | — | — (no reason) | `POST sync` | Posted earlier; never re-created, whatever `force_retry` says |
 | `skipped` | `cancelled` | `false` | `POST sync` | The order is cancelled; no row is written |
-| `skipped` | `payment_method_unmapped` | `false` | `POST sync` | The order's raw ShopWired payment-method string is not one the sync routes to a document; no row is written |
 | `skipped` | `order_not_found` | `false` | `POST sync` | No order has this reference; no row is written |
 | `skipped` | `previously_failed` | `true` | `POST sync` | A stored `failed` row exists and `force_retry` was not set; the row stays `failed` |
-| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead) |
+| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead), or the order's payment method was not stored |
 | `failed` | `item_missing` | `true` | `POST sync`, `GET failed` | A line's SKU has no matching QBO item; succeeds once the item exists |
 | `failed` | `zero_lines` | `false` | `POST sync`, `GET failed` | The order produced no document lines |
+| `failed` | `tax_rate_unsupported` | `false` | `POST sync`, `GET failed` | A VAT rate on the order is one the sync has no tax key for (only 20% and 0% are supported) |
 | `failed` | `closed_period` | `false` | `POST sync`, `GET failed` | QBO rejected the document because its date is in a closed books period |
 | `failed` | `qbo_validation` | `false` | `POST sync`, `GET failed` | QBO rejected the document as invalid |
 | `failed` | `qbo_unavailable` | `true` | `POST sync`, `GET failed` | QBO was unavailable or throttled the call, and nothing was posted |
@@ -324,7 +326,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | `not_attempted` | `in_progress` | `true` | `POST sync` | Another worker holds a live lease on this reference |
 | `not_attempted` | `deadline_exceeded` | `true` | `POST sync` | The request's server deadline passed before this reference was reached |
 
-- `payment_method_unmapped` keys on the raw ShopWired payment-method string, not a grouped method. It covers the `PaymentMethodRaw` values that neither the QBO mapping nor the two document paths route.
+- Every raw ShopWired payment method routes to a document type, so no payment method is skipped. An order whose payment method was not stored fails with `mapping_missing`.
 - A range run produces the same outcomes, but only `failed` rows are visible to ADM afterwards, through `GET failed`.
 
 ---
@@ -337,16 +339,15 @@ For each reference, first match wins:
 |---|-------|----------------------|---------------------|
 | 1 | Stored row is `synced` | `already_synced` | `already_synced` |
 | 2 | Order is cancelled | `skipped` (`cancelled`) | `skipped` (`cancelled`) |
-| 3 | Order's payment method is not routed | `skipped` (`payment_method_unmapped`) | `skipped` (`payment_method_unmapped`) |
-| 4 | No order has the reference | `skipped` (`order_not_found`) | `skipped` (`order_not_found`) |
-| 5 | Stored row is `failed` | `skipped` (`previously_failed`) | attempted |
-| 6 | Stored row is `processing` with a live lease | `not_attempted` (`in_progress`) | `not_attempted` (`in_progress`) |
-| 7 | Stored row is `processing` with an expired lease | attempted (as `pending`) | attempted (as `pending`) |
-| 8 | No row, or stored row is `pending` | attempted | attempted |
+| 3 | No order has the reference | `skipped` (`order_not_found`) | `skipped` (`order_not_found`) |
+| 4 | Stored row is `failed` | `skipped` (`previously_failed`) | attempted |
+| 5 | Stored row is `processing` with a live lease | `not_attempted` (`in_progress`) | `not_attempted` (`in_progress`) |
+| 6 | Stored row is `processing` with an expired lease | attempted (as `pending`) | attempted (as `pending`) |
+| 7 | No row, or stored row is `pending` | attempted | attempted |
 
 - An attempted reference ends as `synced`, `failed`, or `not_attempted` (`deadline_exceeded`).
 - `skipped` reasons are computed on every run and never stored.
-- Rule 1 comes first so a posted order never reads as skipped; rules 2–4 come before rule 5 so a now-cancelled or deleted order reports its current state over a stale failure.
+- Rule 1 comes first so a posted order never reads as skipped; rules 2–3 come before rule 4 so a now-cancelled or deleted order reports its current state over a stale failure.
 
 ---
 
@@ -364,7 +365,7 @@ For each reference, first match wins:
 | Endpoint | Success | Body / query limits |
 |----------|---------|---------------------|
 | `POST /api/quickbooks/orders/sync-range` | 202 `{message, run_id, candidate_count}` | `from`, `to` `YYYY-MM-DD`; `to` ≥ `from`; `to` ≤ today; ≤ 31 days inclusive; `from` ≥ floor; `force_retry` optional |
-| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; `force_retry` optional |
+| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; every order placed ≥ floor; `force_retry` optional |
 | `GET /api/quickbooks/orders/failed` | 200 `{data, links, meta}` | `status` `failed` \| `changed_after_sync`; `page`; `per_page` ≤ 1000, default 50 |
 
 | Response | ADM action |

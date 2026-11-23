@@ -1,0 +1,835 @@
+#!/usr/bin/env bash
+# alz-core verify entry point (~/.agents/references/verify-contract.md, ADR-0020). See SKILL.md.
+# Usage: .agents/skills/verify/verify <verb> [args] --evidence <dir>   (cwd = the repo checkout)
+# Targets macOS /bin/bash 3.2: no associative arrays, no ${x,,}, no mapfile.
+# intentional: SC2016 — the single-quoted strings are PHP and Dockerfile source; SC2086 — id lists split on purpose.
+# shellcheck disable=SC2016,SC2086
+set -euo pipefail
+umask 077
+
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+SERVICES='app worker seed pgsql redis auth-migrate test'
+
+# Keys the stack owns (COR-320 D9, D11): set in compose environment: or filled per run, never overridable.
+STACK_KEYS='DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE DB_URL
+REDIS_HOST REDIS_PORT REDIS_PASSWORD REDIS_URL REDIS_USERNAME APP_URL SUPABASE_URL APP_ENV PORT
+APP_KEY API_KEY_ENCRYPTION_SECRET SUPABASE_LOCAL_BYPASS_SECRET SUPABASE_LOCAL_TEST_EMAIL SHOPWIRED_SALE_CATEGORY_ID'
+
+# Credential keys without a credential-shaped name; the name pattern below covers the rest.
+CREDENTIAL_NAMES='APP_KEY APP_PREVIOUS_KEYS AWS_ACCESS_KEY_ID MAIL_URL HORIZON_USER'
+CREDENTIAL_PATTERN='(SECRET|TOKEN|PASSWORD|_KEY$|_KEY_|DSN|SALT|PRIVATE|CREDENTIAL|WEBHOOK_URL|_USERNAME$)'
+# Keys the pattern matches that are not credentials.
+NOT_CREDENTIALS='AUTH_PASSWORD_BROKER AUTH_PASSWORD_RESET_TOKEN_TABLE AUTH_PASSWORD_TIMEOUT LOG_SLACK_USERNAME'
+
+GUARD_PHP='$p = new \Illuminate\Support\ConfigurationUrlParser();
+$hp = static function ($c) use ($p): string { $c = $p->parseConfiguration(is_array($c) ? $c : []); return ($c["host"] ?? "") . ":" . ($c["port"] ?? ""); };
+$def = (string) config("database.default");
+$out = ["db default:" . $def => $hp(config("database.connections." . $def))];
+foreach (["pgsql", "pgsql_rls", "pgsql_admin"] as $n) { $out["db " . $n] = $hp(config("database.connections." . $n)); }
+foreach (["default", "cache", "queue"] as $n) { $out["redis " . $n] = config()->has("database.redis." . $n) ? $hp(config("database.redis." . $n)) : "missing"; }
+$out["driver queue.default"] = (string) config("queue.default");
+$out["driver cache.default"] = (string) config("cache.default");
+$out["info app.env"] = (string) app()->environment();
+$out["info telescope"] = app()->providerIsLoaded("App\\Providers\\TelescopeServiceProvider") ? "registered" : "absent";
+foreach ($out as $k => $v) { echo "VERIFY:" . $k . " " . $v . PHP_EOL; }'
+
+# Names of non-blank credential keys in the process env; values never leave the container.
+KEYS_PHP='$re = "/" . getenv("VERIFY_CRED_RE") . "/";
+$names = array_filter(explode(" ", (string) getenv("VERIFY_CRED_NAMES")));
+$skip = array_filter(explode(" ", (string) getenv("VERIFY_NOT_CREDS")));
+foreach (getenv() as $k => $v) {
+    if (str_starts_with($k, "VERIFY_") || in_array($k, $skip, true) || $v === "") { continue; }
+    if (in_array($k, $names, true) || preg_match($re, $k) === 1) { echo "VERIFY:" . $k . PHP_EOL; }
+}'
+
+# Credential env() calls under the image config/ with a non-empty string default.
+DEFAULTS_PHP='$re = "/" . getenv("VERIFY_CRED_RE") . "/";
+$names = array_filter(explode(" ", (string) getenv("VERIFY_CRED_NAMES")));
+$skip = array_filter(explode(" ", (string) getenv("VERIFY_NOT_CREDS") . " " . (string) getenv("VERIFY_STACK_KEYS")));
+$files = glob("config/*.php") ?: [];
+echo "VERIFY:scanned " . count($files) . PHP_EOL;
+foreach ($files as $f) {
+    preg_match_all("/env\(\s*[\x27\"]([A-Z][A-Z0-9_]*)[\x27\"]\s*,\s*([\x27\"])(.+?)\\2\s*\)/", (string) file_get_contents($f), $m, PREG_SET_ORDER);
+    foreach ($m as $hit) {
+        $k = $hit[1];
+        if (in_array($k, $skip, true)) { continue; }
+        if (in_array($k, $names, true) || preg_match($re, $k) === 1) { echo "VERIFY:default " . $f . " " . $k . PHP_EOL; }
+    }
+}'
+
+die() {
+    local code="$1"
+    shift
+    echo "verify: $*" >&2
+    exit "$code"
+}
+
+HELP='up --evidence <abs dir> [--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]   build HEAD, boot, migrate and seed; prints run_id= and base_url=
+down --evidence <dir>   remove the run stack and images; keeps the evidence
+doctor --evidence <dir>   pass/FAIL report: SHA, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
+http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
+exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
+logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
+db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
+test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static (exit 69 in caller-supabase mode)
+note --evidence <dir> <text>   append a line to run-notes.md
+browser   not supported (exit 69)'
+
+usage() {
+    {
+        echo 'Usage: .agents/skills/verify/verify <verb> [args] --evidence <dir>   (cwd = the repo checkout)'
+        printf '%s\n' "$HELP" | sed 's/^/  /'
+        echo 'Exit: 0 ok | 1 check failed | 64 usage | 69 not supported | 75 environment not ready'
+    } >&2
+    exit 64
+}
+
+now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+stamp() { date -u +%Y%m%dT%H%M%SZ; }
+
+note() { printf -- '- %s %s\n' "$(now_iso)" "$*" >>"$EVIDENCE/run-notes.md"; }
+
+in_list() {
+    local item
+    for item in $2; do
+        [ "$item" = "$1" ] && return 0
+    done
+    return 1
+}
+
+is_credential_key() {
+    in_list "$1" "$NOT_CREDENTIALS" && return 1
+    in_list "$1" "$CREDENTIAL_NAMES" && return 0
+    printf '%s' "$1" | grep -Eq "$CREDENTIAL_PATTERN"
+}
+
+# unique_file <dir> <suffix>: a fresh <dir>/<stamp>[-n]-<suffix> path.
+unique_file() {
+    local s n=0 out
+    s="$(stamp)"
+    mkdir -p "$1"
+    out="$1/$s-$2"
+    while [ -e "$out" ]; do n=$((n + 1)); out="$1/$s-$n-$2"; done
+    printf '%s' "$out"
+}
+
+# capture <kind> <suffix> <header> <label> <argv>...: runs argv into a fresh <kind>/ capture ending in an exit= line; returns argv's exit code.
+capture() {
+    local kind="$1" suffix="$2" header="$3" label="$4" out rc=0
+    shift 4
+    out="$(unique_file "$EVIDENCE/$kind" "$suffix")"
+    printf '%s\n\n' "$header" >"$out"
+    "$@" 2>&1 | tee -a "$out" || rc="${PIPESTATUS[0]}"
+    echo "exit=$rc" >>"$out"
+    note "$label exit=$rc ($kind/$(basename "$out"))"
+    return "$rc"
+}
+
+resolve_repo() {
+    REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || die 64 "run from inside the repo checkout (cwd is not a git work tree)"
+    REPO="$(cd "$REPO" && pwd -P)"
+    local slug hash
+    slug="$(basename "$REPO" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-\n' '-')"
+    hash="$(printf '%s' "$REPO" | shasum -a 256 | cut -c1-8)"
+    PROJECT="alz-verify-$slug-$hash"
+}
+
+# set_evidence <dir> <create|existing>
+set_evidence() {
+    case "$1" in
+        /*) ;;
+        *) die 64 "--evidence must be an absolute path: $1" ;;
+    esac
+    if [ ! -d "$1" ]; then
+        [ "$2" = create ] || die 75 "--evidence dir does not exist: $1"
+        mkdir -p "$1"
+    fi
+    if git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        die 64 "--evidence dir is inside a git work tree: $1"
+    fi
+    EVIDENCE="$(cd "$1" && pwd -P)"
+    STATE="$EVIDENCE/.verify"
+}
+
+state_get() { sed -n "s/^$1=//p" "$STATE/state.env" | tail -1; }
+
+# run_mode: the run's recorded mode; a state file from before modes existed is own-postgres.
+run_mode() {
+    local mode
+    mode="$(state_get mode 2>/dev/null || true)"
+    printf '%s' "${mode:-own-postgres}"
+}
+
+# dc: the run's Compose files and profiles, from its recorded mode.
+dc() {
+    local model=(-f "$STATE/compose.yaml")
+    if [ "$(run_mode)" = caller-supabase ]; then
+        model+=(-f "$STATE/compose.caller-supabase.yaml")
+    else
+        model+=(--profile own-postgres)
+    fi
+    docker compose -p "$PROJECT" --project-directory "$STATE" "${model[@]}" --env-file "$STATE/compose.env" "$@"
+}
+
+# service_state <service> <go template>: one field of a run container, running or not; blank when there is none.
+service_state() {
+    local id
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1" | head -1)"
+    [ -z "$id" ] || docker inspect -f "$2" "$id" 2>/dev/null || true
+}
+
+project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
+
+# require_run: the evidence dir holds an up run of this worktree's project, and it is running.
+require_run() {
+    [ -f "$STATE/state.env" ] && [ -f "$STATE/compose.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
+    [ "$(state_get project)" = "$PROJECT" ] || die 64 "evidence dir belongs to project $(state_get project), not this worktree's $PROJECT"
+    [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=app")" ] ||
+        die 75 "the run's app container is not running: $PROJECT"
+    [ "$(run_mode)" = own-postgres ] || [ "$(service_state relay '{{.State.Status}}')" = running ] ||
+        die 75 "the run's relay container is not running: $PROJECT"
+}
+
+# refuse_in_mode <what>: 69 when the run uses a caller-supplied Supabase.
+refuse_in_mode() {
+    [ "$(run_mode)" = own-postgres ] || die 69 "$1 is not supported in caller-supabase mode"
+}
+
+# ---- argument split: --evidence anywhere before `--`; the rest stays in order ----
+
+EVIDENCE_ARG=''
+ARGS=()
+split_args() {
+    local seen_dd=0
+    while [ "$#" -gt 0 ]; do
+        if [ "$seen_dd" -eq 0 ] && [ "$1" = --evidence ]; then
+            [ "$#" -ge 2 ] || die 64 "--evidence needs a dir"
+            EVIDENCE_ARG="$2"
+            shift 2
+            continue
+        fi
+        [ "$1" = -- ] && seen_dd=1
+        ARGS+=("$1")
+        shift
+    done
+    [ -n "$EVIDENCE_ARG" ] || die 64 "--evidence <dir> is required"
+}
+
+# ---- main env file (COR-317 D5) ----
+
+main_env_file() {
+    local common
+    common="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)" || die 1 "git common dir not found"
+    printf '%s/.env' "$(dirname "$common")"
+}
+
+# env_file_sets <file> <key>: 0 when the file's last assignment of key is non-blank. Never prints the value.
+env_file_sets() {
+    [ -f "$1" ] || return 1
+    awk -v k="$2" '
+        {
+            line = $0
+            sub(/^[ \t]*export[ \t]+/, "", line)
+            sub(/^[ \t]+/, "", line)
+            if (index(line, k) != 1) next
+            rest = substr(line, length(k) + 1)
+            if (rest !~ /^[ \t]*=/) next
+            sub(/^[ \t]*=/, "", rest)
+            found = 1
+            val = rest
+        }
+        END {
+            if (!found) exit 1
+            gsub(/^[ \t]+|[ \t\r]+$/, "", val)
+            if (val ~ /^#/) val = ""
+            gsub(/^["\047]|["\047]$/, "", val)
+            gsub(/^[ \t]+|[ \t]+$/, "", val)
+            exit (val == "" ? 1 : 0)
+        }' "$1"
+}
+
+# ---- caller-supplied Supabase (COR-319) ----
+
+MODE=own-postgres
+SB_URL=''
+SB_API_PORT=''
+SB_DB_URL=''
+SB_DB_HOSTPORT=''
+SB_DB_PORT=''
+SB_DB_PASSWORD=''
+
+# printable_hostport <flag> <value>: the value's host:port, or nothing when printing it could leak part of a credential.
+printable_hostport() {
+    local LC_ALL=C rest hostport='^([A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\]):[0-9]+$'
+    case "$2" in
+        *@*@*) return 0 ;;
+        *@*) rest="${2#*@}" ;;
+        *://*)
+            [ "$1" = --supabase-url ] || return 0
+            rest="${2#*://}"
+            ;;
+        *) return 0 ;;
+    esac
+    rest="${rest%%[/?#]*}"
+    if [[ "$rest" =~ $hostport ]]; then
+        printf '%s' "$rest"
+    else
+        case "${rest%:}" in 127.0.0.1 | localhost) printf '%s' "${rest%:}" ;; esac
+    fi
+}
+
+# refuse_flag <exit> <flag> <value> <reason>
+refuse_flag() {
+    local hostport
+    hostport="$(printable_hostport "$2" "$3")"
+    die "$1" "up: $2 refused${hostport:+ ($hostport)}: $4"
+}
+
+# check_caller_port <flag> <value> <port>
+check_caller_port() {
+    [ "$3" -le 65535 ] || refuse_flag 64 "$1" "$2" 'the port is above 65535'
+    case "$3" in
+        8000) refuse_flag 64 "$1" "$2" 'port 8000 is Octane in the run' ;;
+        54321 | 54322) refuse_flag 64 "$1" "$2" "that port is the developer's Supabase" ;;
+    esac
+}
+
+# check_supabase_flags <url given> <db url given>: exact spellings only, nothing resolved or percent-decoded.
+check_supabase_flags() {
+    local LC_ALL=C host='(127\.0\.0\.1|localhost)' port='([1-9][0-9]{0,4})' url_re db_re
+    url_re="^http://$host:$port\$"
+    db_re="^postgresql://postgres:([A-Za-z0-9._~-]+)@$host:$port/postgres\$"
+    [ "$2" = yes ] || refuse_flag 64 --supabase-url "$SB_URL" 'it needs --supabase-db-url too'
+    [ "$1" = yes ] || refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'it needs --supabase-url too'
+
+    [[ "$SB_URL" =~ $url_re ]] ||
+        refuse_flag 64 --supabase-url "$SB_URL" 'wants a bare http origin: host 127.0.0.1 or localhost, an explicit port, nothing after it'
+    SB_API_PORT="${BASH_REMATCH[2]}"
+    check_caller_port --supabase-url "$SB_URL" "$SB_API_PORT"
+
+    [[ "$SB_DB_URL" =~ $db_re ]] ||
+        refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'wants a postgresql URL: user and database postgres, a password of A-Z a-z 0-9 . _ ~ -, host 127.0.0.1 or localhost, an explicit port, no query string'
+    SB_DB_PASSWORD="${BASH_REMATCH[1]}"
+    SB_DB_PORT="${BASH_REMATCH[3]}"
+    SB_DB_HOSTPORT="${BASH_REMATCH[2]}:$SB_DB_PORT"
+    check_caller_port --supabase-db-url "$SB_DB_URL" "$SB_DB_PORT"
+    [ "$SB_API_PORT" != "$SB_DB_PORT" ] || refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'both flags name the same port'
+    MODE=caller-supabase
+}
+
+# probe_supabase: the caller's Supabase answers, and signs tokens as <supabase-url>/auth/v1. Connects where the relay forwards, 127.0.0.1.
+probe_supabase() {
+    local issuer tool
+    for tool in curl jq; do
+        command -v "$tool" >/dev/null 2>&1 || die 75 "up: --supabase-url needs $tool"
+    done
+    (exec 3<>"/dev/tcp/127.0.0.1/$SB_API_PORT") 2>/dev/null || refuse_flag 75 --supabase-url "$SB_URL" 'nothing answers there'
+    (exec 3<>"/dev/tcp/127.0.0.1/$SB_DB_PORT") 2>/dev/null || refuse_flag 75 --supabase-db-url "$SB_DB_URL" 'nothing answers there'
+    issuer="$(curl -q -sf --noproxy '*' --max-time 10 --max-filesize 65536 \
+        "http://127.0.0.1:$SB_API_PORT/auth/v1/.well-known/openid-configuration" 2>/dev/null |
+        jq -r 'if (.issuer | type) == "string" then .issuer else empty end' 2>/dev/null)" || issuer=''
+    [ -n "$issuer" ] || refuse_flag 75 --supabase-url "$SB_URL" 'no readable issuer there'
+    [ "$issuer" = "$SB_URL/auth/v1" ] ||
+        die 64 "up: --supabase-url issuer mismatch: want $SB_URL/auth/v1, Supabase reports $(printf '%s' "$issuer" | LC_ALL=C tr -cd 'A-Za-z0-9:/._~[]-' | cut -c1-200)"
+}
+
+# ---- verbs ----
+
+cmd_up() {
+    local overrides=() kv key value url_given=no db_url_given=no
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --supabase-url)
+                [ "$#" -ge 2 ] || die 64 "up: --supabase-url needs a value"
+                [ "$url_given" = no ] || refuse_flag 64 --supabase-url "$2" 'given twice'
+                url_given=yes
+                SB_URL="$2"
+                shift 2
+                ;;
+            --supabase-db-url)
+                [ "$#" -ge 2 ] || die 64 "up: --supabase-db-url needs a value"
+                [ "$db_url_given" = no ] || refuse_flag 64 --supabase-db-url "$2" 'given twice'
+                db_url_given=yes
+                SB_DB_URL="$2"
+                shift 2
+                ;;
+            --env-override)
+                [ "$#" -ge 2 ] || die 64 "--env-override wants KEY=VALUE"
+                kv="$2"
+                key="${kv%%=*}"
+                value="${kv#*=}"
+                [ "$key" != "$kv" ] && [[ "$key" =~ ^[A-Z][A-Z0-9_]*$ ]] || die 64 "--env-override wants KEY=VALUE: $key"
+                case "$key" in PATH | HOME) die 64 "--env-override refuses $key" ;; esac
+                ! in_list "$key" "$STACK_KEYS" || die 64 "--env-override refuses stack-owned key $key"
+                if is_credential_key "$key" && [ -n "$value" ]; then
+                    die 64 "--env-override may only blank credential key $key (pass $key=)"
+                fi
+                case "$value" in *"'"* | *$'\n'*) die 64 "--env-override value for $key holds a quote or newline" ;; esac
+                overrides+=("$key='$value'")
+                shift 2
+                ;;
+            --with) die 64 "--with: this repo declares no dependencies" ;;
+            *)
+                # intentional: only the --name; the rest, or a bare positional, may hold a credential.
+                key="${1%%=*}"
+                [[ "$key" =~ ^--[a-z][a-z-]*$ ]] || key=''
+                die 64 "up: unknown argument${key:+: $key}"
+                ;;
+        esac
+    done
+    if [ "$url_given" = yes ] || [ "$db_url_given" = yes ]; then
+        check_supabase_flags "$url_given" "$db_url_given"
+        probe_supabase
+    fi
+
+    if [ -n "$(project_containers)" ]; then
+        die 75 "a run is already up for this worktree (project $PROJECT); run down first"
+    fi
+    set_evidence "$EVIDENCE_ARG" create
+    [ ! -e "$STATE" ] || die 64 "--evidence dir already holds a run (.verify/); use a fresh dir: $EVIDENCE"
+
+    command -v docker >/dev/null 2>&1 || die 75 "docker not found"
+    docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
+
+    mkdir -p "$STATE" "$EVIDENCE/build"
+    local svc
+    for svc in app worker seed test; do
+        mkdir -p "$EVIDENCE/logs/$svc"
+        # intentional: www-data (uid 33) writes storage/logs through this bind mount (COR-320 P12).
+        chmod 0777 "$EVIDENCE/logs/$svc"
+    done
+    cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
+
+    local sha env_file env_missing=no
+    sha="$(git -C "$REPO" rev-parse HEAD)"
+    env_file="$(main_env_file)"
+    # intentional: a path nothing creates; the caller's Supabase never gets the main .env's integration keys (ADR-0020).
+    [ "$MODE" = own-postgres ] || env_file="$STATE/no-main.env"
+    [ -f "$env_file" ] || env_missing=yes
+    {
+        echo "mode=$MODE"
+        [ "$MODE" = own-postgres ] || echo "db_hostport=$SB_DB_HOSTPORT"
+        echo "project=$PROJECT"
+        echo "top=$REPO"
+        echo "sha=$sha"
+        echo "env_file=$env_file"
+        echo "env_missing=$env_missing"
+    } >"$STATE/state.env"
+    note "up mode=$MODE project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
+
+    # Fill-if-blank keys (D9), then the overrides; compose reads this env_file after the main .env.
+    local run_env="$STATE/run.env"
+    : >"$run_env"
+    env_file_sets "$env_file" APP_KEY || echo "APP_KEY='base64:$(openssl rand -base64 32)'" >>"$run_env"
+    env_file_sets "$env_file" API_KEY_ENCRYPTION_SECRET || echo "API_KEY_ENCRYPTION_SECRET='$(openssl rand -hex 32)'" >>"$run_env"
+    env_file_sets "$env_file" SUPABASE_LOCAL_BYPASS_SECRET || echo "SUPABASE_LOCAL_BYPASS_SECRET='$(openssl rand -hex 24)'" >>"$run_env"
+    env_file_sets "$env_file" SUPABASE_LOCAL_TEST_EMAIL || echo "SUPABASE_LOCAL_TEST_EMAIL='dev@alzadmin.test'" >>"$run_env"
+    # intentional: the bypass persona's email; TestUserPersonaResolver throws on a blank one, so a blank run's http would fail.
+    env_file_sets "$env_file" EMAIL_PRIMARY || echo "EMAIL_PRIMARY='verify@example.invalid'" >>"$run_env"
+    # intentional: config/queue.php and config/cache.php default to database, which Horizon never reads; a set value is kept so doctor can FAIL it (D5).
+    env_file_sets "$env_file" QUEUE_CONNECTION || echo "QUEUE_CONNECTION='redis'" >>"$run_env"
+    env_file_sets "$env_file" CACHE_STORE || echo "CACHE_STORE='redis'" >>"$run_env"
+    note "filled if blank: $(sed 's/=.*//' "$run_env" | tr '\n' ' ')"
+    # intentional: the entrypoint's db:show probe needs ext-intl, which the runtime image lacks; seed's exit 0 gates the start (COR-320 P24, ADR-0020).
+    echo "SKIP_DB_CHECK='true'" >>"$run_env"
+    for kv in ${overrides[@]+"${overrides[@]}"}; do
+        echo "$kv" >>"$run_env"
+        note "env-override ${kv%%=*}"
+    done
+
+    # Build context: committed HEAD only (COR-317 D2); no bind mount of the worktree.
+    local src="$STATE/src"
+    mkdir -p "$src"
+    (umask 022 && git -C "$REPO" archive --format=tar HEAD | tar -x -C "$src") || die 1 "git archive of HEAD failed"
+    local pg_version auth_version
+    pg_version="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$src/database/baseline/versions.env")"
+    auth_version="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")"
+    [ -n "$pg_version" ] && [ -n "$auth_version" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
+
+    {
+        echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
+        echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
+        echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
+        if [ "$MODE" = own-postgres ]; then
+            echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        else
+            echo "VERIFY_RELAY_IMAGE=$PROJECT-relay:run"
+            echo "VERIFY_DB_PASSWORD=$SB_DB_PASSWORD"
+            echo "VERIFY_DB_PORT=$SB_DB_PORT"
+            echo "VERIFY_SUPABASE_URL=$SB_URL"
+            echo "VERIFY_SUPABASE_API_PORT=$SB_API_PORT"
+        fi
+        echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
+        echo "VERIFY_ENV_FILE=$env_file"
+        echo "VERIFY_RUN_ENV=$run_env"
+        echo "VERIFY_LOGS=$EVIDENCE/logs"
+        echo "SUPABASE_POSTGRES_VERSION=$pg_version"
+        echo "SUPABASE_AUTH_VERSION=$auth_version"
+    } >"$STATE/compose.env"
+
+    # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
+    local t0 pair pairs='app:runtime seed:test pgsql:pgsql' front=app
+    if [ "$MODE" != own-postgres ]; then
+        pairs='app:runtime seed:test relay:relay'
+        front=relay
+    fi
+    for pair in $pairs; do
+        t0="$(date +%s)"
+        dc --progress plain build "${pair%%:*}" >"$EVIDENCE/build/${pair#*:}.log" 2>&1 ||
+            { note "up FAIL ${pair#*:} build (build/${pair#*:}.log)"; die 1 "${pair#*:} image build failed: $EVIDENCE/build/${pair#*:}.log (run down to clean up)"; }
+        note "built ${pair#*:} image in $(($(date +%s) - t0))s"
+    done
+    rm -rf "$src"
+
+    t0="$(date +%s)"
+    local up_rc=0 seed_logs='seed auth-migrate'
+    dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1 || up_rc=1
+    if [ "$MODE" != own-postgres ]; then
+        seed_logs='seed relay'
+        dc logs --no-color --no-log-prefix seed >"$EVIDENCE/logs/seed/seed.log" 2>&1 || true
+    fi
+    if [ "$up_rc" -ne 0 ]; then
+        {
+            echo '--- ps'
+            dc ps -a
+            echo '--- seed'
+            dc logs --no-color $seed_logs
+        } >>"$EVIDENCE/logs/compose-up.log" 2>&1 || true
+        if [ "$MODE" != own-postgres ]; then
+            case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+                'exited 0' | 'created '* | 'running '* | '') ;;
+                *)
+                    note "up FAIL seed (logs/seed/seed.log)"
+                    die 1 "the seed failed: $EVIDENCE/logs/seed/seed.log (run down to clean up)"
+                    ;;
+            esac
+            if [ "$(service_state relay '{{.State.Status}} {{.State.Health.Status}}')" != 'running healthy' ]; then
+                note "up FAIL relay not healthy (logs/compose-up.log)"
+                die 75 "the relay to the caller's Supabase is not healthy: $EVIDENCE/logs/compose-up.log (run down to clean up)"
+            fi
+        fi
+        note "up FAIL compose up (logs/compose-up.log)"
+        die 1 "stack did not become ready: $EVIDENCE/logs/compose-up.log (run down to clean up)"
+    fi
+    local hostport base_url
+    hostport="$(dc port "$front" 8000 | tail -1)"
+    base_url="http://$hostport"
+    echo "base_url=$base_url" >>"$STATE/state.env"
+    note "up ready in $(($(date +%s) - t0))s base_url=$base_url"
+    echo "run_id=$PROJECT"
+    echo "base_url=$base_url"
+    echo "evidence=$EVIDENCE"
+}
+
+cmd_down() {
+    [ "${#ARGS[@]}" -eq 0 ] || die 64 "down takes no arguments"
+    set_evidence "$EVIDENCE_ARG" create
+    local fail=0 ids
+    note "down project=$PROJECT"
+    if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
+        dc --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
+            note "down: compose down failed (logs/compose-down.log); removing by label"
+    fi
+    # Label sweep: catches a run whose evidence dir is gone or whose up failed part-way. Never touches another project.
+    ids="$(project_containers)"
+    [ -z "$ids" ] || docker rm -f -v $ids >/dev/null 2>&1 || true
+    ids="$(docker network ls -q --filter "label=com.docker.compose.project=$PROJECT")"
+    [ -z "$ids" ] || docker network rm $ids >/dev/null 2>&1 || true
+    ids="$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT")"
+    [ -z "$ids" ] || docker volume rm -f $ids >/dev/null 2>&1 || true
+    ids="$(docker image ls -q --filter "label=com.docker.compose.project=$PROJECT" | sort -u)"
+    [ -z "$ids" ] || docker image rm -f $ids >/dev/null 2>&1 || true
+
+    local kind residue
+    for kind in 'ps -a' 'volume ls' 'network ls' 'image ls'; do
+        residue="$(docker $kind -q --filter "label=com.docker.compose.project=$PROJECT")"
+        if [ -n "$residue" ]; then
+            echo "down FAIL $kind residue: $(printf '%s' "$residue" | tr '\n' ' ')"
+            fail=1
+        fi
+    done
+    if [ "$fail" -eq 0 ]; then
+        note "down done, no residue"
+        echo "down ok project=$PROJECT"
+    else
+        note "down FAIL residue"
+    fi
+    return "$fail"
+}
+
+# doctor_line <ok|FAIL|info> <text>
+doctor_line() {
+    echo "$1 $2" | tee -a "$DOCTOR_OUT"
+    [ "$1" != FAIL ] || DOCTOR_FAIL=1
+}
+
+# container_php <service> <php code>: VERIFY: lines from php in that container.
+container_php() {
+    dc exec -T -e "VERIFY_CRED_RE=$CREDENTIAL_PATTERN" -e "VERIFY_CRED_NAMES=$CREDENTIAL_NAMES" \
+        -e "VERIFY_NOT_CREDS=$NOT_CREDENTIALS" -e "VERIFY_STACK_KEYS=$(printf '%s' "$STACK_KEYS" | tr '\n' ' ')" \
+        "$1" php -r "$2" </dev/null 2>&1 | sed -n 's/^VERIFY://p'
+}
+
+container_tinker() {
+    dc exec -T "$1" php artisan tinker --no-interaction --execute="$2" </dev/null 2>&1 | sed -n 's/^VERIFY://p'
+}
+
+cmd_doctor() {
+    [ "${#ARGS[@]}" -eq 0 ] || die 64 "doctor takes no arguments"
+    set_evidence "$EVIDENCE_ARG" existing
+    require_run
+    DOCTOR_FAIL=0
+    DOCTOR_OUT="$(unique_file "$EVIDENCE/doctor" report.txt)"
+    local image_id app_image svc kind name value want out
+    doctor_line info "git sha $(state_get sha)"
+    image_id="$(docker image inspect -f '{{.Id}}' "$PROJECT-runtime:run" 2>/dev/null || true)"
+    doctor_line info "runtime image $PROJECT-runtime:run digest $image_id"
+    for svc in app worker; do
+        app_image="$(docker inspect -f '{{.Image}}' "$(dc ps -q "$svc")" 2>/dev/null || true)"
+        if [ -n "$image_id" ] && [ "$app_image" = "$image_id" ]; then
+            doctor_line ok "$svc runs the runtime image"
+        else
+            doctor_line FAIL "$svc image $app_image is not the runtime image"
+        fi
+    done
+    local db_want='pgsql:5432' relay
+    if [ "$(run_mode)" != own-postgres ]; then
+        db_want="$(state_get db_hostport)"
+        db_want="127.0.0.1:${db_want##*:}"
+        relay="$(service_state relay '{{.State.Health.Status}}')"
+        if [ "$relay" = healthy ]; then
+            doctor_line ok "relay healthy"
+        else
+            doctor_line FAIL "relay health is ${relay:-unknown}"
+        fi
+        doctor_line info "env file not loaded in caller-supabase mode (blank run)"
+    elif [ "$(state_get env_missing)" = yes ]; then
+        doctor_line info "env file missing: $(state_get env_file) (blank run)"
+    else
+        doctor_line info "env file $(state_get env_file)"
+    fi
+
+    for svc in app worker; do
+        out="$(container_tinker "$svc" "$GUARD_PHP" || true)"
+        [ -n "$out" ] || { doctor_line FAIL "$svc config did not resolve"; continue; }
+        while IFS=' ' read -r kind name value; do
+            case "$kind" in
+                db) want="$db_want" ;;
+                redis) want='redis:6379' ;;
+                driver) want='redis' ;;
+                info) doctor_line info "$svc $name=$value"; continue ;;
+                *) continue ;;
+            esac
+            if [ "$value" = "$want" ]; then
+                doctor_line ok "$svc $kind $name $value"
+            else
+                doctor_line FAIL "$svc $kind $name $value (want $want)"
+            fi
+        done <<EOF
+$out
+EOF
+    done
+
+    out="$(container_php app "$DEFAULTS_PHP" || true)"
+    case "$out" in
+        scanned\ 0* | '') doctor_line FAIL "credential-default scan found no config/*.php in the image" ;;
+        *)
+            doctor_line info "credential-default scan of the image config/ ($(printf '%s\n' "$out" | sed -n 's/^scanned //p') files)"
+            while IFS=' ' read -r kind name value; do
+                [ "$kind" = default ] || continue
+                doctor_line FAIL "credential default: $name env('$value', <non-empty>)"
+            done <<EOF
+$out
+EOF
+            ;;
+    esac
+
+    out="$({ container_php app "$KEYS_PHP" || true; } | sort | tr '\n' ' ')"
+    doctor_line info "non-blank credential keys in app: ${out:-none}"
+
+    if [ "$DOCTOR_FAIL" -eq 0 ]; then
+        doctor_line ok "doctor pass"
+        note "doctor pass (doctor/$(basename "$DOCTOR_OUT"))"
+    else
+        echo "FAIL doctor" | tee -a "$DOCTOR_OUT"
+        note "doctor FAIL (doctor/$(basename "$DOCTOR_OUT"))"
+    fi
+    return "$DOCTOR_FAIL"
+}
+
+cmd_http() {
+    local method='' path='' data='' have_data=0 expect=''
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --data) [ "$#" -ge 2 ] || die 64 "--data needs a value"; data="$2"; have_data=1; shift 2 ;;
+            --expect)
+                [ "$#" -ge 2 ] && [[ "$2" =~ ^[1-5][0-9][0-9]$ ]] || die 64 "--expect wants a status code"
+                expect="$2"
+                shift 2
+                ;;
+            -*) die 64 "http: unknown flag: $1" ;;
+            *)
+                if [ -z "$method" ]; then method="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
+                elif [ -z "$path" ]; then path="$1"
+                else die 64 "http: unexpected argument: $1"; fi
+                shift
+                ;;
+        esac
+    done
+    [ -n "$method" ] && [ -n "$path" ] || die 64 "http wants <METHOD> <path>"
+    [[ "$method" =~ ^[A-Z]+$ ]] || die 64 "bad method: $method"
+    case "$path" in /*) ;; *) die 64 "path must start with /: $path" ;; esac
+    set_evidence "$EVIDENCE_ARG" existing
+    require_run
+
+    local out lower raw status
+    lower="$(printf '%s' "$method" | tr '[:upper:]' '[:lower:]')"
+    out="$(unique_file "$EVIDENCE/http" "$lower.txt")"
+    raw="$out.raw"
+    # The bypass secret stays inside the container: curl reads it from the app's own env.
+    # shellcheck disable=SC2016
+    printf '%s' "$data" | dc exec -T app sh -c '
+        has_data="$3"
+        set -- -sS -i -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
+            -w "\nVERIFY_STATUS=%{http_code}\n" "http://127.0.0.1:8000$2"
+        if [ "$has_data" = 1 ]; then exec curl -H "Content-Type: application/json" --data-binary @- "$@"; fi
+        exec curl "$@" </dev/null' sh "$method" "$path" "$have_data" >"$raw" 2>&1 || true
+    status="$(sed -n 's/^VERIFY_STATUS=//p' "$raw" | tail -1)"
+    [ -n "$status" ] || status=000
+    {
+        echo "> $method http://127.0.0.1:8000$path (inside the app container)"
+        echo '> Accept: application/json'
+        echo '> X-Local-Bypass: [redacted]'
+        if [ "$have_data" -eq 1 ]; then echo '> Content-Type: application/json'; echo '>'; echo "$data"; fi
+        echo "< status $status"
+        sed '/^VERIFY_STATUS=/d' "$raw" | tr -d '\r'
+    } >"$out"
+    rm -f "$raw"
+    note "http $method $path -> $status (http/$(basename "$out"))"
+    echo "status=$status"
+    # Body: everything after the first blank line of the response.
+    awk 'started { print; next } /^< status/ { s = 1; next } s && /^$/ { started = 1 }' "$out"
+    if [ -n "$expect" ]; then
+        [ "$status" = "$expect" ]
+        return
+    fi
+    case "$status" in 1?? | 2?? | 3??) return 0 ;; *) return 1 ;; esac
+}
+
+cmd_exec() {
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    local svc=app
+    if [ "$#" -gt 0 ] && [ "$1" != -- ] && in_list "$1" "$SERVICES"; then
+        svc="$1"
+        shift
+    fi
+    [ "$svc" != test ] || die 64 "exec cannot target the test sidecar; use test"
+    [ "$#" -gt 0 ] && [ "$1" = -- ] && shift
+    [ "$#" -gt 0 ] || die 64 "exec wants [<service>] [--] <argv>"
+    set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "exec $svc" ;; esac
+    require_run
+    note "exec $svc $*"
+    capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
+}
+
+cmd_logs() {
+    [ "${#ARGS[@]}" -le 1 ] || die 64 "logs takes at most one service"
+    local svc="${ARGS[0]:-}" dirs d f out
+    if [ -n "$svc" ]; then
+        case "$svc" in -*) die 64 "logs: unknown flag: $svc" ;; esac
+        in_list "$svc" "$SERVICES" || die 64 "unknown service: $svc (one of: $SERVICES)"
+    fi
+    set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "logs $svc" ;; esac
+    [ -f "$STATE/compose.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
+    out="$(unique_file "$EVIDENCE/logs" "${svc:-all}.txt")"
+    note "logs ${svc:-all}"
+    {
+        echo "=== container stdout: ${svc:-all services}"
+        dc logs --no-color ${svc:+"$svc"} 2>&1 || true
+        if [ -n "$svc" ]; then dirs="$svc"; else dirs='app worker seed test'; fi
+        for d in $dirs; do
+            [ -d "$EVIDENCE/logs/$d" ] || continue
+            for f in "$EVIDENCE/logs/$d"/*; do
+                [ -f "$f" ] || continue
+                echo "=== logs/$d/$(basename "$f")"
+                cat "$f"
+            done
+        done
+    } | tee "$out"
+}
+
+cmd_db() {
+    [ "${#ARGS[@]}" -eq 1 ] || die 64 "db wants one <sql> argument"
+    set_evidence "$EVIDENCE_ARG" existing
+    require_run
+    note "db ${ARGS[0]}"
+    if [ "$(run_mode)" != own-postgres ]; then
+        # The relay's environment holds the connection (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
+        capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' relay \
+            psql -v ON_ERROR_STOP=1 -c "${ARGS[0]}" </dev/null || return 1
+        return 0
+    fi
+    # shellcheck disable=SC2016
+    capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql sh -c \
+        'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "$1"' \
+        sh "${ARGS[0]}" </dev/null || return 1
+}
+
+cmd_test() {
+    [ "${#ARGS[@]}" -ge 1 ] || die 64 "test wants <paths>..."
+    set_evidence "$EVIDENCE_ARG" existing
+    refuse_in_mode test
+    require_run
+    local out rc=0
+    out="$(unique_file "$EVIDENCE/test" pest.log)"
+    note "test vendor/bin/pest --exclude-group=repo-static --no-coverage ${ARGS[*]}"
+    # Fresh keys per call (COR-320 D3); compose reads them from this process env.
+    VERIFY_TEST_APP_KEY="base64:$(openssl rand -base64 32)" \
+        VERIFY_TEST_API_KEY_ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+        dc --profile test run --rm -T --no-deps test "${ARGS[@]}" </dev/null 2>&1 | tee "$out" || rc="${PIPESTATUS[0]}"
+    note "test exit=$rc (test/$(basename "$out"))"
+    return "$rc"
+}
+
+cmd_note() {
+    [ "${#ARGS[@]}" -ge 1 ] || die 64 "note wants <text>"
+    set_evidence "$EVIDENCE_ARG" existing
+    note "${ARGS[*]}"
+}
+
+[ "$#" -ge 1 ] || usage
+verb="$1"
+shift
+case "$verb" in
+    browser) echo "verify: browser is not supported" >&2; exit 69 ;;
+    up | down | doctor | http | exec | logs | db | test | note) ;;
+    -h | --help) usage ;;
+    *) echo "verify: unknown verb: $verb" >&2; usage ;;
+esac
+if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
+    printf '%s\n' "$HELP" | grep "^$verb "
+    exit 0
+fi
+split_args "$@"
+resolve_repo
+case "$verb" in
+    exec | logs)
+        STATE="$EVIDENCE_ARG/.verify"
+        [ "$(run_mode)" = own-postgres ] || SERVICES="$SERVICES relay"
+        ;;
+esac
+case "$verb" in
+    up) cmd_up ;;
+    down) cmd_down ;;
+    doctor) cmd_doctor ;;
+    http) cmd_http ;;
+    exec) cmd_exec ;;
+    logs) cmd_logs ;;
+    db) cmd_db ;;
+    test) cmd_test ;;
+    note) cmd_note ;;
+esac

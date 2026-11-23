@@ -1,0 +1,26 @@
+# ==============================================================================
+# Verify test sidecar: the run's runtime image plus Pest, Faker and tests/
+# ==============================================================================
+# Built by .agents/skills/verify/verify FROM the image it builds from the
+# Dockerfile's runtime stage, so the app under test stays what Railway deploys.
+# Runs `test` and the migrate-and-seed one-shot (dev:seed-fake needs Faker).
+# Context is filtered by Dockerfile.verify.dockerignore (ADR-0020).
+# ==============================================================================
+
+ARG RUNTIME_IMAGE
+FROM ${RUNTIME_IMAGE}
+
+COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
+
+ENV COMPOSER_HOME=/tmp/composer
+
+COPY --chown=www-data:www-data tests/ ./tests/
+COPY --chown=www-data:www-data phpunit.xml pest.xml* ./
+
+RUN composer install \
+        --no-interaction \
+        --no-progress \
+        --no-scripts \
+        --prefer-dist \
+    && rm -rf /tmp/composer \
+    && rm -f bootstrap/cache/*.php

@@ -44,7 +44,7 @@ All new domain code MUST use native domain types instead of primitives. Existing
 | Weight | `Weight` | `App\Domain\Inventory\ValueObjects` | `float` |
 | Dimensions | `Dimensions` | `App\Domain\Inventory\ValueObjects` | `float` |
 | Tax treatment | `TaxType` | `App\Domain\ValueObjects` | `string`/`bool` |
-| Tax rate | `TaxRate`; QuickBooks sync VAT rates enter the arithmetic as decimal strings (`VatMultiplier`), never as `TaxRate`, until COR-308 | `App\Domain\ValueObjects` | `float` |
+| Tax rate | `TaxRate`; QuickBooks sync arithmetic uses `SupportedVatRate`'s decimal-string `VatMultiplier`, never the float, until COR-308 | `App\Domain\ValueObjects` | `float` |
 | Date ranges | `DateRange` | `App\Domain\ValueObjects` | two `DateTimeImmutable` |
 
 ### Money Tax Type Selection

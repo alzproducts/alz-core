@@ -18,6 +18,10 @@ _Avoid_: storefront endpoints, public API
 
 ### Access
 
+**Service caller**:
+A named non-human system that calls alz-core with its own credential, which opens only that system's routes.
+_Avoid_: service account, API client, machine user
+
 **Role**:
 The single access level an approved **Admin Dashboard** user holds: `guest`, `standard`, `manager` or `admin`.
 _Avoid_: "staff" as a role name (it is a **Role tier**), permission, group
@@ -87,8 +91,15 @@ A product whose master SKU or any of its variation SKUs is **on sale** (`has_any
 ### Local data
 
 **Seed slice**:
-A domain-bounded group of tables the synthetic local seed generates together, consistent across their SKU and ID joins (first: the **products slice**).
+A domain-bounded group of tables the synthetic local seed generates together, consistent across their SKU and ID joins: the **products slice** and the **orders slice**.
 _Avoid_: "seed tier", which suggests a size setting rather than a domain boundary.
+
+**Edge-case order**:
+An **orders slice** order with a fixed synthetic reference and fixed values, independent of the **seed profile**, that exercises one QuickBooks sync rule; the slice's other orders are bulk orders drawn from the profile.
+_Avoid_: "test order", which suggests a Pest-only factory row.
+
+**Fixture SKU**:
+A SKU in the fixed pool the **orders slice** draws its order lines from, each with a QBO sandbox Item.
 
 **Seed profile**:
 The aggregate-only description of production's shape (counts, distributions and, where a slice needs them, value tuples such as order-line prices; never rows, names or references) that a **seed slice** is generated from.
@@ -99,7 +110,7 @@ The class an integration binds in place of its real client when one of its secre
 _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
 **Supabase baseline**:
-The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production.
+The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production. The one exception is a dependent's verify run that supplies its own Supabase (ADR-0016).
 _Avoid_: "Supabase stack", which names the full Supabase CLI stack in local development.
 
 **Supabase look-alike**:
@@ -225,22 +236,34 @@ _Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_at
 A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.
 
 **Mapping key**:
-A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
+A semantic name the document builder emits (a tax treatment, payment route, fixed ref or custom field) that a company-scoped mapping row resolves to a QBO ref: an entity ID, or a definition ID for the two custom-field keys.
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 
+**Resolved mapping key**:
+A **mapping key** whose row holds a QBO ref for the connected company's realm; a null ref or another realm's ref leaves it unresolved.
+_Avoid_: treating "mapped" and "resolved" as different states
+
 **Backfill floor date**:
-The earliest ShopWired order date the QBO order sync accepts; orders placed before it are never synced.
+The earliest ShopWired order date the sync accepts, at both entry points: a date-range sync may not start before it, and a sync by **reference** rejects any reference whose order was placed before it.
+
+**Token lease**:
+A sandbox access token handed from the developer's **QBO connection** to a verify stack, which uses it but can never refresh it.
+_Avoid_: token sharing, token copy (the stack never holds the refresh token)
+
+**Run labels**:
+The per-run DocNumber prefix and customer-name suffix that keep one verify run's sandbox documents apart from another's; blank outside a verify run.
 
 ## Relationships (QuickBooks order sync)
 
 - A ShopWired order **reference** has at most one **order sync** per QBO company
 - An **order sync** records at most one posted document (an unrecorded post can repeat: ADR-0019)
 - One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
+- A verify stack reaches the sandbox only through a **token lease**; the **QBO connection** that issues it stays in the developer's database
 
 ## Flagged ambiguities
 
 - "label" can mean (1) a **ShopWired custom_label_N** field, or (2) the **string value** written to it. Disambiguate in conversation by saying "the `custom_label_1` field" vs "the `1 - Low margin` label value".
 - "processing" meant both "a worker holds this action" and "waiting out a retry delay" — resolved (COR-235): `processing` is only an **action claim**; a waiting action is a **retry-due action** in `pending`.
-- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled or unmapped-payment order gets `skipped` with no row written.
+- "skipped" is a **sync outcome**, never a stored **order sync** status: a `failed` row passed over without `force_retry` yields `skipped` (`previously_failed`) but stays `failed`, and a cancelled order gets `skipped` with no row written.
 - "dashboard" was used for both the **Admin Dashboard** application and individual widget APIs — resolved: **Admin Dashboard** names the application; widgets are features within it.
 - "stand-in" was used for both the ADR-0015 integration class and objects migrations create to imitate Supabase's — resolved (COR-291): **Stand-in** keeps the ADR-0015 meaning; the migration objects are **Supabase look-alikes**.

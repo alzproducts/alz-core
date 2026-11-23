@@ -24,12 +24,15 @@ make test
 
 1. Creates `.env` when it is missing (`bin/install-env`). An existing `.env` is never overwritten.
 2. `composer install`.
-3. `php artisan key:generate`, only when `APP_KEY` is blank.
-4. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN`, or skips it when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead (see [`database/AGENTS.md`](../../database/AGENTS.md)).
-5. `make redis`: starts Redis in Docker.
-6. `php artisan migrate`: forward-only migrations against the shared local database. It never resets or wipes it.
+3. Registers the `pre-commit` and `pre-push` git hooks (`bin/install-git-hooks`) in the hooks directory git resolves for the checkout (`core.hooksPath` and worktrees honoured, so every worktree of a repo shares one pair). Each hook runs `php artisan git-hooks:<hook>` in the checkout git runs it from. Re-running rewrites them identically.
+4. `php artisan key:generate`, only when `APP_KEY` is blank.
+5. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN` and resets a stack it starts from empty with `make db-reset-full`, or skips both when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead, unless a dependent's verify run supplies its own Supabase (see [`database/AGENTS.md`](../../database/AGENTS.md)).
+6. `make redis`: starts Redis in Docker.
+7. `php artisan migrate`: forward-only migrations against the shared local database. It never resets or wipes it.
 
 Re-running it is safe: it keeps `.env` and `APP_KEY` as they are.
+
+`make lint` and `make test` both run `tests/Unit/Static/GitHooksInstalledTest.php`, which fails with "Run `make install`" when either hook is missing, not executable or does not call artisan, or when `config/git-hooks.php` lacks one of the six checks. Only `CI=true` skips it; the verify containers exclude the `repo-static` group it belongs to.
 
 ## Fresh git worktree
 
@@ -41,6 +44,6 @@ The main checkout is the first entry of `git worktree list`.
 
 ## Next steps
 
-- **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds a production-shaped products slice (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data.
+- **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds the synthetic, production-shaped data (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data. `make supabase-start` runs it whenever it starts a stopped stack, so every fresh boot starts from this seed.
 - **Dev server:** `php artisan octane:start --watch`.
 - **Integration tests:** `make test-integration`, after `make db-reset-full`.

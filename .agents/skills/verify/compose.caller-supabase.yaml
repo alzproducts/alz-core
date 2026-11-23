@@ -1,0 +1,72 @@
+# Layered over compose.yaml by a run against a caller-supplied Supabase (ADR-0020). The relay's network namespace is
+# the one app, worker and seed share, so the caller's loopback URLs work in them unchanged.
+
+x-caller-env: &caller-env
+    DB_HOST: 127.0.0.1
+    DB_PORT: '${VERIFY_DB_PORT:?}'
+    SUPABASE_URL: '${VERIFY_SUPABASE_URL:?}'
+
+services:
+    relay:
+        image: '${VERIFY_RELAY_IMAGE:?}'
+        build:
+            # intentional: nothing is copied from it; any narrow context without secrets would do.
+            context: ./src/database/baseline
+            dockerfile_inline: |
+                FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
+                RUN apk add --no-cache socat postgresql17-client
+        # intentional: an init as PID 1, so the shell takes SIGTERM and each forward is an ordinary process.
+        init: true
+        command:
+            - sh
+            - '-c'
+            - |
+                for port in "$$RELAY_API_PORT" "$$PGPORT"; do
+                    socat "TCP4-LISTEN:$$port,bind=127.0.0.1,fork,reuseaddr" "TCP4:host.docker.internal:$$port" &
+                done
+                wait -n
+                exit 1
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '127.0.0.1::8000'
+        environment:
+            RELAY_API_PORT: '${VERIFY_SUPABASE_API_PORT:?}'
+            PGHOST: 127.0.0.1
+            PGPORT: '${VERIFY_DB_PORT:?}'
+            PGUSER: postgres
+            PGDATABASE: postgres
+            PGPASSWORD: '${VERIFY_DB_PASSWORD:?}'
+            PGSSLMODE: disable
+        # A reply through both forwards: a listener alone accepts while the caller is gone.
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'pg_isready -q -t 3 && wget -q -T 3 -O /dev/null "http://127.0.0.1:$$RELAY_API_PORT/auth/v1/.well-known/openid-configuration"'
+            interval: 2s
+            timeout: 8s
+            retries: 5
+
+    seed:
+        network_mode: 'service:relay'
+        depends_on: !override
+            relay:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        environment: *caller-env
+
+    app:
+        network_mode: 'service:relay'
+        depends_on:
+            relay:
+                condition: service_healthy
+        ports: !reset []
+        environment: *caller-env
+
+    worker:
+        network_mode: 'service:relay'
+        depends_on:
+            relay:
+                condition: service_healthy
+        environment: *caller-env

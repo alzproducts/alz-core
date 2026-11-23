@@ -56,11 +56,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Synthetic Products Seed
+    | Synthetic Products and Orders Seed
     |--------------------------------------------------------------------------
     |
-    | Read by ProductSliceSeeder. `dev:seed-fake` overrides the whole key per
-    | run; the defaults keep a direct `db:seed` from truncating anything.
+    | Read by ProductSliceSeeder and OrderSliceSeeder. `dev:seed-fake` overrides
+    | the whole key per run; the defaults keep a direct `db:seed` from
+    | truncating anything. No `profile` default: the orders profile is read
+    | only from an explicit `--profile` path.
     |
     */
 

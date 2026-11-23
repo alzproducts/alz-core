@@ -12,17 +12,17 @@ An authenticated API client calls `GET /api/user` and gets back its own user id 
 - Any signed-in dashboard or storefront session calls `GET /api/user` with its bearer token.
 - Locally, the `X-Local-Bypass` header stands in for the token and resolves the configured persona.
 
-## Driving it with verify.sh
+## Driving it with verify
 
 Preconditions:
 
-- `launch` printed `base_url=` and `doctor` exits 0.
+- `up` printed `base_url=` and `doctor` exits 0.
 
-- **Authenticated user.** Run `verify.sh http --evidence <dir> GET /api/user`. Exit 0, `status=200`, and the body has a `user_id` and the `email` `verify@example.invalid` (the run's `EMAIL_PRIMARY`).
+- **Authenticated user.** Run `.agents/skills/verify/verify http --evidence <dir> GET /api/user`. Exit 0, `status=200`, and the body has a `user_id` and an `email` equal to the env file's `EMAIL_PRIMARY` (`verify@example.invalid` when the file leaves it blank).
 - **Proof.** The `http/` capture of that call and its `run-notes.md` line.
 
 ## Gotchas
 
-- `verify.sh http` always sends the bypass header, so `auth-reject` is not drivable with it; prove it with a targeted Pest file through `verify.sh test` instead.
-- The returned email comes from `EMAIL_PRIMARY`; `dev@alzadmin.test` only selects the persona.
-- Rejections on authenticated routes (401, 403) appear in `logs/octane.log`, not Laravel's log.
+- `http` always sends the bypass header, so `auth-reject` is not drivable with it; prove it with `test tests/Feature/Presentation/Http/Auth/Middleware/ValidateSupabaseJwtTest.php` instead.
+- The returned email comes from `EMAIL_PRIMARY`; `SUPABASE_LOCAL_TEST_EMAIL` (`dev@alzadmin.test`) only selects the persona.
+- Rejections on authenticated routes (401, 403) log to the `security` channel: with the stack's `APP_ENV=local` that is `<evidence>/logs/app/security-<date>.log`, not `laravel.log`.

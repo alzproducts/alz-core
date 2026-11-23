@@ -6,31 +6,38 @@ namespace App\Infrastructure\QuickBooks;
 
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use QuickBooksOnline\API\Core\CoreConstants;
 use QuickBooksOnline\API\DataService\DataService;
 use QuickBooksOnline\API\Exception\SdkException;
 use SensitiveParameter;
 
 /**
  * Builds a DataService per access token. The SDK defaults are unsafe (ledger P2, P11), so every setting here is load-bearing.
+ * Never reconfigure a built DataService: `setClientName`, `setMinorVersion`, `useXml`/`useJson` and `updateOAuth2Token`
+ * rebuild the rest handler, dropping the hardened client and turning SDK logging back on.
  */
 final readonly class QuickBooksDataServiceFactory
 {
-    private const string CLIENT_NAME = 'guzzle';
-
     public function __construct(
         private QuickBooksConfig $config,
     ) {}
 
-    public function create(#[SensitiveParameter] ApiKeyToken $accessToken): DataService
+    /**
+     * @throws InvalidConfigurationException when the SDK settings or the client seam fail
+     */
+    public function create(#[SensitiveParameter] ApiKeyToken $accessToken): QuickBooksDataServiceSession
     {
+        $httpClient = new QuickBooksCurlHttpClient();
         $dataService = $this->configure($accessToken);
-        $dataService->setClientName(self::CLIENT_NAME);
-        $dataService->throwExceptionOnError(true);
+        $dataService->setClientName(CoreConstants::CLIENT_CURL);
+        // intentional: off, so a Fault comes back through FaultHandler instead of a ServiceException holding the whole body.
+        $dataService->throwExceptionOnError(false);
         $dataService->setMinorVersion(QuickBooksConfig::MINOR_VERSION);
-        // intentional: last — setClientName and setMinorVersion both rebuild the rest handler and its logger, re-enabling logging (ledger P11).
+        QuickBooksRestHandlerSeam::install($dataService, $httpClient);
+        // intentional: last — the client name, minor version and seam each replace the rest handler and its logger, re-enabling logging (ledger P11).
         $dataService->disableLog();
 
-        return $dataService;
+        return new QuickBooksDataServiceSession($dataService, $httpClient);
     }
 
     private function configure(#[SensitiveParameter] ApiKeyToken $accessToken): DataService

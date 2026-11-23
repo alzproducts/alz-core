@@ -86,13 +86,15 @@ if [ "${SKIP_DB_CHECK}" != "true" ]; then
     RETRY_COUNT=0
 
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if php artisan db:show --database="${DB_CONNECTION:-pgsql}" > /dev/null 2>&1; then
+        # intentional: db:ping, not artisan's database report commands, which need the intl extension absent from the runtime image
+        if DB_CHECK_OUTPUT=$(php artisan db:ping 2>&1); then
             log_success "Database connection established"
             break
         else
             RETRY_COUNT=$((RETRY_COUNT + 1))
             if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
                 log_error "Failed to connect to database after $MAX_RETRIES attempts"
+                log_error "Last error: ${DB_CHECK_OUTPUT}"
                 exit 1
             fi
             log_warning "Database not ready, retrying ($RETRY_COUNT/$MAX_RETRIES)..."

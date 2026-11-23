@@ -225,11 +225,11 @@ Every change gets its own Linear issue, branch, and pull request, and larger wor
 
 ### Local database
 
-Local data is synthetic: `make db-reset-full` resets Supabase, runs the migrations and seeds a production-shaped products slice with `php artisan dev:seed-fake` (no sync jobs, no external calls).
+Local data is synthetic: `make db-reset-full` resets Supabase, runs the migrations and seeds the synthetic, production-shaped data with `php artisan dev:seed-fake` (no sync jobs, no external calls; `SeedFakeDataCommand` defines the contents). `make supabase-start` runs the same reset whenever it starts a stopped stack, and leaves a running stack's data alone.
 
 - **Existing machines:** set `SHOPWIRED_SALE_CATEGORY_ID=2000000001` in `.env` (the seed only accepts IDs in its reserved range, see `.env.example`), then run `make db-reset-full` once after this change lands, to drop previously synced production data.
 - **Blank vendor secrets switch integrations off outside production ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)):** with its secret blank, HelpScout contact writes, Slack and the Google Ads and Bing conversion uploads bind stand-ins that log each call; every other integration (ShopWired, Linnworks, Mixpanel and the rest) fails on use.
-- **Do not run `php artisan schedule:work` or a queue worker against the seed while vendor credentials are set:** scheduled syncs would write production data over the synthetic slice, and pushes could send seed data to the live services.
+- **Do not run `php artisan schedule:work` or a queue worker against the seed while vendor credentials are set:** scheduled syncs would write production data over the synthetic seed, and pushes could send seed data to the live services.
 
 ### Division of labour with AI
 
@@ -258,7 +258,7 @@ docker build -f Dockerfile.dev $(sed 's/^/--build-arg /' database/baseline/versi
 docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
 ```
 
-Swap `make test` for `make lint`, or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
+Swap `make test` for `make lint TEST_ARGS=--exclude-group=repo-static` (the git hooks guard needs git), or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
 
 - **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and the Supabase baseline (`database/baseline/`) already migrated on database `postgres` as role `postgres`, started automatically by the container entrypoint.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.
@@ -273,8 +273,8 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 
 | Stage | Trigger | Checks |
 |-------|---------|--------|
-| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture) |
-| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint |
+| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture). Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
+| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint. Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 

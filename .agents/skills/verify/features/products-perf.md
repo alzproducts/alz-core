@@ -12,34 +12,37 @@ The product list stays fast while the catalogue is being written to: a mixed str
 - The dashboard's products screen calls `GET /api/products`, mostly as `per_page=1000&page=1&include=stock`, with paging, filter, sort and search variants.
 - Behind it run product webhooks, the stock mirror, supplier sync, cost-price updates, category webhooks, the daily sync's variation replace and the popularity snapshot.
 
-## Driving it with verify.sh
+## Driving it with verify
 
 Preconditions:
 
-- A fresh `launch` per journey: each bench verb mutates the seed and refuses a run that already served one (exit 64).
-- `doctor` exits 0, including `runtime ok`.
-- For a load run, launch with `--octane-workers auto` (production's worker count); the default of 2 measures queueing, not the endpoint.
+- A fresh `up` per journey: each journey mutates the seed, and the script refuses a run that already served one (exit 64).
+- `doctor` exits 0.
+- For a load run, bring the run up with `--env-override OCTANE_WORKERS=<n>`, where `<n>` is production's worker count: ask the user for it; `docker-compose.prod.yml` sets 2. Without the override the run takes the env file's value, or Octane's fallback of 4, and can measure queueing instead of the endpoint.
 
-- **Load run (p99).** `verify.sh bench-load --evidence <dir> [--requests 2000] [--warmup 100] [--rate 2]`.
+`features/products-perf.sh` drives both journeys against an `up` run through `verify exec`, with cwd = the worktree under test; `products-perf.php` is its in-container side.
+
+- **Load run (p99).** `.agents/skills/verify/features/products-perf.sh load --evidence <dir> [--requests 2000] [--warmup 100] [--rate 2]`.
   - The request mix (70% `per_page=1000&page=1&include=stock`, the rest default page, page 2, filtered, sorted, searched) is derived from the seed and probed for `200` with non-empty `data`; the result's `mix_percent` and `shapes` record it.
-  - Every writer in `bench.php writers` runs in the background on its production-shaped schedule; the once-a-day writers fire after warm-up.
-  - Latency is server-side: nearest-rank percentiles of the `/api/products` lines `logs/octane.log` gained during the measured window.
+  - Every writer in `products-perf.php writers` runs in the worker container on its production-shaped schedule; the once-a-day writers fire after warm-up.
+  - Latency is server-side: nearest-rank percentiles of the `/api/products` lines the app container's stdout gained during the measured window.
   - Prints `p50_ms= p95_ms= p99_ms= max_ms=`, request and status counts, one `writer` line per writer, and `result=<evidence>/bench/load-<stamp>.json`.
   - Exit 1 when a writer errored, the server logged a non-200, the server line count differs from `--requests`, or any request timed out client-side (`FAIL saturated`).
-  - `FAIL saturated` means the commit cannot serve `--rate` on this machine: report it as that, never the percentiles printed beside it (they mix backlog lines from earlier requests).
-  - Takes about `(warmup + requests) / rate` seconds (~18 min at the defaults): run it in the background.
-- **Writer timing.** `verify.sh bench-writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
+- **Reading a load run.** `FAIL saturated` means the commit cannot serve `--rate` on this machine: report it as that, never the percentiles printed beside it, which mix in backlog lines from earlier requests.
+- **Load run length.** About `(warmup + requests) / rate` seconds, ~18 min at the defaults: run it in the background.
+- **Writer timing.** `.agents/skills/verify/features/products-perf.sh writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
   - Prints `<writer> median_ms= runs_ms=` and `result=<evidence>/bench/writers-<stamp>.json`; with `--baseline`, also `<writer> ratio=<head/base> head_median_ms= base_median_ms=` against that dir's latest `bench/writers-*.json`.
-- **Baseline at an earlier commit.** This skill's scripts drive any commit that has the repository methods `bench.php` calls.
-  1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base). A base without `database/baseline/` gets the head worktree's copy: `cp -R <head worktree>/database/baseline <abs base worktree>/database/`.
-  2. With cwd = that worktree, run this skill's script by absolute path: `launch`, `bench-writers --evidence <base dir>`, `cleanup`.
-  3. With cwd = the head worktree: `launch`, `bench-writers --evidence <head dir> --baseline <base dir>`, `cleanup`.
-- **Proof.** The `bench/` result JSON, the `run-notes.md` bench lines, and for a load run `logs/octane.log` plus `logs/bench-writer-*.log`.
+- **Baseline at an earlier commit.** The base commit must contain f20d5c74 (it adds `Dockerfile.verify`) and the repository methods `products-perf.php` calls; an older base fails `up` at the test-image build.
+  1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base).
+  2. With cwd = that worktree, run this worktree's `verify` and `products-perf.sh` by absolute path: `up --evidence <base dir>`, `writers --evidence <base dir>`, `down --evidence <base dir>`.
+  3. With cwd = the head worktree: `up --evidence <head dir>`, `writers --evidence <head dir> --baseline <base dir>`, `down --evidence <head dir>`.
+  4. `git worktree remove <abs base worktree>`.
+- **Proof.** The `bench/` result JSON, the `run-notes.md` bench lines, and for a load run `logs/app/bench/load-<stamp>/` (Octane stdout, request mix) plus `logs/worker/bench/load-<stamp>/` (one log and result per writer).
 
 ## Gotchas
 
-- Run base and head timings back to back on the same idle machine, never concurrently.
+- Run base and head timings back to back on the same idle machine, never concurrently. One worktree holds one run at a time.
 - Timings are local-machine numbers on synthetic data: state the machine when quoting them against a production target.
 - The run's Postgres is the Supabase baseline (`database/baseline/`), with Compose defaults rather than local Supabase's tuning: a load run at the defaults can saturate on a slow machine. Compare base and head on this stack, never against numbers taken elsewhere.
-- Writers that fetch from ShopWired in production (product and category webhooks) replay stored rows instead.
+- The product and category webhook writers upsert stored seed rows instead of parsing a webhook payload, so they time the write, not the payload mapping.

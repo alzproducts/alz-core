@@ -20,4 +20,4 @@ The evidence is recorded as verified from the SDK v6.4.1 source and Intuit's doc
 
 - A post can reach QBO and go unrecorded: a whole-batch null or timeout (the SDK's curl timeout is 15 s, QBO's server timeout is 120 s) or a worker dying between the call and the record leaves a posted document with no post-once record. Its row is recorded `failed` with reason `outcome_unknown`, or stays `processing` until its lease expires, and a re-attempt by expired lease or `force_retry` then posts the document again. Recovering from that stays with COR-321 points 2 and 3.
 - Overlapping runs can both miss and create the same customer, as the Zap can; serialising customer find-or-create per company is COR-321 point 14, undecided.
-- A chunk holds at most 30 orders (the batch maximum), and each chunk spends one batch request and one customer query.
+- A chunk holds at most 20 orders, below the batch maximum of 30. In the COR-300 sandbox a full 30-item batch took about 12 s against the SDK's 15 s curl timeout, and a timed-out batch leaves every order in it `outcome_unknown`. Each chunk spends one batch request and one customer query.

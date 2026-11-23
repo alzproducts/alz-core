@@ -18,7 +18,7 @@ flowchart LR
     SSV -->|"One order per reference"| UCASE
     UCASE -->|"Order and mapping keys"| BUILD["Document builder"]
     BUILD -->|"Invoice or SalesReceipt"| UCASE
-    UCASE -->|"Customer query, batch create"| ADAPT["QBO adapter"]
+    UCASE -->|"Item and customer queries, batch create"| ADAPT["QBO adapter"]
     ADAPT --> QBO["QuickBooks Online"]
     UCASE -->|"Claim and record"| ROWS[("Order sync rows")]
 ```
@@ -27,9 +27,9 @@ flowchart LR
 |-----------|----------------|
 | Source views | The synced ShopWired order, line and customer data the sync reads; never written by the sync |
 | Sync-source view | Gives exactly one order per `reference`, through `shopwired.orders_deduplicated` |
-| Document builder | Turns one order into an Invoice or SalesReceipt payload holding mapping keys, never QBO IDs (ADR-0018) |
-| Sync use case | Picks candidates, applies the row-state rules, claims rows, calls the adapter per chunk and records each outcome |
-| QBO adapter | Resolves mapping keys to the connected company's refs, finds and creates customers, and posts each chunk's documents as one SDK batch call (ADR-0019) |
+| Document builder | An Application transformer over Domain tax and routing policy. Turns one order into an Invoice or SalesReceipt draft holding mapping keys, never QBO IDs (ADR-0018), or into a `skipped` (`cancelled`) or `failed` (`zero_lines`, `tax_rate_unsupported`) outcome; it owns the cancelled skip |
+| Sync use case | Picks candidates, applies the stored-row rules, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk and records each outcome |
+| QBO adapter | Finds items by SKU, finds and creates customers, maps resolved drafts to QBO payloads, and posts each chunk's documents as one SDK batch call (ADR-0019). It resolves no mapping keys: the use case passes it resolved refs |
 
 - An edited ShopWired order keeps its `reference` and the original row is cancelled. `shopwired.orders_deduplicated` picks the live row, and the cancelled skip is checked on that chosen row, so an edited order is not skipped for its cancelled original.
 - A range request queues a run that walks the range in chunks; a reference request runs the same use case in the request. Both paths share the row-state rules in the contract doc.
@@ -49,7 +49,8 @@ sequenceDiagram
 
     UC->>DB: Claim each row (processing, lease)
     DB-->>UC: Claimed rows
-    UC->>QA: Find or create customers, post chunk
+    UC->>QA: Find items, find or create customers, post chunk
+    QA->>QB: Item query (Name IN)
     QA->>QB: Customer query (DisplayName IN)
     QA->>QB: Create each missing customer
     QA->>QB: Batch create documents
@@ -82,7 +83,8 @@ Each Zap rule is described in words. Classes:
 | Error replay | A failed run is replayed from Zapier's run history | A failed order is a `failed` row in `GET /api/quickbooks/orders/failed`, re-attempted with `force_retry` | `replacement mechanism` | COR-294/D20 |
 | Notification | A chat message is sent per posted document | No per-document notification | `replacement mechanism` | COR-294/D20 |
 | Path split | Payment method picks the invoice path (substring match) or the sales-receipt path | Same split on the same payment methods | `parity` | COR-294/D21 |
-| Path split | Methods that reach neither path (credit, offline, empty) post nothing | Skipped with reason `payment_method_unmapped`, keyed on the raw payment-method string; an order with an empty method already fails ShopWired order ingest, so it never reaches the sync | `parity` | COR-294/D21, COR-294/D22 |
+| Path split | Methods that reach neither path (credit, empty) post nothing; `Offline` takes the invoice path | An order with an empty method already fails ShopWired order ingest, so it never reaches the sync | `parity` | COR-294/D21, COR-294/D22 |
+| Credit orders | A credit order reaches neither path and posts nothing | A credit order posts an invoice, with no payment key | `user-approved deviation` | COR-303 AC1, COR-321 |
 | Deposit and payment refs | A later step matches the method against an exact, case-sensitive list, so some sales-receipt orders get empty deposit and payment refs | Same: those orders post with empty refs | `parity` | COR-294/D21; fix is COR-321 point 12 |
 | Customer find | One `DisplayName =` find per order | One `DisplayName IN (…)` query per chunk over its distinct names, matched back case-insensitively; QBO compares `=` and `IN` the same way | `replacement mechanism` | COR-294 plan D1, ADR-0019 |
 | Customer create | A miss creates the customer with one call | Same: one create call per miss; a duplicate-name fault re-queries that name | `parity` | COR-294/D19 |
@@ -92,10 +94,10 @@ Each Zap rule is described in words. Classes:
 | Name escaping | An apostrophe-escape step runs, but its output is never used | No equivalent behaviour; the customer query escapes `'` itself (ADR-0019) | `parity` | COR-294/D21 |
 | Invoice terms | The customer's sales term, else a fixed default term | Same | `parity` | COR-294/D21 |
 | Addresses | Invoice and sales-receipt address shapes differ | Same two shapes | `parity` | COR-294/D21 |
-| Tax code | The country string exactly equal to "Ireland" gets its own code; others are chosen by rate (20 or 0) | Same, including the exact, case-sensitive "Ireland" match | `parity` | COR-294/D21; fix is COR-321 point 13 |
+| Tax code | Chosen by rate (20 or 0). Only a zero-rated line to the delivery country exactly "Ireland" gets its own code; a rate-20 Ireland line keeps the standard code | Same: a zero-rated Ireland goods line takes `eu_goods` and zero-rated Ireland shipping takes `eu_shipping`; a rate-20 Ireland line stays `standard`. The "Ireland" match is exact and case-sensitive | `parity` | COR-294/D21; fix is COR-321 point 13 |
 | Item lookup | Item found by SKU; a miss halts the Zap for that order | A miss fails the order with reason `item_missing` | `parity` | COR-294/D21 |
 | VAT rounding chain | Lines are tax-excluded and QBO computes VAT. Multiplier = (100 + integer rate) / 100, or 1 below a rate of 1. Net unit price = (price + VAT per unit) / multiplier, rounded half away from zero to 7 dp. Line amount = net unit price × quantity, to 2 dp; when a second rounding helper disagrees, the net unit price itself is rounded to 2 dp | Same chain in exact decimals. The Zap's 0.0001 nudge and 2 dp fallback never fire under exact decimals, so dropping them changes representation, not behaviour | `parity` | COR-294/D16, COR-295 D9 and D16 |
-| Shipping line amount | Passes the pre-discount shipping total (`original_shipping_total_net`) to Zapier's QBO action, tax-excluded with a 20 or 0 shipping tax code | Posts the post-discount `shipping_total_net`, tax-excluded with the same 20 or 0 shipping tax code. COR-295 owns and builds the shipping line | `user-approved deviation` | COR-295 D8 |
+| Shipping line amount | Passes the pre-discount shipping total (`original_shipping_total_net`) to Zapier's QBO action, tax-excluded with a 20 or 0 shipping tax code; zero-rated shipping to the delivery country exactly "Ireland" takes its own shipping code, distinct from the goods code | Posts the post-discount `shipping_total_net`, tax-excluded with the same 20 or 0 shipping tax key, and `eu_shipping` for zero-rated shipping to "Ireland" (COR-303 D3). COR-295 owns and builds the shipping line | `user-approved deviation` | COR-295 D8 |
 | Shipping line rounding | No Zap step rounds the shipping total, and how Zapier's action rounds the line is not visible | Rounds the shipping line to 2 dp half-up, with .5 away from zero. COR-295 owns and builds the shipping line. Closed | `user-approved deviation` | COR-294 plan D4, COR-295 D16 (COR-295 plan D10) |
 
 No row is quoted from the Zap export, and no QBO ID or code appears here: every QBO ref is a mapping key (ADR-0018).

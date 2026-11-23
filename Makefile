@@ -1,4 +1,4 @@
-.PHONY: help install migrate db-reset-full seed-fake pint pint-test testtest-integration test-seed-command test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -21,6 +21,9 @@ endif
 
 # Configuration
 CI ?= false
+GIT_HOOKS_TEST := tests/Unit/Static/GitHooksInstalledTest.php
+# intentional: the empty-suite flag is added only when TEST_ARGS is set (the offline dev image's `--exclude-group=repo-static`), so a missing guard file still fails a plain `make lint`.
+GIT_HOOKS_ARGS := $(TEST_ARGS)$(if $(TEST_ARGS), --do-not-fail-on-empty-test-suite)
 
 # Check if inside Docker container
 IN_DOCKER := $(shell test -f /.dockerenv && echo yes)
@@ -59,12 +62,13 @@ help: ## Show this help message
 
 # Installation & Setup
 # intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
-install: ## Set up a fresh clone or git worktree natively (.env, deps, key, Supabase, Redis, migrate)
+install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key, Supabase, Redis, migrate)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 	@bin/install-env
 	composer install
+	@bin/install-git-hooks
 	@if grep -Eq "^APP_KEY=[\"']?[^\"'[:space:]]" .env; then \
 		echo "APP_KEY already set; kept"; \
 	else \
@@ -92,15 +96,21 @@ lint: ## Run parallel lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint-fast)
 	 $(EXEC) -d xdebug.mode=off vendor/bin/phparkitect check > /tmp/alz-lint/3-phparkitect.txt 2>&1 & P3=$$!; \
 	 $(EXEC) -d xdebug.mode=off vendor/bin/deptrac analyse --fail-on-uncovered --report-uncovered > /tmp/alz-lint/4-deptrac.txt 2>&1 & P4=$$!; \
 	 (vendor/bin/tlint lint app/ && vendor/bin/tlint lint routes/) > /tmp/alz-lint/5-tlint.txt 2>&1 & P5=$$!; \
-	 E1=0; E2=0; E3=0; E4=0; E5=0; \
-	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; \
+	 $(EXEC) vendor/bin/pest $(GIT_HOOKS_TEST) --no-coverage $(GIT_HOOKS_ARGS) > /tmp/alz-lint/6-git-hooks.txt 2>&1 & P6=$$!; \
+	 E1=0; E2=0; E3=0; E4=0; E5=0; E6=0; \
+	 wait $$P1 || E1=$$?; wait $$P2 || E2=$$?; wait $$P3 || E3=$$?; wait $$P4 || E4=$$?; wait $$P5 || E5=$$?; wait $$P6 || E6=$$?; \
 	 echo "=== Pint ===" && cat /tmp/alz-lint/1-pint.txt; \
 	 echo "=== PHPStan ===" && cat /tmp/alz-lint/2-phpstan.txt; \
 	 echo "=== PHPArkitect ===" && cat /tmp/alz-lint/3-phparkitect.txt; \
 	 echo "=== Deptrac ===" && cat /tmp/alz-lint/4-deptrac.txt; \
 	 echo "=== TLint ===" && cat /tmp/alz-lint/5-tlint.txt; \
+	 echo "=== Git hooks ===" && cat /tmp/alz-lint/6-git-hooks.txt; \
 	 rm -rf /tmp/alz-lint; \
-	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ] && [ $$E5 -eq 0 ]
+	 [ $$E1 -eq 0 ] && [ $$E2 -eq 0 ] && [ $$E3 -eq 0 ] && [ $$E4 -eq 0 ] && [ $$E5 -eq 0 ] && [ $$E6 -eq 0 ]
+
+git-hooks-check: ## Fail unless the pre-commit and pre-push hooks are registered (fix: make install)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest $(GIT_HOOKS_TEST) --no-coverage $(GIT_HOOKS_ARGS)
 
 lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac + TLint)
 	@echo "$(MODE)"
@@ -109,6 +119,7 @@ lint-sequential: ## Run sequential lint (Pint + PHPStan + PHPArkitect + Deptrac 
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint
+	@$(MAKE) git-hooks-check
 
 lint-full: ## Run full linting (Pint + PHPStan + PHPArkitect + Deptrac + TLint + Psalm)
 	@echo "$(MODE)"
@@ -117,6 +128,7 @@ lint-full: ## Run full linting (Pint + PHPStan + PHPArkitect + Deptrac + TLint +
 	@$(MAKE) phparkitect
 	@$(MAKE) deptrac
 	@$(MAKE) tlint-full
+	@$(MAKE) git-hooks-check
 	@$(MAKE) psalm
 
 fix: ## Auto-fix code style with Pint
@@ -181,13 +193,21 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity and real-Slack tests; matches CI)
+test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack and real-Redis tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --no-coverage $(TEST_ARGS)
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --no-coverage $(TEST_ARGS)
 
-test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack tests)
+test-redis: ## Run the tests that need a live Redis (start it with make redis)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack
+	$(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
+
+test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack and QuickBooks sandbox tests)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack --exclude-group=quickbooks-sandbox
+
+test-quickbooks-sandbox: ## Run the QuickBooks sandbox tests against the realm in .env (connect first with php artisan quickbooks:connect)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --configuration=phpunit-quickbooks-sandbox.xml --group=quickbooks-sandbox --no-coverage $(TEST_ARGS)
 
 test-seed-command: ## Run the dev:seed-fake command tests (serial; needs local Supabase DB, writes inside a rolled-back transaction)
 	@echo "$(MODE)"
@@ -220,17 +240,17 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-clover=coverage.xml
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --coverage-html=coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox
 
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
 
@@ -277,26 +297,27 @@ migrate: ## Run database migrations
 # migrate:reset, or db:wipe directly - they destroy Supabase auth tables.
 # Use this target instead for safe, coordinated resets.
 
-db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic products seed)
+# intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
+db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
-	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic products seed.$(NC)"
+	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic seed.$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Preflight: checking the seed guard and generating the slice (no writes)...$(NC)"
+	@echo "$(YELLOW)Preflight: checking the seed guard and generating the seed (no writes)...$(NC)"
 	@$(EXEC) artisan dev:seed-fake --dry-run
 	@echo ""
 	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
 	@$(MAKE) supabase-reset
 	@echo ""
-	@echo "$(YELLOW)Step 2/2: Migrating + seeding the synthetic products slice...$(NC)"
+	@echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)"
 	@$(EXEC) artisan dev:seed-fake
 	@echo ""
 	@echo "$(GREEN)Full database reset complete.$(NC)"
 	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
 	@echo "$(GREEN)- Test users: seeded$(NC)"
 	@echo "$(GREEN)- Laravel tables: migrated$(NC)"
-	@echo "$(GREEN)- Synthetic products slice: seeded (no sync jobs, no external calls)$(NC)"
+	@echo "$(GREEN)- Synthetic seed: applied (no sync jobs, no external calls)$(NC)"
 
-seed-fake: ## Seed the synthetic products slice (add ARGS=--fresh to replace an existing slice)
+seed-fake: ## Seed the synthetic, production-shaped data (add ARGS=--fresh to replace an existing seed)
 	@$(EXEC) artisan dev:seed-fake $(ARGS)
 
 # =============================================================================
@@ -305,12 +326,17 @@ seed-fake: ## Seed the synthetic products slice (add ARGS=--fresh to replace an 
 # Requires ALZ_ADMIN env var pointing to alz-admin project
 # Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin
 
-supabase-start: ## Start Supabase services (PostgreSQL, Auth, Storage)
+supabase-start: ## Start Supabase services; a stopped stack is started then reset from empty (make db-reset-full)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 ifneq ($(CI),true)
-	@cd $(ALZ_ADMIN) && (pnpm exec supabase status 2>/dev/null | grep -qi "running\|started" && echo "Supabase already running" || pnpm exec supabase start)
+	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
+		echo "Supabase already running"; \
+	else \
+		(cd $(ALZ_ADMIN) && pnpm exec supabase start) && \
+		$(MAKE) db-reset-full; \
+	fi
 endif
 
 supabase-functions: ## Start Supabase Edge Functions dev server (long-running)
@@ -334,7 +360,7 @@ ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
 	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
-	cd $(ALZ_ADMIN) && pnpm db:setup-local
+	cd $(ALZ_ADMIN) && ALZ_CORE_PATH="$(CURDIR)" pnpm db:setup-local
 	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
 
 supabase-seed-users: ## Seed test users only (no DB reset)

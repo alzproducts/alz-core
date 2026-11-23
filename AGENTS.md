@@ -130,16 +130,16 @@ Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf` | `ci`
 - Never implement on `main`, `develop`, or a `worktree/*` branch. Worktree branches are scratch/session containers, not feature branches.
 - Do not switch to unrelated branches mid-task.
 
-**Updating an existing PR:** `EnterWorktree` (by `path`) to bind the session to the PR's branch before editing — editing via raw paths from the `develop` checkout strands the change (commits land on `develop`, not the branch). Commit + push there. Do not `ExitWorktree` afterward — successive PR edits reuse the worktree; the user runs cleanup.
+**Updating an existing PR:** `EnterWorktree` (by `path`) to bind the session to the PR's branch before editing — editing via raw paths from the `develop` checkout strands the change (commits land on `develop`, not the branch). Commit + push there. Do not `ExitWorktree` between successive edits to an open PR — they reuse the worktree. Once the PR merges, remove your own worktree and branch; cleanup is not the user's job.
 
 ## Development Environment
 
 **PHP**: Native PHP 8.4 via Homebrew (not Docker/Sail)
-**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production (see `database/AGENTS.md`)
+**Database**: Supabase PostgreSQL — the Supabase CLI stack locally, the pinned Supabase baseline everywhere else outside production, except a dependent's verify run that supplies its own Supabase (see `database/AGENTS.md`)
 **Services**: Redis in Docker
 **Octane**: Swoole (matches production)
 
-**Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`. EXCEPTION: resets and seeding (`make db-reset-full`, `make supabase-reset`) need the user's go-ahead.
+**Booting local services is pre-authorized** — start a needed service that is down without asking: `make supabase-start`, `make redis`, including the `make db-reset-full` that `make supabase-start` runs on a stopped stack. EXCEPTION: a manual reset or seed (`make db-reset-full`, `make supabase-reset`) needs the user's go-ahead.
 
 **Fresh worktree → run `make install` first**; NEVER `composer install` or an `APP_ENV` override by hand. Steps: [`docs/guides/local-setup.md`](docs/guides/local-setup.md).
 
@@ -230,6 +230,7 @@ This project follows **Clean Architecture** (Robert C. Martin) — dependencies 
 2. **Supabase shared**: Same PostgreSQL database as Next.js frontend
 3. **Production uses Octane**: We run long-running daemon processes (Laravel Octane) in production. Be cautious with date/time calculations in queue jobs—always calculate timestamps in `handle()` method, not in constructor, to ensure fresh evaluations on each execution (not stale values from job creation time).
 4. **Enforce over warn**: When reviewing security controls, prefer enforcement (fail-fast) over warnings. If a security boundary can be enforced, do that instead of logging a warning that might be ignored.
+5. **Native rate limiting**: Prefer Laravel's native rate limiting (`Redis::throttle` / `RateLimiter`) over a custom limiter wherever it covers the need.
 
 ### Common Pitfalls
 
@@ -287,6 +288,8 @@ See [`docs/guides/assertion-validation-reference.md`](docs/guides/assertion-vali
 
 **Run commands via Make**: `make lint`, `make test`, etc. Run `make help` for all targets.
 
+**macOS make (GNU Make 3.81) ignores `.SHELLFLAGS`**: recipes run without `-e`/`pipefail`, so join a recipe step that must not run after a failure with `&&`, never `;`.
+
 ## Code Quality & Linting
 
 **CRITICAL**: We maintain strict code quality standards with five linters + mutation testing.
@@ -317,7 +320,7 @@ make test-ai      # Validate AI-generated tests (test + pest mutate)
 
 **ALWAYS try `make fix` before manually editing for style issues.** Pint auto-fixes ~95% of style issues.
 
-**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + Deptrac + TLint.
+**Git Hooks**: Pre-commit runs Pint + PHPStan + PHPArkitect. Pre-push runs Pest + Deptrac + TLint. `make install` registers them (`bin/install-git-hooks`); the guard `tests/Unit/Static/GitHooksInstalledTest.php`, run by `make lint` and `make test`, fails with "Run `make install`" when they are off.
 
 ### PHPArkitect Naming Conventions
 

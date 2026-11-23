@@ -26,6 +26,8 @@ final readonly class QuickBooksOAuthHttpTransport
 
     private const int TIMEOUT_SECONDS = 15;
 
+    private const string INTUIT_TID_HEADER = 'intuit_tid';
+
     /** Intuit omits `x_refresh_token_hard_expires_in` from token responses unless asked. */
     private const string HARD_EXPIRY_HEADER = 'x-include-refresh-token-hard-expires-in';
 
@@ -102,7 +104,12 @@ final readonly class QuickBooksOAuthHttpTransport
     {
         $status = $response->status();
         $errorCode = $response->json('error');
-        $context = ['status' => $status, 'error' => \is_string($errorCode) ? $errorCode : null];
+        $intuitTid = \mb_trim($response->header(self::INTUIT_TID_HEADER));
+        $context = [
+            'status' => $status,
+            'error' => \is_string($errorCode) ? $errorCode : null,
+            'intuit_tid' => $intuitTid === '' ? null : $intuitTid,
+        ];
 
         if ($status === 401 || ($status === 400 && $errorCode === 'invalid_grant')) {
             $this->logger->error(self::LOG_PREFIX . ' grant rejected', $context);
@@ -123,6 +130,7 @@ final readonly class QuickBooksOAuthHttpTransport
     {
         $this->logThrottle->logTransient(self::SERVICE_NAME, self::LOG_PREFIX . ' ' . $event, [
             'exception' => $e::class,
+            'intuit_tid' => null,
         ]);
 
         return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);

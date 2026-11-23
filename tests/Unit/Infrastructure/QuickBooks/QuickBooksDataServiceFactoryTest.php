@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure\QuickBooks;
 
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
+use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
+use App\Infrastructure\QuickBooks\QuickBooksDataServiceSession;
 use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
+use App\Infrastructure\QuickBooks\QuickBooksRestHandlerSeam;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use QuickBooksOnline\API\Core\CoreConstants;
 use QuickBooksOnline\API\Core\HttpClients\SyncRestHandler;
 use QuickBooksOnline\API\Core\OAuth\OAuth2\OAuth2AccessToken;
 use QuickBooksOnline\API\DataService\DataService;
+use ReflectionClass;
 use ReflectionProperty;
 
 /**
@@ -37,16 +43,33 @@ final class QuickBooksDataServiceFactoryTest extends TestCase
     }
 
     #[Test]
-    public function the_data_service_uses_guzzle_throws_on_error_and_logs_nothing(): void
+    public function the_rest_handler_sends_through_the_hardened_client_with_logging_off(): void
     {
-        $dataService = $this->build();
+        $session = $this->session();
+        $handler = self::restHandler($session->dataService);
 
-        $this->assertSame('guzzle', $dataService->getClientName());
-        $this->assertTrue($dataService->isThrownExceptionOnError());
-        $this->assertFalse(self::restHandler($dataService)->getRequestLogger()->EnableServiceRequestsLogging);
+        $this->assertSame(CoreConstants::CLIENT_CURL, $session->dataService->getClientName());
+        $this->assertFalse($session->dataService->isThrownExceptionOnError());
+        $this->assertSame($session->httpClient, $handler->getHttpClientInterface());
+        $this->assertFalse($handler->getRequestLogger()->EnableServiceRequestsLogging);
+    }
+
+    #[Test]
+    public function the_seam_fails_closed_without_a_rest_handler(): void
+    {
+        $dataService = new ReflectionClass(DataService::class)->newInstanceWithoutConstructor();
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        QuickBooksRestHandlerSeam::install($dataService, new QuickBooksCurlHttpClient());
     }
 
     private function build(): DataService
+    {
+        return $this->session()->dataService;
+    }
+
+    private function session(): QuickBooksDataServiceSession
     {
         $config = new QuickBooksConfig(
             environment: QuickBooksEnvironment::Sandbox,
@@ -59,6 +82,9 @@ final class QuickBooksDataServiceFactoryTest extends TestCase
         return (new QuickBooksDataServiceFactory($config))->create(new ApiKeyToken('access-token'));
     }
 
+    /**
+     * intentional: reads the SDK property by name, so a rename in an SDK upgrade fails here.
+     */
     private static function restHandler(DataService $dataService): SyncRestHandler
     {
         $handler = (new ReflectionProperty(DataService::class, 'restHandler'))->getValue($dataService);
