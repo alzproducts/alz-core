@@ -5,11 +5,11 @@ declare(strict_types=1);
 /*
  * alz-core verify bench helper, driven by products-perf.sh load / writers inside the run's containers. See products-perf.md.
  * Usage: php products-perf.php <sub> [--key value]...   (cwd = /var/www/html, env = the container's)
- *   runtime                         Prints uninstrumented=yes|no (xdebug and pcov off)
- *   writers                         Prints the background writer schedule as JSON lines: kind interval delay
+ *   writers                         Prints the background writer schedule, one `kind interval delay` line per writer
  *   shapes --out F                  Writes the list request mix's URIs, derived from the seed, as JSON
- *   writer --kind K --stop-file F --deadline T --result F
- *                                   Runs one background writer on its schedule until F exists or epoch T passes
+ *   writer --kind K --stop-file F --deadline T [--once-offset S] --result F
+ *                                   Runs one background writer on its schedule until F exists or epoch T passes;
+ *                                   a once-per-run writer's first write moves S seconds later
  *   load --port P --shapes F --log F --warmup N --requests N --rate R --result F
  *                                   Paced list requests (bypass secret from VERIFY_BENCH_BYPASS); p99 from the log
  *   time-writers --runs N --result F
@@ -25,7 +25,7 @@ const LOG_FLUSH_SECONDS = 3;
 
 /*
  * Background write load per writer: [interval seconds (null = once per run), first write after seconds].
- * "once" writers fire ONCE_DELAY seconds after the warm-up ends, so they land inside the measured window.
+ * products-perf.sh passes the warm-up length as --once-offset, so "once" writers land inside the measured window.
  */
 const WRITERS = [
     'product_webhook_upsert' => [2.0, 1.0],
@@ -445,7 +445,6 @@ function cmdTimeWriters(array $o): void
 $sub = $argv[1] ?? fail('missing subcommand', 64);
 $o = options(array_slice($argv, 2));
 match ($sub) {
-    'runtime' => print('uninstrumented=' . (uninstrumented() ? 'yes' : 'no') . "\n"),
     'writers' => array_map(static fn(string $k, array $w): int => print("{$k} " . ($w[0] ?? 'once') . " {$w[1]}\n"), array_keys(WRITERS), WRITERS),
     'shapes' => cmdShapes($o),
     'writer' => cmdWriter($o),

@@ -36,6 +36,12 @@ x-env-files: &env-files
 services:
     pgsql:
         image: '${VERIFY_PGSQL_IMAGE:?}'
+        # intentional: roles.sql is baked in, not bind-mounted, so no worktree path reaches a container (COR-320 AC16).
+        build:
+            context: ./src/database/baseline
+            dockerfile_inline: |
+                FROM supabase/postgres:${SUPABASE_POSTGRES_VERSION:?}
+                COPY roles.sql /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
         profiles:
             - own-postgres
         environment:
@@ -93,6 +99,11 @@ services:
     # intentional: Postgres's network namespace, so the seed's loopback-only host guard holds (COR-320 D2).
     seed:
         image: '${VERIFY_TEST_IMAGE:?}'
+        build:
+            context: ./src
+            dockerfile: Dockerfile.verify
+            args:
+                RUNTIME_IMAGE: '${VERIFY_RUNTIME_IMAGE:?}'
         network_mode: 'service:pgsql'
         entrypoint:
             - php
@@ -114,6 +125,9 @@ services:
 
     app:
         image: '${VERIFY_RUNTIME_IMAGE:?}'
+        # Built from the git archive of HEAD that verify up extracts to ./src (COR-317 D2); worker shares the image.
+        build:
+            context: ./src
         depends_on:
             seed:
                 condition: service_completed_successfully

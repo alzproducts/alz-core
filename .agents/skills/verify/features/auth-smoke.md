@@ -23,6 +23,6 @@ Preconditions:
 
 ## Gotchas
 
-- `http` always sends the bypass header, so `auth-reject` is not drivable with it; prove it with a targeted Pest file through `test` instead.
+- `http` always sends the bypass header, so `auth-reject` is not drivable with it; prove it with `test tests/Feature/Presentation/Http/Auth/Middleware/ValidateSupabaseJwtTest.php` instead.
 - The returned email comes from `EMAIL_PRIMARY`; `SUPABASE_LOCAL_TEST_EMAIL` (`dev@alzadmin.test`) only selects the persona.
-- Rejections on authenticated routes (401, 403) reach the app container's stdout (`logs app`), not Laravel's log.
+- Rejections on authenticated routes (401, 403) log to the `security` channel: with the stack's `APP_ENV=local` that is `<evidence>/logs/app/security-<date>.log`, not `laravel.log`.
