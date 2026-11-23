@@ -18,6 +18,8 @@ Authorization: Bearer <token>
 
 ## Response
 
+A successful request returns `200`:
+
 ```json
 {
   "data": {
