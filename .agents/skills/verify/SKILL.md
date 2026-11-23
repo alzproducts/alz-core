@@ -10,7 +10,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 `up` builds the runtime image from `git archive HEAD`, so uncommitted changes are not in the run: commit first.
 
 **Env:**
-- The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run, and a run on a caller-supplied Supabase never loads it (§Caller-supplied Supabase).
+- The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run, as does a caller-supplied Supabase (§Caller-supplied Supabase).
 - The stack sets its own DB, Redis and app keys, so the env file can never point the run at other services, and fills the keys a run needs when the env file leaves them blank ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md) lists both).
 - The network allows outbound calls, so any integration key the env file sets is live. Blank it with `--env-override KEY=` when a journey must not reach the vendor.
 
@@ -97,7 +97,7 @@ For a dependent that boots alz-core beside its own local Supabase, so both share
 - A Postgres without alz-core's seed. A second `up` on the same Postgres exits 1 naming `logs/seed/seed.log` and leaves the seeded rows as they were. `down` never removes rows from the caller's Postgres.
 - aal2 tokens for its own requests to `base_url`: `GET /api/user` with an aal1 token returns 403 "MFA verification required.".
 
-**Blank run:** this mode never loads the main checkout's `.env`, in a clone (which has none) or in a linked worktree (which may), so integrations are off. `--env-override` still applies.
+**Blank run:** this mode never loads the main checkout's `.env`, even from a linked worktree, so integrations are off. `--env-override` still applies.
 
 **Refusals**, all before any Docker call. A message names the flag, with `host:port` where that is safe to print, never the URL:
 
