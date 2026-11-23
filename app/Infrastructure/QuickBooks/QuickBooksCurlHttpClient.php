@@ -84,6 +84,16 @@ final class QuickBooksCurlHttpClient extends CurlHttpClient
     }
 
     /**
+     * The last response's raw body, null without a response or when it is empty. It can hold customer data: never log it.
+     */
+    public function responseBody(): ?string
+    {
+        $response = $this->getLastResponse();
+
+        return $response instanceof IntuitResponse ? self::nonBlank($response->getBody()) : null;
+    }
+
+    /**
      * The SDK's PHPDoc promises a string; it holds null when the response had no such header.
      */
     private static function nonBlank(mixed $value): ?string
