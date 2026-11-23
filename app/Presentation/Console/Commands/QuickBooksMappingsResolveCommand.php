@@ -215,12 +215,13 @@ final class QuickBooksMappingsResolveCommand extends Command
         return \is_string($answer) ? $options[$answer] ?? null : null;
     }
 
+    // intentional: never starts with a digit, or the prompt's autocomplete turns a typed index into the name it prefixes.
     private static function label(MappingCandidateDTO $candidate): string
     {
         $name = $candidate->name === '' ? '(unnamed)' : $candidate->name;
         $detail = $candidate->detail === null ? '' : " ({$candidate->detail})";
 
-        return "{$name}{$detail} [id {$candidate->id}]";
+        return "[id {$candidate->id}] {$name}{$detail}";
     }
 
     // intentional: a test run has no TTY but answers prompts, as in Laravel's ConfiguresPrompts.

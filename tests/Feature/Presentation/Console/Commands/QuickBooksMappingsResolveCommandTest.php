@@ -83,10 +83,10 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             new MappingCandidateDTO('4', 'Old', false),
         ]);
 
-        $options = ['Skip', 'P.O. Number [id 1]', '(unnamed) [id 2]', 'Transaction ID [id 3]'];
+        $options = ['Skip', '[id 1] P.O. Number', '[id 2] (unnamed)', '[id 3] Transaction ID'];
         $this->resolve()
-            ->expectsChoice(self::question(MappingKey::PoNumberField), 'P.O. Number [id 1]', $options, true)
-            ->expectsChoice(self::question(MappingKey::TransactionIdField), 'Transaction ID [id 3]', $options, true)
+            ->expectsChoice(self::question(MappingKey::PoNumberField), '[id 1] P.O. Number', $options, true)
+            ->expectsChoice(self::question(MappingKey::TransactionIdField), '[id 3] Transaction ID', $options, true)
             ->assertSuccessful()
             ->run();
 
@@ -129,18 +129,35 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->adapterReturns([new MappingCandidateDTO('ref', 'Name', true), new MappingCandidateDTO('9', 'Other', true)]);
 
         $this->resolve(['--key' => 'department'])
-            ->expectsQuestion(self::question(MappingKey::Department), 'Name [id ref]')
+            ->expectsQuestion(self::question(MappingKey::Department), '[id ref] Name')
             ->expectsOutputToContain('already holds')
             ->assertSuccessful()
             ->run();
         $this->assertSame([], $this->updates);
 
         $this->resolve(['--key' => 'department'])
-            ->expectsQuestion(self::question(MappingKey::Department), 'Other [id 9]')
+            ->expectsQuestion(self::question(MappingKey::Department), '[id 9] Other')
             ->assertSuccessful()
             ->run();
         $this->assertSame(['9', 'Other', self::REALM], $this->row(MappingKey::Department));
         $this->assertSame(['ref', 'Name', self::REALM], $this->row(MappingKey::SalesClass));
+    }
+
+    #[Test]
+    public function no_choice_starts_with_a_digit_so_a_typed_index_never_autocompletes_to_a_tax_code(): void
+    {
+        $this->adapterReturns([new MappingCandidateDTO('5', '0.0% Z', true), new MappingCandidateDTO('6', '20.0% S', true)]);
+
+        $this->resolve(['--key' => 'tax.standard'])
+            ->expectsChoice(
+                self::question(MappingKey::TaxStandard),
+                '[id 6] 20.0% S',
+                ['Skip', '[id 5] 0.0% Z', '[id 6] 20.0% S'],
+                true,
+            )
+            ->assertSuccessful()
+            ->run();
+        $this->assertSame(['6', '20.0% S', self::REALM], $this->row(MappingKey::TaxStandard));
     }
 
     #[Test]
@@ -323,7 +340,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->adapterReturns([new MappingCandidateDTO('9', 'Other', true)]);
 
         $this->resolve(['--key' => 'department'])
-            ->expectsQuestion(self::question(MappingKey::Department), 'Other [id 9]')
+            ->expectsQuestion(self::question(MappingKey::Department), '[id 9] Other')
             ->expectsOutputToContain('RecordNotFoundException')
             ->assertFailed()
             ->run();
