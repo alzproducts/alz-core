@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\QuickBooks\Mappings;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingFindingDTO;
@@ -48,7 +48,7 @@ final class MappingUseCasesTest extends TestCase
 
     private MockInterface&QuickBooksMappingCandidatesInterface $adapter;
 
-    private MockInterface&QuickBooksEnvironmentInterface $environment;
+    private MockInterface&QuickBooksRealmInterface $realm;
 
     #[Override]
     protected function setUp(): void
@@ -57,8 +57,8 @@ final class MappingUseCasesTest extends TestCase
 
         $this->mappings = Mockery::mock(QuickBooksMappingRepositoryInterface::class);
         $this->adapter = Mockery::mock(QuickBooksMappingCandidatesInterface::class);
-        $this->environment = Mockery::mock(QuickBooksEnvironmentInterface::class);
-        $this->environment->shouldReceive('realmId')->andReturn(self::REALM);
+        $this->realm = Mockery::mock(QuickBooksRealmInterface::class);
+        $this->realm->shouldReceive('realmId')->andReturn(self::REALM);
     }
 
     #[Test]
@@ -66,7 +66,7 @@ final class MappingUseCasesTest extends TestCase
     {
         $this->mappings->shouldReceive('unresolvedKeys')->once()->with(self::REALM)->andReturn([MappingKey::Department]);
 
-        $useCase = new ListUnresolvedMappingsUseCase($this->mappings, $this->environment, new NullLogger());
+        $useCase = new ListUnresolvedMappingsUseCase($this->mappings, $this->realm, new NullLogger());
 
         $this->assertSame([MappingKey::Department], $useCase->execute());
     }
@@ -185,12 +185,12 @@ final class MappingUseCasesTest extends TestCase
 
     private function record(): RecordMappingPickUseCase
     {
-        return new RecordMappingPickUseCase($this->mappings, $this->environment, new NullLogger());
+        return new RecordMappingPickUseCase($this->mappings, $this->realm, new NullLogger());
     }
 
     private function check(): CheckMappingsUseCase
     {
-        return new CheckMappingsUseCase($this->mappings, $this->candidates(), $this->environment, new NullLogger());
+        return new CheckMappingsUseCase($this->mappings, $this->candidates(), $this->realm, new NullLogger());
     }
 
     private function candidates(): MappingCandidateService

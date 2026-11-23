@@ -13,7 +13,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOAuthClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
@@ -58,7 +58,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksMappingCandidatesInterface::class, QuickBooksMappingCandidateReader::class);
-        $this->app->bind(QuickBooksEnvironmentInterface::class, QuickBooksConfig::class);
+        $this->app->bind(QuickBooksRealmInterface::class, QuickBooksConfig::class);
         $this->registerRateLimiter();
         $this->registerCacheBackedStores();
     }
@@ -112,7 +112,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksClientInterface::class,
             QuickBooksOrderPostingInterface::class,
             QuickBooksMappingCandidatesInterface::class,
-            QuickBooksEnvironmentInterface::class,
+            QuickBooksRealmInterface::class,
             QuickBooksRateLimiter::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,

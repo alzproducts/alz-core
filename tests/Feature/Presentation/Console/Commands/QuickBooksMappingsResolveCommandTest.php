@@ -6,7 +6,7 @@ namespace Tests\Feature\Presentation\Console\Commands;
 
 use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
@@ -50,7 +50,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref', 'qbo_ref_name' => 'Name', 'realm_id' => self::REALM]);
 
         // intentional: resolved first, since a deferred provider loading later would drop the doubles below.
-        $this->app->make(QuickBooksEnvironmentInterface::class);
+        $this->app->make(QuickBooksRealmInterface::class);
         $this->app->make(QuickBooksMappingRepositoryInterface::class);
         $this->app->make(QuickBooksMappingCandidatesInterface::class);
 
@@ -297,7 +297,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             'https://example.test/callback',
             self::REALM,
         ));
-        $this->app->forgetInstance(QuickBooksEnvironmentInterface::class);
+        $this->app->forgetInstance(QuickBooksRealmInterface::class);
     }
 
     /**

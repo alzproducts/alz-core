@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\Mappings\UseCases;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingPickDTO;
@@ -17,13 +17,13 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Stores a pick for the configured realm; a pick equal to the row writes nothing, so re-runs leave its timestamps alone.
+ * A pick equal to the row writes nothing, so re-runs leave its timestamps alone.
  */
 final readonly class RecordMappingPickUseCase
 {
     public function __construct(
         private QuickBooksMappingRepositoryInterface $mappings,
-        private QuickBooksEnvironmentInterface $environment,
+        private QuickBooksRealmInterface $realm,
         private LoggerInterface $logger,
     ) {}
 
@@ -38,7 +38,7 @@ final readonly class RecordMappingPickUseCase
     public function execute(MappingKey $key, MappingCandidateDTO $candidate): bool
     {
         $this->logger->info('Recording QuickBooks mapping pick', ['key' => $key->value]);
-        $pick = new MappingPickDTO($key, $candidate->id, $candidate->name, $this->environment->realmId());
+        $pick = new MappingPickDTO($key, $candidate->id, $candidate->name, $this->realm->realmId());
         $written = !$this->holds($pick);
 
         if ($written) {

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\Mappings\UseCases;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -16,7 +16,7 @@ final readonly class ListUnresolvedMappingsUseCase
 {
     public function __construct(
         private QuickBooksMappingRepositoryInterface $mappings,
-        private QuickBooksEnvironmentInterface $environment,
+        private QuickBooksRealmInterface $realm,
         private LoggerInterface $logger,
     ) {}
 
@@ -30,7 +30,7 @@ final readonly class ListUnresolvedMappingsUseCase
     public function execute(): array
     {
         $this->logger->info('Listing unresolved QuickBooks mappings');
-        $keys = $this->mappings->unresolvedKeys($this->environment->realmId());
+        $keys = $this->mappings->unresolvedKeys($this->realm->realmId());
         $this->logger->info('Listed unresolved QuickBooks mappings', ['count' => \count($keys)]);
 
         return $keys;

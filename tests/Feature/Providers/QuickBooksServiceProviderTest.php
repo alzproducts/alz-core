@@ -7,7 +7,7 @@ namespace Tests\Feature\Providers;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksMappingRepository;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
@@ -48,8 +48,8 @@ final class QuickBooksServiceProviderTest extends TestCase
         $config = new QuickBooksConfig(QuickBooksEnvironment::Production, 'id', 'secret', 'https://example.test/callback', '9130');
         $this->app->instance(QuickBooksConfig::class, $config);
 
-        $this->assertContains(QuickBooksEnvironmentInterface::class, new QuickBooksServiceProvider($this->app)->provides());
-        $this->assertSame($config, $this->app->make(QuickBooksEnvironmentInterface::class));
+        $this->assertContains(QuickBooksRealmInterface::class, new QuickBooksServiceProvider($this->app)->provides());
+        $this->assertSame($config, $this->app->make(QuickBooksRealmInterface::class));
         $this->assertSame('9130', $config->realmId());
     }
 }

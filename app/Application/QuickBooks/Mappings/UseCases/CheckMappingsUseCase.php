@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\Mappings\UseCases;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingDTO;
 use App\Application\QuickBooks\Mappings\DTOs\MappingFindingDTO;
@@ -26,14 +26,14 @@ use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use Psr\Log\LoggerInterface;
 
 /**
- * Compares every mapping with the connected company. Writes no mapping row, though a token refresh may be stored.
+ * Writes no mapping row, though a token refresh may be stored.
  */
 final readonly class CheckMappingsUseCase
 {
     public function __construct(
         private QuickBooksMappingRepositoryInterface $mappings,
         private MappingCandidateService $candidates,
-        private QuickBooksEnvironmentInterface $environment,
+        private QuickBooksRealmInterface $realm,
         private LoggerInterface $logger,
     ) {}
 
@@ -52,7 +52,7 @@ final readonly class CheckMappingsUseCase
     public function execute(): MappingCheckResult
     {
         $this->logger->info('Checking QuickBooks mappings');
-        $unresolved = $this->mappings->unresolvedKeys($this->environment->realmId());
+        $unresolved = $this->mappings->unresolvedKeys($this->realm->realmId());
         $findings = $this->findings($unresolved, $this->rowsByKey());
         $this->logger->info('Checked QuickBooks mappings', ['findings' => \count($findings)]);
 
