@@ -68,7 +68,7 @@ Every database alz-core migrates runs Supabase's images, with migrations run as 
 |-------------|-----------------|
 | Local dev | Supabase CLI stack in `${FRONTEND_APP}` (images from its re-linked `supabase/.temp/`) |
 | CI `tests` job | `database/baseline/compose.yaml`, project `baseline` |
-| Verify skill | `.agents/skills/verify/compose.yaml`: the baseline images with `roles.sql` baked in, one private project per worktree |
+| Verify skill | `.agents/skills/verify/compose.yaml`: the baseline images with `roles.sql` baked in, one private project per worktree. EXCEPTION: a dependent's run may supply its own Supabase (`up --supabase-url … --supabase-db-url …`) |
 | Dev image (`Dockerfile.dev`) | the baseline images, migrated at build time |
 | `docker-compose.prod.yml` | `include` of `database/baseline/compose.yaml` |
 

@@ -64,14 +64,14 @@ die() {
     exit "$code"
 }
 
-HELP='up --evidence <abs dir> [--env-override KEY=VALUE]...   build HEAD, boot, migrate and seed; prints run_id= and base_url=
+HELP='up --evidence <abs dir> [--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]   build HEAD, boot, migrate and seed; prints run_id= and base_url=
 down --evidence <dir>   remove the run stack and images; keeps the evidence
-doctor --evidence <dir>   pass/FAIL report: SHA, image digest, DB/Redis hosts, drivers, credential defaults and names
+doctor --evidence <dir>   pass/FAIL report: SHA, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
 http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
-exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app)
+exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
-db --evidence <dir> <sql>   read-only SQL against the run Postgres
-test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static
+db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
+test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static (exit 69 in caller-supabase mode)
 note --evidence <dir> <text>   append a line to run-notes.md
 browser   not supported (exit 69)'
 
@@ -153,9 +153,29 @@ set_evidence() {
 
 state_get() { sed -n "s/^$1=//p" "$STATE/state.env" | tail -1; }
 
+# run_mode: the run's recorded mode; a state file from before modes existed is own-postgres.
+run_mode() {
+    local mode
+    mode="$(state_get mode 2>/dev/null || true)"
+    printf '%s' "${mode:-own-postgres}"
+}
+
+# dc: the run's Compose files and profiles, from its recorded mode.
 dc() {
-    docker compose -p "$PROJECT" --project-directory "$STATE" -f "$STATE/compose.yaml" \
-        --env-file "$STATE/compose.env" --profile own-postgres "$@"
+    local model=(-f "$STATE/compose.yaml")
+    if [ "$(run_mode)" = caller-supabase ]; then
+        model+=(-f "$STATE/compose.caller-supabase.yaml")
+    else
+        model+=(--profile own-postgres)
+    fi
+    docker compose -p "$PROJECT" --project-directory "$STATE" "${model[@]}" --env-file "$STATE/compose.env" "$@"
+}
+
+# service_state <service> <go template>: one field of a run container, running or not; blank when there is none.
+service_state() {
+    local id
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1" | head -1)"
+    [ -z "$id" ] || docker inspect -f "$2" "$id" 2>/dev/null || true
 }
 
 project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
@@ -166,6 +186,13 @@ require_run() {
     [ "$(state_get project)" = "$PROJECT" ] || die 64 "evidence dir belongs to project $(state_get project), not this worktree's $PROJECT"
     [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=app")" ] ||
         die 75 "the run's app container is not running: $PROJECT"
+    [ "$(run_mode)" = own-postgres ] || [ "$(service_state relay '{{.State.Status}}')" = running ] ||
+        die 75 "the run's relay container is not running: $PROJECT"
+}
+
+# refuse_in_mode <what>: 69 when the run uses a caller-supplied Supabase.
+refuse_in_mode() {
+    [ "$(run_mode)" = own-postgres ] || die 69 "$1 is not supported in caller-supabase mode"
 }
 
 # ---- argument split: --evidence anywhere before `--`; the rest stays in order ----
@@ -221,13 +248,112 @@ env_file_sets() {
         }' "$1"
 }
 
+# ---- caller-supplied Supabase (COR-319) ----
+
+MODE=own-postgres
+SB_URL=''
+SB_API_PORT=''
+SB_DB_URL=''
+SB_DB_HOSTPORT=''
+SB_DB_PORT=''
+SB_DB_PASSWORD=''
+
+# printable_hostport <flag> <value>: the value's host:port, or nothing when printing it could leak part of a credential.
+printable_hostport() {
+    local LC_ALL=C rest hostport='^([A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\]):[0-9]+$'
+    case "$2" in
+        *@*@*) return 0 ;;
+        *@*) rest="${2#*@}" ;;
+        *://*)
+            [ "$1" = --supabase-url ] || return 0
+            rest="${2#*://}"
+            ;;
+        *) return 0 ;;
+    esac
+    rest="${rest%%[/?#]*}"
+    if [[ "$rest" =~ $hostport ]]; then
+        printf '%s' "$rest"
+    else
+        case "${rest%:}" in 127.0.0.1 | localhost) printf '%s' "${rest%:}" ;; esac
+    fi
+}
+
+# refuse_flag <exit> <flag> <value> <reason>
+refuse_flag() {
+    local hostport
+    hostport="$(printable_hostport "$2" "$3")"
+    die "$1" "up: $2 refused${hostport:+ ($hostport)}: $4"
+}
+
+# check_caller_port <flag> <value> <port>
+check_caller_port() {
+    [ "$3" -le 65535 ] || refuse_flag 64 "$1" "$2" 'the port is above 65535'
+    case "$3" in
+        8000) refuse_flag 64 "$1" "$2" 'port 8000 is Octane in the run' ;;
+        54321 | 54322) refuse_flag 64 "$1" "$2" "that port is the developer's Supabase" ;;
+    esac
+}
+
+# check_supabase_flags <url given> <db url given>: exact spellings only, nothing resolved or percent-decoded.
+check_supabase_flags() {
+    local LC_ALL=C host='(127\.0\.0\.1|localhost)' port='([1-9][0-9]{0,4})' url_re db_re
+    url_re="^http://$host:$port\$"
+    db_re="^postgresql://postgres:([A-Za-z0-9._~-]+)@$host:$port/postgres\$"
+    [ "$2" = yes ] || refuse_flag 64 --supabase-url "$SB_URL" 'it needs --supabase-db-url too'
+    [ "$1" = yes ] || refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'it needs --supabase-url too'
+
+    [[ "$SB_URL" =~ $url_re ]] ||
+        refuse_flag 64 --supabase-url "$SB_URL" 'wants a bare http origin: host 127.0.0.1 or localhost, an explicit port, nothing after it'
+    SB_API_PORT="${BASH_REMATCH[2]}"
+    check_caller_port --supabase-url "$SB_URL" "$SB_API_PORT"
+
+    [[ "$SB_DB_URL" =~ $db_re ]] ||
+        refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'wants a postgresql URL: user and database postgres, a password of A-Z a-z 0-9 . _ ~ -, host 127.0.0.1 or localhost, an explicit port, no query string'
+    SB_DB_PASSWORD="${BASH_REMATCH[1]}"
+    SB_DB_PORT="${BASH_REMATCH[3]}"
+    SB_DB_HOSTPORT="${BASH_REMATCH[2]}:$SB_DB_PORT"
+    check_caller_port --supabase-db-url "$SB_DB_URL" "$SB_DB_PORT"
+    [ "$SB_API_PORT" != "$SB_DB_PORT" ] || refuse_flag 64 --supabase-db-url "$SB_DB_URL" 'both flags name the same port'
+    MODE=caller-supabase
+}
+
+# probe_supabase: the caller's Supabase answers, and signs tokens as <supabase-url>/auth/v1. Connects where the relay forwards, 127.0.0.1.
+probe_supabase() {
+    local issuer tool
+    for tool in curl jq; do
+        command -v "$tool" >/dev/null 2>&1 || die 75 "up: --supabase-url needs $tool"
+    done
+    (exec 3<>"/dev/tcp/127.0.0.1/$SB_API_PORT") 2>/dev/null || refuse_flag 75 --supabase-url "$SB_URL" 'nothing answers there'
+    (exec 3<>"/dev/tcp/127.0.0.1/$SB_DB_PORT") 2>/dev/null || refuse_flag 75 --supabase-db-url "$SB_DB_URL" 'nothing answers there'
+    issuer="$(curl -q -sf --noproxy '*' --max-time 10 --max-filesize 65536 \
+        "http://127.0.0.1:$SB_API_PORT/auth/v1/.well-known/openid-configuration" 2>/dev/null |
+        jq -r 'if (.issuer | type) == "string" then .issuer else empty end' 2>/dev/null)" || issuer=''
+    [ -n "$issuer" ] || refuse_flag 75 --supabase-url "$SB_URL" 'no readable issuer there'
+    [ "$issuer" = "$SB_URL/auth/v1" ] ||
+        die 64 "up: --supabase-url issuer mismatch: want $SB_URL/auth/v1, Supabase reports $(printf '%s' "$issuer" | LC_ALL=C tr -cd 'A-Za-z0-9:/._~[]-' | cut -c1-200)"
+}
+
 # ---- verbs ----
 
 cmd_up() {
-    local overrides=() kv key value
+    local overrides=() kv key value url_given=no db_url_given=no
     set -- ${ARGS[@]+"${ARGS[@]}"}
     while [ "$#" -gt 0 ]; do
         case "$1" in
+            --supabase-url)
+                [ "$#" -ge 2 ] || die 64 "up: --supabase-url needs a value"
+                [ "$url_given" = no ] || refuse_flag 64 --supabase-url "$2" 'given twice'
+                url_given=yes
+                SB_URL="$2"
+                shift 2
+                ;;
+            --supabase-db-url)
+                [ "$#" -ge 2 ] || die 64 "up: --supabase-db-url needs a value"
+                [ "$db_url_given" = no ] || refuse_flag 64 --supabase-db-url "$2" 'given twice'
+                db_url_given=yes
+                SB_DB_URL="$2"
+                shift 2
+                ;;
             --env-override)
                 [ "$#" -ge 2 ] || die 64 "--env-override wants KEY=VALUE"
                 kv="$2"
@@ -244,9 +370,18 @@ cmd_up() {
                 shift 2
                 ;;
             --with) die 64 "--with: this repo declares no dependencies" ;;
-            *) die 64 "up: unknown argument: $1" ;;
+            *)
+                # intentional: only the --name; the rest, or a bare positional, may hold a credential.
+                key="${1%%=*}"
+                [[ "$key" =~ ^--[a-z][a-z-]*$ ]] || key=''
+                die 64 "up: unknown argument${key:+: $key}"
+                ;;
         esac
     done
+    if [ "$url_given" = yes ] || [ "$db_url_given" = yes ]; then
+        check_supabase_flags "$url_given" "$db_url_given"
+        probe_supabase
+    fi
 
     if [ -n "$(project_containers)" ]; then
         die 75 "a run is already up for this worktree (project $PROJECT); run down first"
@@ -264,20 +399,24 @@ cmd_up() {
         # intentional: www-data (uid 33) writes storage/logs through this bind mount (COR-320 P12).
         chmod 0777 "$EVIDENCE/logs/$svc"
     done
-    cp "$SKILL_DIR/compose.yaml" "$STATE/compose.yaml"
+    cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
 
     local sha env_file env_missing=no
     sha="$(git -C "$REPO" rev-parse HEAD)"
     env_file="$(main_env_file)"
+    # intentional: a path nothing creates; the caller's Supabase never gets the main .env's integration keys (ADR-0020).
+    [ "$MODE" = own-postgres ] || env_file="$STATE/no-main.env"
     [ -f "$env_file" ] || env_missing=yes
     {
+        echo "mode=$MODE"
+        [ "$MODE" = own-postgres ] || echo "db_hostport=$SB_DB_HOSTPORT"
         echo "project=$PROJECT"
         echo "top=$REPO"
         echo "sha=$sha"
         echo "env_file=$env_file"
         echo "env_missing=$env_missing"
     } >"$STATE/state.env"
-    note "up project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
+    note "up mode=$MODE project=$PROJECT sha=$sha env_file=$env_file missing=$env_missing"
 
     # Fill-if-blank keys (D9), then the overrides; compose reads this env_file after the main .env.
     local run_env="$STATE/run.env"
@@ -312,7 +451,15 @@ cmd_up() {
         echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
         echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
         echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
-        echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        if [ "$MODE" = own-postgres ]; then
+            echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        else
+            echo "VERIFY_RELAY_IMAGE=$PROJECT-relay:run"
+            echo "VERIFY_DB_PASSWORD=$SB_DB_PASSWORD"
+            echo "VERIFY_DB_PORT=$SB_DB_PORT"
+            echo "VERIFY_SUPABASE_URL=$SB_URL"
+            echo "VERIFY_SUPABASE_API_PORT=$SB_API_PORT"
+        fi
         echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
         echo "VERIFY_ENV_FILE=$env_file"
         echo "VERIFY_RUN_ENV=$run_env"
@@ -322,8 +469,12 @@ cmd_up() {
     } >"$STATE/compose.env"
 
     # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
-    local t0 pair
-    for pair in app:runtime seed:test pgsql:pgsql; do
+    local t0 pair pairs='app:runtime seed:test pgsql:pgsql' front=app
+    if [ "$MODE" != own-postgres ]; then
+        pairs='app:runtime seed:test relay:relay'
+        front=relay
+    fi
+    for pair in $pairs; do
         t0="$(date +%s)"
         dc --progress plain build "${pair%%:*}" >"$EVIDENCE/build/${pair#*:}.log" 2>&1 ||
             { note "up FAIL ${pair#*:} build (build/${pair#*:}.log)"; die 1 "${pair#*:} image build failed: $EVIDENCE/build/${pair#*:}.log (run down to clean up)"; }
@@ -332,18 +483,37 @@ cmd_up() {
     rm -rf "$src"
 
     t0="$(date +%s)"
-    if ! dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1; then
+    local up_rc=0 seed_logs='seed auth-migrate'
+    dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1 || up_rc=1
+    if [ "$MODE" != own-postgres ]; then
+        seed_logs='seed relay'
+        dc logs --no-color --no-log-prefix seed >"$EVIDENCE/logs/seed/seed.log" 2>&1 || true
+    fi
+    if [ "$up_rc" -ne 0 ]; then
         {
             echo '--- ps'
             dc ps -a
             echo '--- seed'
-            dc logs --no-color seed auth-migrate
+            dc logs --no-color $seed_logs
         } >>"$EVIDENCE/logs/compose-up.log" 2>&1 || true
+        if [ "$MODE" != own-postgres ]; then
+            case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+                'exited 0' | 'created '* | 'running '* | '') ;;
+                *)
+                    note "up FAIL seed (logs/seed/seed.log)"
+                    die 1 "the seed failed: $EVIDENCE/logs/seed/seed.log (run down to clean up)"
+                    ;;
+            esac
+            if [ "$(service_state relay '{{.State.Status}} {{.State.Health.Status}}')" != 'running healthy' ]; then
+                note "up FAIL relay not healthy (logs/compose-up.log)"
+                die 75 "the relay to the caller's Supabase is not healthy: $EVIDENCE/logs/compose-up.log (run down to clean up)"
+            fi
+        fi
         note "up FAIL compose up (logs/compose-up.log)"
         die 1 "stack did not become ready: $EVIDENCE/logs/compose-up.log (run down to clean up)"
     fi
     local hostport base_url
-    hostport="$(dc port app 8000 | tail -1)"
+    hostport="$(dc port "$front" 8000 | tail -1)"
     base_url="http://$hostport"
     echo "base_url=$base_url" >>"$STATE/state.env"
     note "up ready in $(($(date +%s) - t0))s base_url=$base_url"
@@ -358,8 +528,7 @@ cmd_down() {
     local fail=0 ids
     note "down project=$PROJECT"
     if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
-        docker compose -p "$PROJECT" --project-directory "$STATE" -f "$STATE/compose.yaml" --env-file "$STATE/compose.env" \
-            --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
+        dc --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
             note "down: compose down failed (logs/compose-down.log); removing by label"
     fi
     # Label sweep: catches a run whose evidence dir is gone or whose up failed part-way. Never touches another project.
@@ -424,7 +593,18 @@ cmd_doctor() {
             doctor_line FAIL "$svc image $app_image is not the runtime image"
         fi
     done
-    if [ "$(state_get env_missing)" = yes ]; then
+    local db_want='pgsql:5432' relay
+    if [ "$(run_mode)" != own-postgres ]; then
+        db_want="$(state_get db_hostport)"
+        db_want="127.0.0.1:${db_want##*:}"
+        relay="$(service_state relay '{{.State.Health.Status}}')"
+        if [ "$relay" = healthy ]; then
+            doctor_line ok "relay healthy"
+        else
+            doctor_line FAIL "relay health is ${relay:-unknown}"
+        fi
+        doctor_line info "env file not loaded in caller-supabase mode (blank run)"
+    elif [ "$(state_get env_missing)" = yes ]; then
         doctor_line info "env file missing: $(state_get env_file) (blank run)"
     else
         doctor_line info "env file $(state_get env_file)"
@@ -435,7 +615,7 @@ cmd_doctor() {
         [ -n "$out" ] || { doctor_line FAIL "$svc config did not resolve"; continue; }
         while IFS=' ' read -r kind name value; do
             case "$kind" in
-                db) want='pgsql:5432' ;;
+                db) want="$db_want" ;;
                 redis) want='redis:6379' ;;
                 driver) want='redis' ;;
                 info) doctor_line info "$svc $name=$value"; continue ;;
@@ -549,6 +729,7 @@ cmd_exec() {
     [ "$#" -gt 0 ] && [ "$1" = -- ] && shift
     [ "$#" -gt 0 ] || die 64 "exec wants [<service>] [--] <argv>"
     set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "exec $svc" ;; esac
     require_run
     note "exec $svc $*"
     capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
@@ -562,6 +743,7 @@ cmd_logs() {
         in_list "$svc" "$SERVICES" || die 64 "unknown service: $svc (one of: $SERVICES)"
     fi
     set_evidence "$EVIDENCE_ARG" existing
+    case "$svc" in pgsql | auth-migrate) refuse_in_mode "logs $svc" ;; esac
     [ -f "$STATE/compose.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
     out="$(unique_file "$EVIDENCE/logs" "${svc:-all}.txt")"
     note "logs ${svc:-all}"
@@ -585,6 +767,12 @@ cmd_db() {
     set_evidence "$EVIDENCE_ARG" existing
     require_run
     note "db ${ARGS[0]}"
+    if [ "$(run_mode)" != own-postgres ]; then
+        # The relay's environment holds the connection (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
+        capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' relay \
+            psql -v ON_ERROR_STOP=1 -c "${ARGS[0]}" </dev/null || return 1
+        return 0
+    fi
     # shellcheck disable=SC2016
     capture db query.txt "${ARGS[0]}" db dc exec -T -e 'PGOPTIONS=-c default_transaction_read_only=on' pgsql sh -c \
         'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "$1"' \
@@ -594,6 +782,7 @@ cmd_db() {
 cmd_test() {
     [ "${#ARGS[@]}" -ge 1 ] || die 64 "test wants <paths>..."
     set_evidence "$EVIDENCE_ARG" existing
+    refuse_in_mode test
     require_run
     local out rc=0
     out="$(unique_file "$EVIDENCE/test" pest.log)"
@@ -627,6 +816,12 @@ if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
 fi
 split_args "$@"
 resolve_repo
+case "$verb" in
+    exec | logs)
+        STATE="$EVIDENCE_ARG/.verify"
+        [ "$(run_mode)" = own-postgres ] || SERVICES="$SERVICES relay"
+        ;;
+esac
 case "$verb" in
     up) cmd_up ;;
     down) cmd_down ;;

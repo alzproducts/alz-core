@@ -110,7 +110,7 @@ The class an integration binds in place of its real client when one of its secre
 _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
 **Supabase baseline**:
-The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production.
+The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production. The one exception is a dependent's verify run that supplies its own Supabase (ADR-0016).
 _Avoid_: "Supabase stack", which names the full Supabase CLI stack in local development.
 
 **Supabase look-alike**:

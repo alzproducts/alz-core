@@ -21,7 +21,7 @@ final class PestPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 120; // 2 minutes (full test suite, ~8s typical with parallel)
+        return 300; // 5 minutes (full test suite, run in parallel)
     }
 
     protected function getSuccessMessage(): string

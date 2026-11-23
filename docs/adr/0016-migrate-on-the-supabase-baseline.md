@@ -18,3 +18,4 @@ Production migrates as hosted Supabase's `postgres` role, which is not a superus
 - CI runs Postgres 17, the hosted major after COR-293.
 - Bump the pinned versions when the hosted project upgrades: `bin/supabase-hosted-version` prints the hosted Postgres version, and a re-link in `${FRONTEND_APP}` records the Auth version in `supabase/.temp/gotrue-version`.
 - A local migrate that passes proves little: Laravel never re-runs a recorded migration, so CI's fresh migrate is the gate.
+- A dependent's verify run may boot alz-core against a Supabase the dependent supplies, usually a Supabase CLI stack (`verify up --supabase-url … --supabase-db-url …`, [ADR-0020](0020-verify-runs-prod-image-with-test-sidecar.md)). That is the one exception to the baseline outside production and local development; alz-core's own verify runs keep it.
