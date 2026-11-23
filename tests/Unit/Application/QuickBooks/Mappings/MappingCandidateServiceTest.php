@@ -12,13 +12,11 @@ use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
-use Closure;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -49,55 +47,35 @@ final class MappingCandidateServiceTest extends TestCase
         $candidate = new MappingCandidateDTO('1', 'Net 30', true);
         $this->tokens->shouldReceive('accessToken')->twice()->andReturn($this->accessToken);
         $this->tokens->shouldNotReceive('forgetAccessToken');
-        $this->adapter->shouldReceive('candidates')->once()->with($this->accessToken, MappingEntity::Term)->andReturn([$candidate]);
-        $this->adapter->shouldReceive('create')->once()->with($this->accessToken, MappingEntity::Term, 'Net 30')->andReturn($candidate);
+        $this->adapter->shouldReceive('candidates')->twice()->with($this->accessToken, MappingEntity::Term)->andReturn([$candidate]);
 
         $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));
-        $this->assertSame($candidate, $this->service()->create(MappingEntity::Term, 'Net 30'));
+        $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));
     }
 
-    /**
-     * @return array<string, array{string, Closure(MappingCandidateService): mixed}>
-     */
-    public static function calls(): array
-    {
-        return [
-            'candidates' => ['candidates', static fn(MappingCandidateService $service): array => $service->candidates(MappingEntity::Term)],
-            'create' => ['create', static fn(MappingCandidateService $service): MappingCandidateDTO => $service->create(MappingEntity::Term, 'Net 30')],
-        ];
-    }
-
-    /**
-     * @param Closure(MappingCandidateService): mixed $call
-     */
     #[Test]
-    #[DataProvider('calls')]
-    public function a_rejected_token_is_forgotten_and_rethrown(string $method, Closure $call): void
+    public function a_rejected_token_is_forgotten_and_rethrown(): void
     {
         $rejection = new AuthenticationExpiredException('QuickBooks');
         $this->tokens->shouldReceive('accessToken')->once()->andReturn($this->accessToken);
         $this->tokens->shouldReceive('forgetAccessToken')->once();
-        $this->adapter->shouldReceive($method)->once()->andThrow($rejection);
+        $this->adapter->shouldReceive('candidates')->once()->andThrow($rejection);
 
         $this->expectExceptionObject($rejection);
 
-        $call($this->service());
+        $this->service()->candidates(MappingEntity::Term);
     }
 
-    /**
-     * @param Closure(MappingCandidateService): mixed $call
-     */
     #[Test]
-    #[DataProvider('calls')]
-    public function a_transient_failure_keeps_the_cached_token(string $method, Closure $call): void
+    public function a_transient_failure_keeps_the_cached_token(): void
     {
         $this->tokens->shouldReceive('accessToken')->once()->andReturn($this->accessToken);
         $this->tokens->shouldNotReceive('forgetAccessToken');
-        $this->adapter->shouldReceive($method)->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
+        $this->adapter->shouldReceive('candidates')->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $call($this->service());
+        $this->service()->candidates(MappingEntity::Term);
     }
 
     private function service(): MappingCandidateService

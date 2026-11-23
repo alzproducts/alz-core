@@ -14,7 +14,7 @@ use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use SensitiveParameter;
 
 /**
- * The QBO entities a mapping key can point at. Nothing is cached between calls (ADR-0011).
+ * Nothing is cached between calls (ADR-0011).
  */
 interface QuickBooksMappingCandidatesInterface
 {
@@ -27,15 +27,4 @@ interface QuickBooksMappingCandidatesInterface
      * @throws UnexpectedApiResultException        when a row lacks a name or id, or Preferences lacks its sales form section
      */
     public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity): array;
-
-    /**
-     * Creates one entity, in the sandbox company only: elsewhere it throws LogicException before any call.
-     * Account, PaymentMethod, Department, Class and Term only.
-     *
-     * @throws AuthenticationExpiredException      when the access token is rejected
-     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a call past its time limit
-     * @throws QuickBooksFaultException            when QBO refuses the create
-     * @throws UnexpectedApiResultException        when the created entity lacks a name or id
-     */
-    public function create(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, string $name): MappingCandidateDTO;
 }

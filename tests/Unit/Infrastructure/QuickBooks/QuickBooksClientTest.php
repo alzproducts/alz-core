@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\QuickBooks;
 
-use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\StructuredAddressDTO;
 use App\Application\QuickBooks\OrderSync\Enums\BatchOutcomeKind;
-use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
@@ -27,15 +25,11 @@ use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksBatchExecution;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
-use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksCustomerProvisioner;
 use App\Infrastructure\QuickBooks\QuickBooksDocumentBatchCreator;
-use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
-use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
 use Exception;
-use LogicException;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -44,7 +38,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use QuickBooksOnline\API\Data\IPPClass;
 use QuickBooksOnline\API\Data\IPPCompanyInfo;
 use QuickBooksOnline\API\Data\IPPInvoice;
 use QuickBooksOnline\API\Data\IPPItem;
@@ -321,43 +314,12 @@ final class QuickBooksClientTest extends TestCase
         $this->assertSame([BatchOutcomeKind::Ambiguous], \array_map(static fn(BatchItemOutcomeResult $outcome): BatchOutcomeKind => $outcome->kind, $outcomes));
     }
 
-    #[Test]
-    public function candidates_come_from_the_mapping_reader(): void
+    private static function client(QuickBooksTransport $transport, ?QuickBooksCustomerProvisioner $provisioner = null): QuickBooksClient
     {
-        $class = new IPPClass();
-        $class->Id = '5';
-        $class->FullyQualifiedName = 'Web';
-        $transport = Mockery::mock(QuickBooksTransport::class);
-        $transport->shouldReceive('query')->once()->andReturn([$class]);
-
-        $candidates = self::client($transport)->candidates(new ApiKeyToken('access'), MappingEntity::SalesClass);
-
-        $this->assertEquals([new MappingCandidateDTO('5', 'Web', true)], $candidates);
-    }
-
-    #[Test]
-    public function create_outside_the_sandbox_throws_before_any_call(): void
-    {
-        $transport = Mockery::mock(QuickBooksTransport::class);
-        $transport->shouldNotReceive('add');
-        $transport->shouldNotReceive('query');
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Mapping entities are created in the QuickBooks sandbox only');
-
-        self::client($transport, environment: QuickBooksEnvironment::Production)->create(new ApiKeyToken('access'), MappingEntity::Account, 'Sync Test');
-    }
-
-    private static function client(
-        QuickBooksTransport $transport,
-        ?QuickBooksCustomerProvisioner $provisioner = null,
-        QuickBooksEnvironment $environment = QuickBooksEnvironment::Sandbox,
-    ): QuickBooksClient {
         return new QuickBooksClient(
             $transport,
             $provisioner ?? new QuickBooksCustomerProvisioner($transport, new NullLogger()),
             new QuickBooksDocumentBatchCreator($transport, new NullLogger()),
-            new QuickBooksMappingCandidateReader($transport, new QuickBooksConfig($environment, 'id', 'secret', 'https://example.test/callback', '9130'), new NullLogger()),
             new NullLogger(),
         );
     }

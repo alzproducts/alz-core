@@ -19,9 +19,6 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 
-/**
- * Candidate reads and creates under the stored connection: a token per call, never a rejected one twice.
- */
 final readonly class MappingCandidateService
 {
     public function __construct(
@@ -49,31 +46,6 @@ final readonly class MappingCandidateService
 
         try {
             return $this->candidates->candidates($accessToken, $entity);
-        } catch (AuthenticationExpiredException $e) {
-            $this->tokens->forgetAccessToken();
-
-            throw $e;
-        }
-    }
-
-    /**
-     * @throws AuthenticationExpiredException
-     * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksFaultException            when QBO refuses the create
-     * @throws UnexpectedApiResultException
-     * @throws LockAcquisitionException
-     * @throws InvalidApiResponseException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws CorruptApiKeyException
-     * @throws KeyEncryptionFailedException
-     */
-    public function create(MappingEntity $entity, string $name): MappingCandidateDTO
-    {
-        $accessToken = $this->tokens->accessToken();
-
-        try {
-            return $this->candidates->create($accessToken, $entity, $name);
         } catch (AuthenticationExpiredException $e) {
             $this->tokens->forgetAccessToken();
 

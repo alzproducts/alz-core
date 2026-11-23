@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\QuickBooks;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
@@ -14,19 +14,15 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
-use App\Infrastructure\QuickBooks\Mappers\QuickBooksMappingEntityMapper;
 use DateTimeImmutable;
-use LogicException;
+use Override;
 use Psr\Log\LoggerInterface;
-use QuickBooksOnline\API\Data\IPPIntuitEntity;
 use SensitiveParameter;
-use Webmozart\Assert\Assert;
 
 /**
- * Lists and creates the QBO entities mapping keys point at. Rows are read as untyped properties: the SDK's PHPDoc types
- * are not what its XML parse leaves.
+ * Rows are read as untyped properties: the SDK's PHPDoc types are not what its XML parse leaves.
  */
-final readonly class QuickBooksMappingCandidateReader
+final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappingCandidatesInterface
 {
     private const int CALL_SECONDS = 60;
 
@@ -35,43 +31,21 @@ final readonly class QuickBooksMappingCandidateReader
 
     public function __construct(
         private QuickBooksTransport $transport,
-        private QuickBooksEnvironmentInterface $environment,
         private LoggerInterface $logger,
     ) {}
 
     /**
-     * @return list<MappingCandidateDTO> active and inactive
-     *
      * @throws AuthenticationExpiredException
      * @throws ExternalServiceUnavailableException
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
+    #[Override]
     public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity): array
     {
         return $entity === MappingEntity::CustomField
             ? $this->customFields($accessToken)
             : $this->entities($accessToken, $entity);
-    }
-
-    /**
-     * @throws AuthenticationExpiredException
-     * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksFaultException            when QBO refuses the create
-     * @throws UnexpectedApiResultException
-     */
-    public function create(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, string $name): MappingCandidateDTO
-    {
-        if (!$this->environment->isSandbox()) {
-            throw new LogicException('Mapping entities are created in the QuickBooks sandbox only');
-        }
-
-        Assert::false(
-            \in_array($entity, [MappingEntity::TaxCode, MappingEntity::CustomField], true),
-            'Tax codes and custom fields are never created',
-        );
-
-        return $this->candidate($entity, $this->add($accessToken, QuickBooksMappingEntityMapper::toEntity($entity, $name)));
     }
 
     /**
@@ -210,21 +184,6 @@ final readonly class QuickBooksMappingCandidateReader
     {
         try {
             return $this->transport->query($accessToken, $query, self::deadline());
-        } catch (QuickBooksDeadlineExceededException $e) {
-            throw $this->unavailable($e);
-        }
-    }
-
-    /**
-     * @throws AuthenticationExpiredException
-     * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksFaultException
-     * @throws UnexpectedApiResultException
-     */
-    private function add(#[SensitiveParameter] ApiKeyToken $accessToken, IPPIntuitEntity $entity): IPPIntuitEntity
-    {
-        try {
-            return $this->transport->add($accessToken, $entity, $entity::class, self::deadline());
         } catch (QuickBooksDeadlineExceededException $e) {
             throw $this->unavailable($e);
         }

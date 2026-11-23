@@ -10,13 +10,8 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
-use App\Infrastructure\QuickBooks\Mappers\QuickBooksMappingEntityMapper;
-use App\Infrastructure\QuickBooks\QuickBooksConfig;
-use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
 use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
-use InvalidArgumentException;
-use LogicException;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -27,17 +22,12 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Data\IPPAccount;
-use QuickBooksOnline\API\Data\IPPClass;
-use QuickBooksOnline\API\Data\IPPDepartment;
-use QuickBooksOnline\API\Data\IPPIntuitEntity;
-use QuickBooksOnline\API\Data\IPPPaymentMethod;
 use QuickBooksOnline\API\Data\IPPPreferences;
 use QuickBooksOnline\API\Data\IPPTaxCode;
 use QuickBooksOnline\API\Data\IPPTerm;
 use stdClass;
 
 #[CoversClass(QuickBooksMappingCandidateReader::class)]
-#[CoversClass(QuickBooksMappingEntityMapper::class)]
 final class QuickBooksMappingCandidateReaderTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
@@ -156,88 +146,6 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
         $this->candidates(MappingEntity::Account);
     }
 
-    #[Test]
-    public function an_expired_deadline_on_a_create_is_an_unavailable_service(): void
-    {
-        $this->transport->shouldReceive('add')->once()->andThrow(new QuickBooksDeadlineExceededException(-1.0));
-
-        $this->expectException(ExternalServiceUnavailableException::class);
-
-        $this->create(MappingEntity::Account);
-    }
-
-    /**
-     * @return array<string, array{MappingEntity, class-string<IPPIntuitEntity>, array<string, int|string>}>
-     */
-    public static function creatableEntities(): array
-    {
-        return [
-            'account' => [MappingEntity::Account, IPPAccount::class, ['AccountType' => 'Bank']],
-            'term' => [MappingEntity::Term, IPPTerm::class, ['DueDays' => 30]],
-            'payment method' => [MappingEntity::PaymentMethod, IPPPaymentMethod::class, []],
-            'department' => [MappingEntity::Department, IPPDepartment::class, []],
-            'class' => [MappingEntity::SalesClass, IPPClass::class, []],
-        ];
-    }
-
-    /**
-     * @param class-string<IPPIntuitEntity> $class
-     * @param array<string, int|string>     $extra
-     */
-    #[Test]
-    #[DataProvider('creatableEntities')]
-    public function a_create_sends_the_name_and_the_fields_qbo_requires(MappingEntity $entity, string $class, array $extra): void
-    {
-        $sent = null;
-        $this->transport->shouldReceive('add')->once()
-            ->with(Mockery::any(), Mockery::type($class), $class, Mockery::any())
-            ->andReturnUsing(static function (ApiKeyToken $token, IPPIntuitEntity $payload) use (&$sent, $class): object {
-                $sent = \array_filter(\get_object_vars($payload), static fn(mixed $value): bool => $value !== null);
-
-                $name = \property_exists($class, 'FullyQualifiedName') ? 'FullyQualifiedName' : 'Name';
-
-                return self::row(new $class(), ['Id' => '77', $name => 'Sync Test', 'Active' => 'true']);
-            });
-
-        $created = $this->create($entity);
-
-        $this->assertEquals(new MappingCandidateDTO('77', 'Sync Test', true), $created);
-        $this->assertIsArray($sent);
-        $this->assertEquals(['Name' => 'Sync Test', ...$extra], \array_map(
-            static fn(mixed $value): mixed => \is_object($value) ? \get_object_vars($value)['value'] ?? $value : $value,
-            $sent,
-        ));
-    }
-
-    /**
-     * @return array<string, array{MappingEntity}>
-     */
-    public static function neverCreated(): array
-    {
-        return ['tax code' => [MappingEntity::TaxCode], 'custom field' => [MappingEntity::CustomField]];
-    }
-
-    #[Test]
-    #[DataProvider('neverCreated')]
-    public function tax_codes_and_custom_fields_are_never_created(MappingEntity $entity): void
-    {
-        $this->transport->shouldNotReceive('add');
-
-        $this->expectException(InvalidArgumentException::class);
-
-        $this->create($entity);
-    }
-
-    #[Test]
-    #[DataProvider('neverCreated')]
-    public function the_mapper_refuses_entities_that_are_never_created(MappingEntity $entity): void
-    {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('This entity is never created');
-
-        QuickBooksMappingEntityMapper::toEntity($entity, 'Sync Test');
-    }
-
     /**
      * @return list<MappingCandidateDTO>
      */
@@ -246,16 +154,9 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
         return $this->reader()->candidates(new ApiKeyToken('access'), $entity);
     }
 
-    private function create(MappingEntity $entity): MappingCandidateDTO
-    {
-        return $this->reader()->create(new ApiKeyToken('access'), $entity, 'Sync Test');
-    }
-
     private function reader(): QuickBooksMappingCandidateReader
     {
-        $config = new QuickBooksConfig(QuickBooksEnvironment::Sandbox, 'id', 'secret', 'https://example.test/callback', '9130');
-
-        return new QuickBooksMappingCandidateReader($this->transport, $config, new NullLogger());
+        return new QuickBooksMappingCandidateReader($this->transport, new NullLogger());
     }
 
     /**

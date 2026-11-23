@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Console\Commands;
 
-use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksEnvironmentInterface;
 use App\Application\QuickBooks\Mappings\DTOs\MappingCandidateDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingEntity;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
@@ -61,7 +61,6 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->app->instance(QuickBooksTokenService::class, $tokens);
 
         $this->adapter = Mockery::mock(QuickBooksMappingCandidatesInterface::class);
-        $this->adapter->shouldNotReceive('create');
         $this->app->instance(QuickBooksMappingCandidatesInterface::class, $this->adapter);
 
         DB::listen(function (QueryExecuted $query): void {
@@ -191,103 +190,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
     }
 
     #[Test]
-    public function auto_mode_is_refused_for_production_with_no_token_adapter_call_or_write(): void
-    {
-        $this->clearRow(MappingKey::Department);
-        $this->updates = [];
-        $this->adapter->shouldNotReceive('candidates');
-        $tokens = Mockery::mock(QuickBooksTokenService::class);
-        $tokens->shouldNotReceive('accessToken');
-        $this->app->instance(QuickBooksTokenService::class, $tokens);
-
-        $this->resolve(['--auto' => true])->expectsOutputToContain('sandbox only')->assertFailed()->run();
-
-        $this->assertSame([], $this->updates);
-        $this->assertSame([null, null, null], $this->row(MappingKey::Department));
-    }
-
-    #[Test]
-    public function auto_mode_resolves_every_key_in_the_sandbox_and_a_rerun_writes_nothing(): void
-    {
-        $this->inSandbox();
-        DB::table('quickbooks.mappings')->update(['qbo_ref_id' => null, 'qbo_ref_name' => null, 'realm_id' => null]);
-        DB::table('quickbooks.mappings')->where('key', 'department')->update(['qbo_ref_id' => 'human', 'qbo_ref_name' => 'Human', 'realm_id' => self::REALM]);
-        DB::table('quickbooks.mappings')->where('key', 'class')->update(['qbo_ref_id' => 'old', 'qbo_ref_name' => 'Old', 'realm_id' => 'realm-other']);
-        $this->adapter->shouldReceive('candidates')->andReturnUsing(
-            static fn(ApiKeyToken $token, MappingEntity $entity): array => match ($entity) {
-                MappingEntity::TaxCode => \array_map(
-                    static fn(string $name): MappingCandidateDTO => new MappingCandidateDTO($name, $name, true),
-                    ['20.0% S', '0.0% Z', '0.0% ECG', '0.0% ECS'],
-                ),
-                MappingEntity::CustomField => [
-                    new MappingCandidateDTO('1', 'P.O. Number', true),
-                    new MappingCandidateDTO('3', 'Transaction ID', true),
-                ],
-                default => [],
-            },
-        );
-        $this->adapter->shouldReceive('create')->times(8)->andReturnUsing(
-            static fn(ApiKeyToken $token, MappingEntity $entity, string $name): MappingCandidateDTO => new MappingCandidateDTO("new {$name}", $name, true),
-        );
-
-        $this->resolve(['--auto' => true])->expectsOutputToContain('No unresolved mapping is left')->assertSuccessful()->run();
-
-        $this->assertSame([], $this->app->make(QuickBooksMappingRepositoryInterface::class)->unresolvedKeys(self::REALM));
-        $this->assertSame(['human', 'Human', self::REALM], $this->row(MappingKey::Department));
-        $this->assertSame(['new Sync Test Class', 'Sync Test Class', self::REALM], $this->row(MappingKey::SalesClass));
-        $this->assertSame(['3', 'Transaction ID', self::REALM], $this->row(MappingKey::TransactionIdField));
-
-        $this->updates = [];
-        $this->resolve(['--auto' => true])->assertSuccessful()->run();
-        $this->assertSame([], $this->updates);
-    }
-
-    #[Test]
-    public function auto_mode_names_an_unmatched_key_resolves_the_rest_and_fails(): void
-    {
-        $this->inSandbox();
-        $this->clearRow(MappingKey::TaxZero);
-        $this->clearRow(MappingKey::Department);
-        $this->clearRow(MappingKey::SalesClass);
-        $this->adapter->shouldNotReceive('create');
-        $this->adapter->shouldReceive('candidates')->andReturnUsing(
-            static fn(ApiKeyToken $token, MappingEntity $entity): array => match ($entity) {
-                MappingEntity::Department => [new MappingCandidateDTO('5', 'Sync Test Department', true)],
-                MappingEntity::SalesClass => [new MappingCandidateDTO('6', 'Sync Test Class', false)],
-                default => [],
-            },
-        );
-
-        $this->resolve(['--auto' => true])
-            ->expectsOutputToContain('Resolved department')
-            ->expectsOutputToContain('tax.zero: no active match')
-            ->expectsOutputToContain('class: the match for "Sync Test Class" is inactive')
-            ->assertFailed()
-            ->run();
-
-        $this->assertSame(['5', 'Sync Test Department', self::REALM], $this->row(MappingKey::Department));
-        $this->assertSame([null, null, null], $this->row(MappingKey::TaxZero));
-        $this->assertSame([null, null, null], $this->row(MappingKey::SalesClass));
-    }
-
-    /**
-     * @return array<string, array{array<string, string|bool>}>
-     */
-    public static function clashingOptions(): array
-    {
-        return [
-            'key and check' => [['--key' => 'department', '--check' => true]],
-            'key and auto' => [['--key' => 'department', '--auto' => true]],
-            'check and auto' => [['--check' => true, '--auto' => true]],
-        ];
-    }
-
-    /**
-     * @param array<string, string|bool> $options
-     */
-    #[Test]
-    #[DataProvider('clashingOptions')]
-    public function two_options_fail_before_any_read(array $options): void
+    public function key_with_check_fails_before_any_read(): void
     {
         $this->adapter->shouldNotReceive('candidates');
         $reads = 0;
@@ -295,7 +198,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             $reads++;
         });
 
-        $this->resolve($options)->assertFailed()->run();
+        $this->resolve(['--key' => 'department', '--check' => true])->assertFailed()->run();
 
         $this->assertSame(0, $reads);
     }
@@ -395,13 +298,6 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
             self::REALM,
         ));
         $this->app->forgetInstance(QuickBooksEnvironmentInterface::class);
-    }
-
-    private function inSandbox(): void
-    {
-        $this->configure(QuickBooksEnvironment::Sandbox);
-        $this->adapter = Mockery::mock(QuickBooksMappingCandidatesInterface::class);
-        $this->app->instance(QuickBooksMappingCandidatesInterface::class, $this->adapter);
     }
 
     /**
