@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Internal\Controllers;
+namespace App\Presentation\Http\Api\Controllers;
 
 use App\Application\Shopwired\UseCases\GetOrderStatusSummaryUseCase;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Presentation\Http\Internal\Resources\OrderStatusSummaryResource;
+use App\Presentation\Http\Api\Resources\OrderStatusSummaryResource;
 
 /**
  * @throws DatabaseOperationFailedException

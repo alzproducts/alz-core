@@ -9,10 +9,10 @@ return [
     |--------------------------------------------------------------------------
     |
     | One entry per service caller, read by AuthenticateServiceCallerMiddleware.
-    | A blank value refuses that caller's requests with 503 (docs/adr/0023).
+    | A blank value refuses that caller's requests (docs/adr/0023).
     |
     | token_sha256: hex SHA-256 of the caller's bearer token, never the token.
-    | allowed_ips: comma-separated client IP addresses (no CIDR ranges).
+    | allowed_ips: comma-separated client IP addresses or CIDR ranges.
     |
     */
 

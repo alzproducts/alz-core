@@ -4,15 +4,15 @@ API contract for alz-connect's homepage order status data, read from alz-core's 
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/internal/order-status-summary` | Paid and errored order counts, and the references of unpaid orders |
+| `GET` | `/api/orders/status-summary` | Paid and errored order counts, and the references of unpaid orders |
 
 - **Authentication**: the alz-connect service caller's bearer token, sent from an allowlisted client IP. Both are required.
-- **Rate limited**: 60 requests a minute per client IP (`throttle:service-callers`; off when `APP_ENV=local`).
+- **Rate limited**: 60 requests a minute per client IP (`throttle:api`; off when `APP_ENV=local`).
 
 ## Request
 
 ```
-GET /api/internal/order-status-summary
+GET /api/orders/status-summary
 Authorization: Bearer <token>
 ```
 
@@ -43,7 +43,7 @@ A successful request returns `200`:
 
 ## Errors
 
-Checked in this order. Every body uses the standard envelope:
+429, 401 and 403 are checked in that order, before the query runs. Every body uses the standard envelope:
 
 ```json
 {
@@ -57,10 +57,10 @@ Checked in this order. Every body uses the standard envelope:
 | Status | `type` | When |
 |--------|--------|------|
 | 429 | `error` | Rate limit reached |
-| 503 | `service_unavailable` | The token hash or IP allowlist is blank or unset; also a transient database outage |
-| 401 | `unauthorized` | Missing, malformed or wrong token (one body for all three) |
-| 403 | `forbidden` | Correct token, client IP not allowlisted |
+| 401 | `unauthorized` | Missing, malformed or wrong token, or the token hash is blank or unset (one body for all) |
+| 403 | `forbidden` | Correct token, but the client IP is not allowlisted or the allowlist is blank or unset |
 | 500 | `server_error` | Unexpected error |
+| 503 | `service_unavailable` | Transient database outage |
 
 Message text is for display only and may change.
 
@@ -69,6 +69,6 @@ Message text is for display only and may change.
 | Variable | Value |
 |----------|-------|
 | `ALZ_CONNECT_BEARER_SHA256` | Lowercase hex SHA-256 of the bearer token; alz-core never holds the token |
-| `ALZ_CONNECT_ALLOWED_IPS` | Comma-separated client IP addresses, IPv4 or IPv6; spaces are ignored and CIDR ranges are not supported |
+| `ALZ_CONNECT_ALLOWED_IPS` | Comma-separated client IP addresses or CIDR ranges, IPv4 or IPv6; spaces are ignored |
 
 The caller's token is 256 random bits, for example `openssl rand -hex 32`. Hash it with no trailing newline: `printf %s "$TOKEN" | shasum -a 256 | cut -d' ' -f1`.

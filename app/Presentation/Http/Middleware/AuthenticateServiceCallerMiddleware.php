@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Middleware;
 
-use App\Presentation\Http\Api\Responses\ApiErrorResponseDTO;
-use App\Presentation\Http\Api\Responses\ApiErrorTypeEnum;
 use Closure;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\IpUtils;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Allows only the named service caller: its bearer token is the gate, its IP
@@ -32,22 +32,24 @@ final class AuthenticateServiceCallerMiddleware
 
     /**
      * @param Closure(Request): Response $next
+     *
+     * @throws HttpException When the token or client IP is refused
+     * @throws HttpResponseException
      */
     public function handle(Request $request, Closure $next, string $caller): Response
     {
         $tokenHash = self::configValue($caller, 'token_sha256');
-        $allowedIps = self::allowedIps($caller);
 
-        if ($tokenHash === '' || $allowedIps === []) {
-            return $this->rejectUnconfigured($request, $caller);
+        if (!\hash_equals($tokenHash, \hash('sha256', $request->bearerToken() ?? ''))) {
+            self::logRefusal($request, $caller, 'invalid_token');
+            \abort(Response::HTTP_UNAUTHORIZED, 'Unauthorized.');
         }
 
-        if (!self::hasValidToken($request, $tokenHash)) {
-            return $this->rejectToken($request, $caller);
-        }
+        $allowedIps = \array_map(\trim(...), \explode(',', self::configValue($caller, 'allowed_ips')));
 
-        if (!self::isAllowedIp($request->ip(), $allowedIps)) {
-            return $this->rejectIp($request, $caller);
+        if (!IpUtils::checkIp($request->ip() ?? '', $allowedIps)) {
+            self::logRefusal($request, $caller, 'ip_not_allowed');
+            \abort(Response::HTTP_FORBIDDEN, 'Forbidden.');
         }
 
         return $next($request);
@@ -60,98 +62,13 @@ final class AuthenticateServiceCallerMiddleware
         return \is_string($value) ? \mb_trim($value) : '';
     }
 
-    /**
-     * @return list<string>
-     */
-    private static function allowedIps(string $caller): array
+    private static function logRefusal(Request $request, string $caller, string $reason): void
     {
-        $entries = \array_map(\trim(...), \explode(',', self::configValue($caller, 'allowed_ips')));
-
-        return \array_values(\array_filter($entries, static fn(string $entry): bool => $entry !== ''));
-    }
-
-    private static function hasValidToken(Request $request, string $tokenHash): bool
-    {
-        // intentional: not $request->bearerToken(), which accepts text before "Bearer".
-        $matched = \preg_match('/\ABearer +(\S+)\z/i', $request->headers->get('Authorization') ?? '', $matches);
-
-        return $matched === 1 && \hash_equals($tokenHash, \hash('sha256', $matches[1]));
-    }
-
-    /**
-     * @param list<string> $allowedIps
-     */
-    private static function isAllowedIp(?string $clientIp, array $allowedIps): bool
-    {
-        $client = self::packedAddress($clientIp ?? '');
-
-        return $client !== null
-            && \array_any($allowedIps, static fn(string $entry): bool => self::packedAddress($entry) === $client);
-    }
-
-    private static function packedAddress(string $address): ?string
-    {
-        // intentional: inet_pton() warns on invalid input, and Laravel throws on a warning.
-        if (\filter_var($address, FILTER_VALIDATE_IP) === false) {
-            return null;
-        }
-
-        $packed = \inet_pton($address);
-
-        return $packed === false ? null : $packed;
-    }
-
-    private function rejectUnconfigured(Request $request, string $caller): JsonResponse
-    {
-        Log::channel('security')->critical('Service caller not configured', [
-            'event' => 'api.service_caller.not_configured',
-            ...self::logContext($request, $caller),
-        ]);
-
-        return new ApiErrorResponseDTO(
-            type: ApiErrorTypeEnum::ServiceUnavailable,
-            message: 'Service unavailable.',
-            status: Response::HTTP_SERVICE_UNAVAILABLE,
-        )->toJsonResponse();
-    }
-
-    private function rejectToken(Request $request, string $caller): JsonResponse
-    {
-        Log::channel('security')->warning('Service caller token rejected', [
-            'event' => 'api.service_caller.invalid_token',
-            ...self::logContext($request, $caller),
-        ]);
-
-        return new ApiErrorResponseDTO(
-            type: ApiErrorTypeEnum::Unauthorized,
-            message: 'Unauthorized.',
-            status: Response::HTTP_UNAUTHORIZED,
-        )->toJsonResponse();
-    }
-
-    private function rejectIp(Request $request, string $caller): JsonResponse
-    {
-        Log::channel('security')->warning('Service caller IP not allowed', [
-            'event' => 'api.service_caller.ip_not_allowed',
-            ...self::logContext($request, $caller),
-        ]);
-
-        return new ApiErrorResponseDTO(
-            type: ApiErrorTypeEnum::Forbidden,
-            message: 'Forbidden.',
-            status: Response::HTTP_FORBIDDEN,
-        )->toJsonResponse();
-    }
-
-    /**
-     * @return array<string, string|null>
-     */
-    private static function logContext(Request $request, string $caller): array
-    {
-        return [
+        Log::channel('security')->warning('Service caller refused', [
+            'event' => "api.service_caller.{$reason}",
             'caller' => $caller,
             'path' => $request->path(),
             'ip' => $request->ip(),
-        ];
+        ]);
     }
 }

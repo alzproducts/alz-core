@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Presentation\Http\Internal\Resources;
+namespace App\Presentation\Http\Api\Resources;
 
 use App\Application\Shopwired\DTOs\OrderStatusSummaryDTO;
 use Illuminate\Http\Request;

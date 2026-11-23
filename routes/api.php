@@ -19,6 +19,7 @@ use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
+use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
@@ -33,7 +34,6 @@ use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
 use App\Presentation\Http\HelpScout\Controllers\ProfileController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
-use App\Presentation\Http\Internal\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Middleware\AuthenticateServiceCallerMiddleware;
 use App\Presentation\Http\Middleware\EnsureRoleTierMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
@@ -130,11 +130,12 @@ Route::prefix('webhooks/twilio')
 |
 */
 
-Route::prefix('internal')
-    ->middleware(['throttle:service-callers', AuthenticateServiceCallerMiddleware::using('alz_connect')])
-    ->group(static function (): void {
-        Route::get('order-status-summary', OrderStatusSummaryController::class);
-    });
+Route::middleware([
+    'throttle:api',
+    AuthenticateServiceCallerMiddleware::using('alz_connect'),
+])->group(static function (): void {
+    Route::get('orders/status-summary', OrderStatusSummaryController::class);
+});
 
 /*
 |--------------------------------------------------------------------------

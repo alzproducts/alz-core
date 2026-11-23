@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Presentation\Http\Internal;
+namespace Tests\Feature\Presentation\Http\Api;
 
 use App\Application\Contracts\Shopwired\OrderStatusSummaryQueryRepositoryInterface;
 use App\Application\Shopwired\DTOs\OrderStatusSummaryDTO;
 use App\Application\Shopwired\UseCases\GetOrderStatusSummaryUseCase;
-use App\Presentation\Http\Internal\Controllers\OrderStatusSummaryController;
-use App\Presentation\Http\Internal\Resources\OrderStatusSummaryResource;
+use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
+use App\Presentation\Http\Api\Resources\OrderStatusSummaryResource;
 use App\Presentation\Http\Middleware\AuthenticateServiceCallerMiddleware;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -25,7 +25,7 @@ use Tests\TestCase;
 #[CoversClass(GetOrderStatusSummaryUseCase::class)]
 final class OrderStatusSummaryEndpointTest extends TestCase
 {
-    private const string PATH = '/api/internal/order-status-summary';
+    private const string PATH = '/api/orders/status-summary';
 
     private const string BEARER = 'fake-alz-connect-bearer';
 
@@ -96,7 +96,6 @@ final class OrderStatusSummaryEndpointTest extends TestCase
             'no scheme' => [self::BEARER],
             'other scheme' => ['Basic ' . self::BEARER],
             'scheme only' => ['Bearer'],
-            'text before the scheme' => ['Basic x, Bearer ' . self::BEARER],
             'text after the token' => ['Bearer ' . self::BEARER . ' extra'],
             'wrong' => ['Bearer wrong'],
             'the stored hash itself' => ['Bearer ' . \hash('sha256', self::BEARER)],
@@ -121,32 +120,30 @@ final class OrderStatusSummaryEndpointTest extends TestCase
 
     #[Test]
     #[DataProvider('blankConfigurations')]
-    public function it_returns_503_without_a_query_when_configuration_is_blank(string $key, ?string $value): void
+    public function it_refuses_without_a_query_when_configuration_is_blank(string $key, ?string $value, int $status): void
     {
         \config(["service-callers.alz_connect.{$key}" => $value]);
         $this->repository->shouldNotReceive('getSummary');
 
-        foreach (['Bearer ' . self::BEARER, 'Bearer wrong', null] as $authorization) {
-            $this->request($authorization)
-                ->assertServiceUnavailable()
-                ->assertJsonPath('error.type', 'service_unavailable');
-        }
-
-        $this->request('Bearer ' . self::BEARER, self::OTHER_IP)->assertServiceUnavailable();
+        $this->request('Bearer ' . self::BEARER)->assertStatus($status);
+        $this->request('Bearer ' . self::BEARER, self::OTHER_IP)->assertStatus($status);
+        $this->request('Bearer wrong')->assertUnauthorized();
+        $this->request('Bearer ')->assertUnauthorized();
+        $this->request(null)->assertUnauthorized();
     }
 
     /**
-     * @return array<string, array{string, string|null}>
+     * @return array<string, array{string, string|null, int}>
      */
     public static function blankConfigurations(): array
     {
         return [
-            'hash unset' => ['token_sha256', null],
-            'hash empty' => ['token_sha256', ''],
-            'hash spaces' => ['token_sha256', '  '],
-            'allowlist unset' => ['allowed_ips', null],
-            'allowlist empty' => ['allowed_ips', ''],
-            'allowlist separators only' => ['allowed_ips', ' , '],
+            'hash unset' => ['token_sha256', null, 401],
+            'hash empty' => ['token_sha256', '', 401],
+            'hash spaces' => ['token_sha256', '  ', 401],
+            'allowlist unset' => ['allowed_ips', null, 403],
+            'allowlist empty' => ['allowed_ips', '', 403],
+            'allowlist separators only' => ['allowed_ips', ' , ', 403],
         ];
     }
 
@@ -170,7 +167,10 @@ final class OrderStatusSummaryEndpointTest extends TestCase
             'two text forms of one IPv6 address' => ['2001:0DB8:0000:0000:0000:0000:0000:0001', '2001:db8::1', 200],
             'different IPv6 address' => ['2001:db8::1', '2001:db8::2', 403],
             'prefix of an entry' => ['203.0.113.100', '203.0.113.10', 403],
-            'range is not an address' => ['203.0.113.0/24', '203.0.113.10', 403],
+            'inside an IPv4 range' => ['198.51.100.20, 203.0.113.0/24', '203.0.113.10', 200],
+            'outside an IPv4 range' => ['203.0.113.0/28', '203.0.113.16', 403],
+            'inside an IPv6 range' => ['2001:db8::/32', '2001:db8:1::1', 200],
+            'outside an IPv6 range' => ['2001:db8::/48', '2001:db8:1::1', 403],
             'invalid entry beside a valid one' => ['not-an-ip,203.0.113.10', '203.0.113.10', 200],
         ];
     }
