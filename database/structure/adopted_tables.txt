@@ -1,0 +1,340 @@
+access.department_permissions column added_by uuid null default -
+access.department_permissions column created_at timestamp with time zone null default -
+access.department_permissions column department_id integer not null default -
+access.department_permissions column permission_id integer not null default -
+access.department_permissions column updated_at timestamp with time zone null default -
+access.department_permissions column updated_by uuid null default -
+access.department_permissions constraint department_permissions_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.department_permissions constraint department_permissions_department_id_fkey FOREIGN KEY (department_id) REFERENCES access.departments(id) ON DELETE CASCADE
+access.department_permissions constraint department_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES access.permissions(id) ON DELETE CASCADE
+access.department_permissions constraint department_permissions_pkey PRIMARY KEY (department_id, permission_id)
+access.department_permissions constraint department_permissions_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.department_permissions grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.department_permissions grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.department_permissions grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.department_permissions grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.department_permissions index CREATE INDEX idx_department_permissions_department_id ON access.department_permissions USING btree (department_id)
+access.department_permissions index CREATE INDEX idx_department_permissions_permission_id ON access.department_permissions USING btree (permission_id)
+access.department_permissions index CREATE UNIQUE INDEX department_permissions_pkey ON access.department_permissions USING btree (department_id, permission_id)
+access.department_permissions policy Department permissions are deletable by admins cmd d permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.department_permissions policy Department permissions are insertable by admins cmd a permissive to authenticated using - check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text))))
+access.department_permissions policy Department permissions are updatable by admins cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.department_permissions policy Department permissions are updatable by managers cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'manager'::text)))) check -
+access.department_permissions policy Department permissions are viewable by authenticated users cmd r permissive to authenticated using true check -
+access.department_permissions table rls true force_rls false owner postgres
+access.department_permissions trigger CREATE TRIGGER set_department_permissions_audit_insert BEFORE INSERT ON access.department_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.department_permissions trigger CREATE TRIGGER set_department_permissions_audit_update BEFORE UPDATE ON access.department_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.departments column added_by uuid null default -
+access.departments column created_at timestamp with time zone null default -
+access.departments column description text null default -
+access.departments column id integer not null default nextval('access.departments_id_seq'::regclass)
+access.departments column is_active boolean null default true
+access.departments column name text not null default -
+access.departments column updated_at timestamp with time zone null default -
+access.departments column updated_by uuid null default -
+access.departments column version integer null default 1
+access.departments constraint departments_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.departments constraint departments_name_key UNIQUE (name)
+access.departments constraint departments_pkey PRIMARY KEY (id)
+access.departments constraint departments_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.departments grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.departments grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.departments grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.departments grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.departments index CREATE UNIQUE INDEX departments_name_key ON access.departments USING btree (name)
+access.departments index CREATE UNIQUE INDEX departments_pkey ON access.departments USING btree (id)
+access.departments policy Departments are deletable by admins cmd d permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.departments policy Departments are insertable by admins cmd a permissive to authenticated using - check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text))))
+access.departments policy Departments are updatable by admins cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.departments policy Departments are updatable by managers cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'manager'::text)))) check -
+access.departments policy Departments are viewable by authenticated users cmd r permissive to authenticated using (is_active = true) check -
+access.departments table rls true force_rls false owner postgres
+access.departments trigger CREATE TRIGGER increment_departments_version BEFORE UPDATE ON access.departments FOR EACH ROW EXECUTE FUNCTION public.increment_version()
+access.departments trigger CREATE TRIGGER set_departments_audit_insert BEFORE INSERT ON access.departments FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.departments trigger CREATE TRIGGER set_departments_audit_update BEFORE UPDATE ON access.departments FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.permissions column action text not null default -
+access.permissions column added_by uuid null default -
+access.permissions column created_at timestamp with time zone null default -
+access.permissions column description text null default -
+access.permissions column display_name text null default -
+access.permissions column id integer not null default nextval('access.permissions_id_seq'::regclass)
+access.permissions column is_system boolean null default false
+access.permissions column resource text not null default -
+access.permissions column updated_at timestamp with time zone null default -
+access.permissions column updated_by uuid null default -
+access.permissions column version integer null default 1
+access.permissions constraint permissions_action_check CHECK ((action = ANY (ARRAY['view'::text, 'create'::text, 'edit'::text, 'delete'::text, 'export'::text, 'manage'::text, '*'::text])))
+access.permissions constraint permissions_action_resource_key UNIQUE (action, resource)
+access.permissions constraint permissions_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.permissions constraint permissions_pkey PRIMARY KEY (id)
+access.permissions constraint permissions_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.permissions grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.permissions grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.permissions grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.permissions grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.permissions index CREATE INDEX idx_permissions_resource ON access.permissions USING btree (resource text_pattern_ops)
+access.permissions index CREATE UNIQUE INDEX permissions_action_resource_key ON access.permissions USING btree (action, resource)
+access.permissions index CREATE UNIQUE INDEX permissions_pkey ON access.permissions USING btree (id)
+access.permissions policy Only non-system permissions can be deleted by admins cmd d permissive to authenticated using ((EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) AND (is_system = false)) check -
+access.permissions policy Permissions are modifiable by admins only cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.permissions policy Permissions are viewable by authenticated users cmd r permissive to authenticated using true check -
+access.permissions table rls true force_rls false owner postgres
+access.permissions trigger CREATE TRIGGER increment_permissions_version BEFORE UPDATE ON access.permissions FOR EACH ROW EXECUTE FUNCTION public.increment_version()
+access.permissions trigger CREATE TRIGGER set_permissions_audit_insert BEFORE INSERT ON access.permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.permissions trigger CREATE TRIGGER set_permissions_audit_update BEFORE UPDATE ON access.permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.role_permissions column added_by uuid null default -
+access.role_permissions column created_at timestamp with time zone null default -
+access.role_permissions column permission_id integer not null default -
+access.role_permissions column role_id integer not null default -
+access.role_permissions column updated_at timestamp with time zone null default -
+access.role_permissions column updated_by uuid null default -
+access.role_permissions constraint role_permissions_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.role_permissions constraint role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES access.permissions(id) ON DELETE CASCADE
+access.role_permissions constraint role_permissions_pkey PRIMARY KEY (role_id, permission_id)
+access.role_permissions constraint role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES access.roles(id) ON DELETE CASCADE
+access.role_permissions constraint role_permissions_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.role_permissions grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.role_permissions grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.role_permissions grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.role_permissions grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.role_permissions index CREATE INDEX idx_role_permissions_permission_id ON access.role_permissions USING btree (permission_id)
+access.role_permissions index CREATE INDEX idx_role_permissions_role_id ON access.role_permissions USING btree (role_id)
+access.role_permissions index CREATE UNIQUE INDEX role_permissions_pkey ON access.role_permissions USING btree (role_id, permission_id)
+access.role_permissions policy Role permissions are creatable by admins only cmd a permissive to authenticated using - check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text))))
+access.role_permissions policy Role permissions are deletable by admins only cmd d permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.role_permissions policy Role permissions are modifiable by admins only cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text))))
+access.role_permissions policy Role permissions are viewable by authenticated users cmd r permissive to authenticated using true check -
+access.role_permissions table rls true force_rls false owner postgres
+access.role_permissions trigger CREATE TRIGGER set_role_permissions_audit_insert BEFORE INSERT ON access.role_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.role_permissions trigger CREATE TRIGGER set_role_permissions_audit_update BEFORE UPDATE ON access.role_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.roles column added_by uuid null default -
+access.roles column created_at timestamp with time zone null default -
+access.roles column description text null default -
+access.roles column id integer not null default nextval('access.roles_id_seq'::regclass)
+access.roles column is_active boolean null default true
+access.roles column name text not null default -
+access.roles column updated_at timestamp with time zone null default -
+access.roles column updated_by uuid null default -
+access.roles column version integer null default 1
+access.roles constraint roles_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.roles constraint roles_name_check CHECK ((name = ANY (ARRAY['guest'::text, 'standard'::text, 'manager'::text, 'admin'::text])))
+access.roles constraint roles_name_key UNIQUE (name)
+access.roles constraint roles_pkey PRIMARY KEY (id)
+access.roles constraint roles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.roles grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.roles grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.roles grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.roles grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.roles index CREATE UNIQUE INDEX roles_name_key ON access.roles USING btree (name)
+access.roles index CREATE UNIQUE INDEX roles_pkey ON access.roles USING btree (id)
+access.roles policy All authenticated users can view roles cmd r permissive to authenticated using true check -
+access.roles policy Only admins can create roles cmd a permissive to authenticated using - check utils.is_admin(auth.uid())
+access.roles policy Only admins can delete roles cmd d permissive to authenticated using utils.is_admin(auth.uid()) check -
+access.roles policy Only admins can modify roles cmd w permissive to authenticated using utils.is_admin(auth.uid()) check utils.is_admin(auth.uid())
+access.roles table rls true force_rls false owner postgres
+access.roles trigger CREATE TRIGGER increment_roles_version BEFORE UPDATE ON access.roles FOR EACH ROW EXECUTE FUNCTION public.increment_version()
+access.roles trigger CREATE TRIGGER set_roles_audit_insert BEFORE INSERT ON access.roles FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.roles trigger CREATE TRIGGER set_roles_audit_update BEFORE UPDATE ON access.roles FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.user_departments column added_by uuid null default -
+access.user_departments column created_at timestamp with time zone null default -
+access.user_departments column department_id integer not null default -
+access.user_departments column updated_at timestamp with time zone null default -
+access.user_departments column updated_by uuid null default -
+access.user_departments column user_id uuid not null default -
+access.user_departments constraint user_departments_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.user_departments constraint user_departments_department_id_fkey FOREIGN KEY (department_id) REFERENCES access.departments(id) ON DELETE CASCADE
+access.user_departments constraint user_departments_pkey PRIMARY KEY (user_id, department_id)
+access.user_departments constraint user_departments_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.user_departments constraint user_departments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+access.user_departments grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_departments grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_departments grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_departments grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_departments index CREATE INDEX idx_user_departments_department_id ON access.user_departments USING btree (department_id)
+access.user_departments index CREATE INDEX idx_user_departments_user_id ON access.user_departments USING btree (user_id)
+access.user_departments index CREATE UNIQUE INDEX user_departments_pkey ON access.user_departments USING btree (user_id, department_id)
+access.user_departments policy All authenticated users can view all department memberships cmd r permissive to authenticated using true check -
+access.user_departments policy User department assignments are deletable by admins or managers cmd d permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND ((r.name = 'admin'::text) OR (r.name = 'manager'::text))))) check -
+access.user_departments policy User department assignments are insertable by admins or manager cmd a permissive to authenticated using - check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND ((r.name = 'admin'::text) OR (r.name = 'manager'::text)))))
+access.user_departments policy User department assignments are updatable by admins or managers cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND ((r.name = 'admin'::text) OR (r.name = 'manager'::text))))) check -
+access.user_departments table rls true force_rls false owner postgres
+access.user_departments trigger CREATE TRIGGER set_user_departments_audit_insert BEFORE INSERT ON access.user_departments FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.user_departments trigger CREATE TRIGGER set_user_departments_audit_update BEFORE UPDATE ON access.user_departments FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.user_permissions column added_by uuid null default -
+access.user_permissions column created_at timestamp with time zone null default -
+access.user_permissions column expires_at timestamp with time zone null default -
+access.user_permissions column permission_id integer not null default -
+access.user_permissions column reason text null default -
+access.user_permissions column updated_at timestamp with time zone null default -
+access.user_permissions column updated_by uuid null default -
+access.user_permissions column user_id uuid not null default -
+access.user_permissions constraint user_permissions_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.user_permissions constraint user_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES access.permissions(id) ON DELETE CASCADE
+access.user_permissions constraint user_permissions_pkey PRIMARY KEY (user_id, permission_id)
+access.user_permissions constraint user_permissions_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.user_permissions constraint user_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+access.user_permissions grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_permissions grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_permissions grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_permissions grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_permissions index CREATE INDEX idx_user_permissions_expires_at ON access.user_permissions USING btree (expires_at)
+access.user_permissions index CREATE INDEX idx_user_permissions_permission_id ON access.user_permissions USING btree (permission_id)
+access.user_permissions index CREATE INDEX idx_user_permissions_user_id ON access.user_permissions USING btree (user_id)
+access.user_permissions index CREATE UNIQUE INDEX user_permissions_pkey ON access.user_permissions USING btree (user_id, permission_id)
+access.user_permissions policy Admins and managers can view all direct permissions cmd r permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND ((r.name = 'admin'::text) OR (r.name = 'manager'::text))))) check -
+access.user_permissions policy User permissions are deletable by admins cmd d permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.user_permissions policy User permissions are insertable by admins cmd a permissive to authenticated using - check (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text))))
+access.user_permissions policy User permissions are updatable by admins cmd w permissive to authenticated using (EXISTS ( SELECT 1 FROM (access.user_roles ur JOIN access.roles r ON ((ur.role_id = r.id))) WHERE ((ur.user_id = auth.uid()) AND (r.name = 'admin'::text)))) check -
+access.user_permissions policy Users can view their own direct permissions cmd r permissive to authenticated using (user_id = auth.uid()) check -
+access.user_permissions table rls true force_rls false owner postgres
+access.user_permissions trigger CREATE TRIGGER set_user_permissions_audit_insert BEFORE INSERT ON access.user_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.user_permissions trigger CREATE TRIGGER set_user_permissions_audit_update BEFORE UPDATE ON access.user_permissions FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+access.user_roles column added_by uuid null default -
+access.user_roles column created_at timestamp with time zone null default -
+access.user_roles column role_id integer not null default -
+access.user_roles column updated_at timestamp with time zone null default -
+access.user_roles column updated_by uuid null default -
+access.user_roles column user_id uuid not null default -
+access.user_roles constraint user_roles_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+access.user_roles constraint user_roles_pkey PRIMARY KEY (user_id)
+access.user_roles constraint user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES access.roles(id) ON DELETE CASCADE
+access.user_roles constraint user_roles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+access.user_roles constraint user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+access.user_roles grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_roles grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_roles grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_roles grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+access.user_roles index CREATE UNIQUE INDEX user_roles_pkey ON access.user_roles USING btree (user_id)
+access.user_roles policy user_roles_delete_by_staff cmd d permissive to authenticated using (utils.is_admin(auth.uid()) OR (utils.is_admin_or_manager(auth.uid()) AND (user_id <> auth.uid()) AND (( SELECT r.name FROM access.roles r WHERE (r.id = user_roles.role_id)) = ANY (ARRAY['standard'::text, 'guest'::text])))) check -
+access.user_roles policy user_roles_insert_by_staff cmd a permissive to authenticated using - check (utils.is_admin(auth.uid()) OR (utils.is_admin_or_manager(auth.uid()) AND (user_id <> auth.uid()) AND (( SELECT r.name FROM access.roles r WHERE (r.id = user_roles.role_id)) = ANY (ARRAY['standard'::text, 'guest'::text]))))
+access.user_roles policy user_roles_require_mfa_delete cmd d restrictive to authenticated using utils.mfa_satisfied() check -
+access.user_roles policy user_roles_require_mfa_insert cmd a restrictive to authenticated using - check utils.mfa_satisfied()
+access.user_roles policy user_roles_require_mfa_update cmd w restrictive to authenticated using utils.mfa_satisfied() check utils.mfa_satisfied()
+access.user_roles policy user_roles_select_own_or_staff cmd r permissive to authenticated using ((user_id = auth.uid()) OR utils.is_admin_or_manager(auth.uid())) check -
+access.user_roles policy user_roles_update_by_staff cmd w permissive to authenticated using (utils.is_admin(auth.uid()) OR (utils.is_admin_or_manager(auth.uid()) AND (user_id <> auth.uid()) AND (( SELECT r.name FROM access.roles r WHERE (r.id = user_roles.role_id)) = ANY (ARRAY['standard'::text, 'guest'::text])))) check (utils.is_admin(auth.uid()) OR (utils.is_admin_or_manager(auth.uid()) AND (user_id <> auth.uid()) AND (( SELECT r.name FROM access.roles r WHERE (r.id = user_roles.role_id)) = ANY (ARRAY['standard'::text, 'guest'::text]))))
+access.user_roles table rls true force_rls false owner postgres
+access.user_roles trigger CREATE TRIGGER set_user_roles_audit_insert BEFORE INSERT ON access.user_roles FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+access.user_roles trigger CREATE TRIGGER set_user_roles_audit_update BEFORE UPDATE ON access.user_roles FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+config.dashboard column added_by uuid null default -
+config.dashboard column created_at timestamp with time zone null default now()
+config.dashboard column enabled boolean null default true
+config.dashboard column id uuid not null default extensions.uuid_generate_v4()
+config.dashboard column settings jsonb not null default '{}'::jsonb
+config.dashboard column table_name text not null default -
+config.dashboard column updated_at timestamp with time zone null default now()
+config.dashboard column updated_by uuid null default -
+config.dashboard constraint dashboard_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id) ON DELETE SET NULL
+config.dashboard constraint dashboard_pkey PRIMARY KEY (id)
+config.dashboard constraint dashboard_table_name_key UNIQUE (table_name)
+config.dashboard constraint dashboard_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL
+config.dashboard constraint valid_table_name CHECK ((table_name ~ '^[a-z_]+'::text))
+config.dashboard grant authenticated INSERT,SELECT,UPDATE
+config.dashboard grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+config.dashboard grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+config.dashboard index CREATE INDEX idx_dashboard_enabled ON config.dashboard USING btree (enabled)
+config.dashboard index CREATE INDEX idx_dashboard_table_name ON config.dashboard USING btree (table_name)
+config.dashboard index CREATE UNIQUE INDEX dashboard_pkey ON config.dashboard USING btree (id)
+config.dashboard index CREATE UNIQUE INDEX dashboard_table_name_key ON config.dashboard USING btree (table_name)
+config.dashboard policy Admins and managers can modify dashboard configurations cmd * permissive to PUBLIC using utils.is_admin_or_manager(auth.uid()) check -
+config.dashboard policy Authenticated users can view dashboard configurations cmd r permissive to PUBLIC using (auth.role() = 'authenticated'::text) check -
+config.dashboard table rls true force_rls false owner postgres
+config.dashboard trigger CREATE TRIGGER set_dashboard_audit_insert BEFORE INSERT ON config.dashboard FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+config.dashboard trigger CREATE TRIGGER set_dashboard_audit_update BEFORE UPDATE ON config.dashboard FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
+public.auth_allowed_domains column added_by uuid null default -
+public.auth_allowed_domains column created_at timestamp with time zone null default now()
+public.auth_allowed_domains column domain text not null default -
+public.auth_allowed_domains column id uuid not null default extensions.uuid_generate_v4()
+public.auth_allowed_domains constraint auth_allowed_domains_added_by_fkey FOREIGN KEY (added_by) REFERENCES public.profiles(id)
+public.auth_allowed_domains constraint auth_allowed_domains_domain_key UNIQUE (domain)
+public.auth_allowed_domains constraint auth_allowed_domains_pkey PRIMARY KEY (id)
+public.auth_allowed_domains grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_domains grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_domains grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_domains grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_domains index CREATE INDEX auth_allowed_domains_added_by_idx ON public.auth_allowed_domains USING btree (added_by)
+public.auth_allowed_domains index CREATE UNIQUE INDEX auth_allowed_domains_domain_key ON public.auth_allowed_domains USING btree (domain)
+public.auth_allowed_domains index CREATE UNIQUE INDEX auth_allowed_domains_pkey ON public.auth_allowed_domains USING btree (id)
+public.auth_allowed_domains table rls true force_rls false owner postgres
+public.auth_allowed_emails column added_by uuid null default -
+public.auth_allowed_emails column created_at timestamp with time zone null default now()
+public.auth_allowed_emails column email text not null default -
+public.auth_allowed_emails column id uuid not null default extensions.uuid_generate_v4()
+public.auth_allowed_emails constraint auth_allowed_emails_added_by_fkey FOREIGN KEY (added_by) REFERENCES public.profiles(id)
+public.auth_allowed_emails constraint auth_allowed_emails_email_key UNIQUE (email)
+public.auth_allowed_emails constraint auth_allowed_emails_pkey PRIMARY KEY (id)
+public.auth_allowed_emails constraint email_or_domain_required CHECK ((email IS NOT NULL))
+public.auth_allowed_emails grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_emails grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_emails grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_emails grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.auth_allowed_emails index CREATE INDEX auth_allowed_emails_added_by_idx ON public.auth_allowed_emails USING btree (added_by)
+public.auth_allowed_emails index CREATE UNIQUE INDEX auth_allowed_emails_email_key ON public.auth_allowed_emails USING btree (email)
+public.auth_allowed_emails index CREATE UNIQUE INDEX auth_allowed_emails_pkey ON public.auth_allowed_emails USING btree (id)
+public.auth_allowed_emails table rls true force_rls false owner postgres
+public.profiles column avatar_url text null default -
+public.profiles column created_at timestamp with time zone null default now()
+public.profiles column email text null default -
+public.profiles column first_name text not null default -
+public.profiles column id uuid not null default -
+public.profiles column is_approved boolean not null default false
+public.profiles column last_name text null default -
+public.profiles column last_sign_in timestamp with time zone null default -
+public.profiles column role public.user_role not null default 'unauthorized'::public.user_role
+public.profiles column updated_at timestamp with time zone null default -
+public.profiles constraint profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+public.profiles constraint profiles_pkey PRIMARY KEY (id)
+public.profiles grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.profiles grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.profiles grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.profiles grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.profiles index CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)
+public.profiles policy profiles_insert_own_unapproved cmd a permissive to authenticated using - check ((id = auth.uid()) AND (is_approved = false))
+public.profiles policy profiles_require_mfa_update cmd w restrictive to authenticated using utils.mfa_satisfied() check utils.mfa_satisfied()
+public.profiles policy profiles_select_own_or_staff cmd r permissive to authenticated using ((id = auth.uid()) OR (utils.current_user_is_approved() AND utils.mfa_satisfied())) check -
+public.profiles policy profiles_update_approval_by_staff cmd w permissive to authenticated using ((utils.check_user_role(auth.uid(), 'admin'::text) OR utils.check_user_role(auth.uid(), 'manager'::text)) AND (auth.uid() <> id) AND (NOT (utils.check_user_role(auth.uid(), 'manager'::text) AND utils.check_user_role(id, 'admin'::text)))) check ((utils.check_user_role(auth.uid(), 'admin'::text) OR utils.check_user_role(auth.uid(), 'manager'::text)) AND (auth.uid() <> id) AND (NOT (utils.check_user_role(auth.uid(), 'manager'::text) AND utils.check_user_role(id, 'admin'::text))))
+public.profiles policy profiles_update_own cmd w permissive to authenticated using (id = auth.uid()) check ((id = auth.uid()) AND (is_approved = utils.current_user_is_approved()))
+public.profiles table rls true force_rls false owner postgres
+public.profiles trigger CREATE TRIGGER profiles_email_from_auth BEFORE INSERT OR UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION utils.profile_email_from_auth()
+public.system_cache column created_at timestamp with time zone null default now()
+public.system_cache column expires_at timestamp with time zone not null default -
+public.system_cache column key text not null default -
+public.system_cache column updated_at timestamp with time zone null default now()
+public.system_cache column value jsonb not null default -
+public.system_cache constraint system_cache_pkey PRIMARY KEY (key)
+public.system_cache grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.system_cache grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.system_cache grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.system_cache grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.system_cache index CREATE INDEX idx_system_cache_expires_at ON public.system_cache USING btree (expires_at)
+public.system_cache index CREATE INDEX idx_system_cache_key_expires_at ON public.system_cache USING btree (key, expires_at)
+public.system_cache index CREATE UNIQUE INDEX system_cache_pkey ON public.system_cache USING btree (key)
+public.system_cache table rls true force_rls false owner postgres
+public.system_cache trigger CREATE TRIGGER update_system_cache_timestamp BEFORE UPDATE ON public.system_cache FOR EACH ROW EXECUTE FUNCTION public.update_timestamp()
+public.user_api_keys column added_by uuid null default -
+public.user_api_keys column created_at timestamp with time zone null default now()
+public.user_api_keys column encrypted_key text not null default -
+public.user_api_keys column expires_at timestamp with time zone null default -
+public.user_api_keys column id uuid not null default gen_random_uuid()
+public.user_api_keys column is_valid boolean null default true
+public.user_api_keys column last_used_at timestamp with time zone null default -
+public.user_api_keys column service text not null default -
+public.user_api_keys column updated_at timestamp with time zone null default now()
+public.user_api_keys column updated_by uuid null default -
+public.user_api_keys column user_id uuid not null default -
+public.user_api_keys constraint user_api_keys_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id)
+public.user_api_keys constraint user_api_keys_encrypted_key_check CHECK ((length(encrypted_key) > 0))
+public.user_api_keys constraint user_api_keys_pkey PRIMARY KEY (id)
+public.user_api_keys constraint user_api_keys_service_check CHECK ((service = ANY (ARRAY['clickup'::text, 'helpscout'::text])))
+public.user_api_keys constraint user_api_keys_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+public.user_api_keys constraint user_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+public.user_api_keys constraint user_api_keys_user_id_service_key UNIQUE (user_id, service)
+public.user_api_keys grant anon DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.user_api_keys grant authenticated DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.user_api_keys grant postgres DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.user_api_keys grant service_role DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+public.user_api_keys index CREATE UNIQUE INDEX user_api_keys_pkey ON public.user_api_keys USING btree (id)
+public.user_api_keys index CREATE UNIQUE INDEX user_api_keys_user_id_service_key ON public.user_api_keys USING btree (user_id, service)
+public.user_api_keys policy Users manage own keys cmd * permissive to authenticated using (auth.uid() = user_id) check -
+public.user_api_keys table rls true force_rls false owner postgres
+public.user_api_keys trigger CREATE TRIGGER set_user_api_keys_audit_insert BEFORE INSERT ON public.user_api_keys FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_insert()
+public.user_api_keys trigger CREATE TRIGGER set_user_api_keys_audit_update BEFORE UPDATE ON public.user_api_keys FOR EACH ROW EXECUTE FUNCTION public.set_audit_fields_update()
