@@ -8,6 +8,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
+use App\Application\QuickBooks\OrderSync\Results\DocumentLookupResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
@@ -20,8 +21,8 @@ use App\Domain\Shared\ValueObjects\Deadline;
 use SensitiveParameter;
 
 /**
- * Posting orders to QuickBooks Online: the item and customer finds a document needs, and the document creates. Names match ignoring case,
- * and nothing is cached between calls (ADR-0011).
+ * Posting orders to QuickBooks Online: the item, customer and existing-document finds, and the document creates. Names and document
+ * numbers match ignoring case, and nothing is cached between calls (ADR-0011).
  *
  * These calls run under a leased sync, so each takes a deadline: no call or wait starts after the lease would end, when
  * another worker could re-claim the orders and post them again. Plain QuickBooks calls take none and rely on the transport timeout.
@@ -38,6 +39,20 @@ interface QuickBooksOrderPostingInterface
      * @throws UnexpectedApiResultException        when a row lacks a name or id
      */
     public function findItems(#[SensitiveParameter] ApiKeyToken $accessToken, array $skus, Deadline $deadline): ItemLookupResult;
+
+    /**
+     * Finds every invoice and sales receipt holding one of the document numbers. A failure never returns a partial result,
+     * so a number absent from it has no document the query can see.
+     *
+     * @param list<string> $docNumbers full numbers, run label prefix included; an empty list makes no QBO call
+     *
+     * @throws AuthenticationExpiredException      when the access token is rejected
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a 429 past the retry window
+     * @throws QuickBooksDeadlineExceededException when a query cannot start before the deadline
+     * @throws QuickBooksFaultException            when QBO rejects a query
+     * @throws UnexpectedApiResultException        when a row lacks a document number or id, or a query hits the row limit
+     */
+    public function findDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $docNumbers, Deadline $deadline): DocumentLookupResult;
 
     /**
      * Finds each draft's customer by display name, active or not, and creates each one missing. A create's Fault is that
