@@ -9,6 +9,8 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionAttribute;
+use ReflectionClass;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Static\Support\GitHooksInstalledCheck;
@@ -56,6 +58,17 @@ final class GitHooksInstalledTest extends TestCase
         $this->assertFalse(GitHooksInstalledCheck::exempt('1'));
         $this->assertFalse(GitHooksInstalledCheck::exempt(''));
         $this->assertFalse(GitHooksInstalledCheck::exempt(false));
+    }
+
+    #[Test]
+    public function the_guard_is_in_the_group_the_verify_containers_exclude(): void
+    {
+        $groups = \array_map(
+            static fn(ReflectionAttribute $attribute): mixed => $attribute->getArguments()[0] ?? null,
+            (new ReflectionClass(self::class))->getAttributes(Group::class),
+        );
+
+        $this->assertContains('repo-static', $groups);
     }
 
     #[Test]

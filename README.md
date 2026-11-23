@@ -273,8 +273,8 @@ Pull requests trigger a change-detected pipeline. Docs-only pull requests skip t
 
 | Stage | Trigger | Checks |
 |-------|---------|--------|
-| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture). Registered by `make install`; `make lint` and `make test` fail while the hook is missing |
-| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint. Registered by `make install`; `make lint` and `make test` fail while the hook is missing |
+| Pre-commit | Every commit | Pint (style), PHPStan (analysis), PHPArkitect (architecture). Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
+| Pre-push | Every push | Pest (tests), Deptrac (layer deps), TLint. Registered by `make install`; the guard `tests/Unit/Static/GitHooksInstalledTest.php` (run by `make lint` and `make test`) fails while the hook is missing |
 | CI | Pull request | Code style, Pest in parallel against PostgreSQL 17 and Redis 7, security audit, taint analysis (Psalm) |
 | Mutation testing | Pull request to `main` | Domain and Application MSI thresholds, informational and non-blocking |
 
