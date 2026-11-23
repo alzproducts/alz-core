@@ -38,9 +38,10 @@ final class AuthenticateServiceCallerMiddleware
      */
     public function handle(Request $request, Closure $next, string $caller): Response
     {
+        $token = $request->bearerToken() ?? '';
         $tokenHash = self::configValue($caller, 'token_sha256');
 
-        if (!\hash_equals($tokenHash, \hash('sha256', $request->bearerToken() ?? ''))) {
+        if ($token === '' || !\hash_equals($tokenHash, \hash('sha256', $token))) {
             self::logRefusal($request, $caller, 'invalid_token');
             \abort(Response::HTTP_UNAUTHORIZED, 'Unauthorized.');
         }

@@ -103,6 +103,30 @@ final class OrderStatusSummaryEndpointTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('emptyTokenHeaders')]
+    public function it_refuses_an_empty_token_when_the_configured_hash_is_of_an_empty_string(?string $authorization): void
+    {
+        $this->configureCaller('alz_connect', '', self::CLIENT_IP);
+        $this->repository->shouldNotReceive('getSummary');
+
+        $response = $this->request($authorization);
+
+        $response->assertUnauthorized();
+        self::assertSame('{"error":{"type":"unauthorized","message":"Unauthorized."}}', $response->getContent());
+    }
+
+    /**
+     * @return array<string, array{string|null}>
+     */
+    public static function emptyTokenHeaders(): array
+    {
+        return [
+            'no header' => [null],
+            'empty bearer' => ['Bearer '],
+        ];
+    }
+
+    #[Test]
     public function it_returns_403_for_a_valid_token_from_another_ip(): void
     {
         $this->repository->shouldNotReceive('getSummary');
