@@ -85,11 +85,9 @@ if [ "${SKIP_DB_CHECK}" != "true" ]; then
     MAX_RETRIES=${DB_CONNECT_RETRIES:-90}
     RETRY_COUNT=0
 
-    # intentional: opens a connection only; artisan's database report commands need the intl extension, absent from the runtime image
-    DB_CHECK_CODE='DB::connection(getenv("DB_CONNECTION") ?: "pgsql")->getPdo();'
-
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if DB_CHECK_OUTPUT=$(php artisan tinker --execute="$DB_CHECK_CODE" 2>&1); then
+        # intentional: db:ping, not artisan's database report commands, which need the intl extension absent from the runtime image
+        if DB_CHECK_OUTPUT=$(php artisan db:ping 2>&1); then
             log_success "Database connection established"
             break
         else
