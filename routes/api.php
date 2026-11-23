@@ -19,6 +19,7 @@ use App\Presentation\Http\Api\Controllers\CustomFieldDefinitionController;
 use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
+use App\Presentation\Http\Api\Controllers\ListFailedQuickBooksOrdersController;
 use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
@@ -297,6 +298,10 @@ Route::middleware([
 
         // Checkout endpoints
         Route::get('checkout/basket-recovery', BasketRecoveryController::class);
+
+        // QuickBooks order sync
+        Route::get('quickbooks/orders/failed', ListFailedQuickBooksOrdersController::class)
+            ->name('quickbooks.orders.failed');
 
         // Contact submissions dashboard — staff-only, requires admin approval.
         Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);
