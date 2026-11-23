@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
+use Tests\Unit\Static\Support\GitHooksInstalledCheck;
 
 /**
  * `verify up --supabase-url … --supabase-db-url …` refuses a bad caller before any Docker call and prints no credential.
@@ -197,7 +198,7 @@ final class VerifyCallerSupabaseFlagsTest extends TestCase
         $process = new Process(
             ["{$root}/.agents/skills/verify/verify", 'up', '--evidence', "{$this->sandbox}/evidence", ...$args],
             $root,
-            ['PATH' => "{$this->sandbox}/bin:" . \getenv('PATH')],
+            ['PATH' => "{$this->sandbox}/bin:" . \getenv('PATH'), ...GitHooksInstalledCheck::cleanGitEnv()],
         );
         $process->run();
 
