@@ -31,6 +31,7 @@ use App\Application\Contracts\Shopwired\FilterGroupClientInterface;
 use App\Application\Contracts\Shopwired\FilterGroupRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderClientInterface;
 use App\Application\Contracts\Shopwired\OrderRepositoryInterface;
+use App\Application\Contracts\Shopwired\OrderStatusSummaryQueryRepositoryInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookEventResolverInterface;
 use App\Application\Contracts\Shopwired\OrderWebhookParserInterface;
 use App\Application\Contracts\Shopwired\PriceUpdateClientInterface;
@@ -99,6 +100,7 @@ use App\Infrastructure\Shopwired\Repositories\EloquentFilterGroupRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentOrderRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentProductRepository;
 use App\Infrastructure\Shopwired\Repositories\EloquentSaleSettingsRepository;
+use App\Infrastructure\Shopwired\Repositories\OrderStatusSummaryQueryRepository;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredBrandWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCategoryWebhookEventResolver;
 use App\Infrastructure\Shopwired\Resolvers\ShopwiredCustomerWebhookEventResolver;
@@ -214,6 +216,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
     private function registerRepositories(): void
     {
         $this->app->singleton(OrderRepositoryInterface::class, EloquentOrderRepository::class);
+        $this->app->singleton(OrderStatusSummaryQueryRepositoryInterface::class, OrderStatusSummaryQueryRepository::class);
         $this->app->singleton(CustomerRepositoryInterface::class, EloquentCustomerRepository::class);
         $this->app->singleton(CustomFieldRepositoryInterface::class, EloquentCustomFieldRepository::class);
         // Scoped: holds CustomFieldFactory with lazy-loaded registry (Octane isolation)
@@ -392,6 +395,7 @@ final class ShopwiredServiceProvider extends ServiceProvider implements Deferrab
             FilterGroupRepositoryInterface::class,
             OrderClientInterface::class,
             OrderRepositoryInterface::class,
+            OrderStatusSummaryQueryRepositoryInterface::class,
             OrderViewAssembler::class,
             OrderWebhookEventResolverInterface::class,
             OrderWebhookParserInterface::class,

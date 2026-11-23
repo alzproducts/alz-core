@@ -41,6 +41,7 @@ final class RateLimitServiceProvider extends ServiceProvider
 
         RateLimiter::for('webhooks', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(300)->by($request->ip()));
         RateLimiter::for('global', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(120)->by($request->ip()));
+        RateLimiter::for('service-callers', static fn(Request $request): Limit => $isLocal ? Limit::none() : Limit::perMinute(60)->by($request->ip()));
 
         // Shared limiter for unauthenticated public endpoints (contact form, checkout snapshot, etc.)
         // 5 requests per minute per IP — generous enough for legitimate use, tight enough to deter abuse.
