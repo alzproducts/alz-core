@@ -22,6 +22,7 @@ final readonly class SyncOrderLineDTO
         public DecimalMoney $unitPriceVat,
         public ?TaxRate $vatRate,
     ) {
+        Assert::stringNotEmpty(\mb_trim($sku->value), 'Order line SKU must not be blank');
         Assert::greaterThan($quantity, 0, 'Order line quantity must be positive');
     }
 }

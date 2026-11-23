@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\QuickBooks;
 
-use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -16,7 +16,7 @@ interface OrderSyncSourceQueryRepositoryInterface
      *
      * @param list<int> $references
      *
-     * @return array<int, SourceOrderDTO>
+     * @return array<int, SourceOrderRowDTO>
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
