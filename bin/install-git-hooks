@@ -6,6 +6,7 @@ set -euo pipefail
 HOOKS_DIR="$(git rev-parse --path-format=absolute --git-path hooks)"
 mkdir -p "$HOOKS_DIR"
 
+# intentional: no "$@" forwarded. git passes the remote name and URL to pre-push, and `git-hooks:pre-push` takes no arguments, so forwarding them aborts every push.
 # intentional: the script cds to the checkout git runs it from, so the commit and push checks run in that worktree.
 render() {
     cat <<EOF
@@ -15,7 +16,7 @@ if sh -c ": >/dev/tty" >/dev/null 2>/dev/null; then
     exec < /dev/tty
 fi
 
-php artisan git-hooks:$1 "\$@" >&2
+php artisan git-hooks:$1 >&2
 EOF
 }
 
