@@ -69,4 +69,4 @@ Message text is for display only and may change.
 | `ALZ_CONNECT_BEARER_SHA256` | Lowercase hex SHA-256 of the bearer token; alz-core never holds the token |
 | `ALZ_CONNECT_ALLOWED_IPS` | Comma-separated client IP addresses, IPv4 or IPv6; spaces are ignored and CIDR ranges are not supported |
 
-The caller's token is 256 random bits, for example `openssl rand -hex 32`. Hash it with no trailing newline: `printf %s "$TOKEN" | shasum -a 256`.
+The caller's token is 256 random bits, for example `openssl rand -hex 32`. Hash it with no trailing newline: `printf %s "$TOKEN" | shasum -a 256 | cut -d' ' -f1`.
