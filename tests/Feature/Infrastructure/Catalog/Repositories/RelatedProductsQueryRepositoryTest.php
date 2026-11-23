@@ -24,7 +24,7 @@ use Tests\TestCase;
 #[CoversClass(RelatedProductsQueryRepository::class)]
 final class RelatedProductsQueryRepositoryTest extends TestCase
 {
-    private const int BASE = 2147480500;
+    private const int BASE = 2147483200;
 
     private const int ABOVE = 0;
 
