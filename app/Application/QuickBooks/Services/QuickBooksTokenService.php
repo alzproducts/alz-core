@@ -18,6 +18,7 @@ use App\Domain\Exceptions\Api\KeyEncryptionFailedException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksTokenGrant;
 use Psr\Log\LoggerInterface;
 use SensitiveParameter;
@@ -39,6 +40,20 @@ final readonly class QuickBooksTokenService
         private LockManagerInterface $lockManager,
         private LoggerInterface $logger,
     ) {}
+
+    /**
+     * A cached access token outlives a deleted connection, so a token alone does not prove one.
+     *
+     * @throws AuthenticationExpiredException when there is no connection
+     * @throws ExternalServiceUnavailableException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws CorruptApiKeyException
+     */
+    public function assertConnected(): void
+    {
+        $this->storedConnection();
+    }
 
     /**
      * The cached access token, refreshed under the lock when none is cached.
@@ -143,12 +158,7 @@ final readonly class QuickBooksTokenService
      */
     private function refreshStoredConnection(): ApiKeyToken
     {
-        $connection = $this->connections->find();
-        if ($connection === null) {
-            throw new AuthenticationExpiredException(self::SERVICE_NAME, 'No QuickBooks connection; run quickbooks:connect');
-        }
-
-        $grant = $this->oauthClient->refresh($connection->refreshToken);
+        $grant = $this->oauthClient->refresh($this->storedConnection()->refreshToken);
 
         try {
             $this->accessTokens->put($grant->accessToken, $grant->accessTokenExpiresAt);
@@ -158,6 +168,19 @@ final readonly class QuickBooksTokenService
         }
 
         return $grant->accessToken;
+    }
+
+    /**
+     * @throws AuthenticationExpiredException when there is no connection
+     * @throws ExternalServiceUnavailableException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws CorruptApiKeyException
+     */
+    private function storedConnection(): QuickBooksConnection
+    {
+        return $this->connections->find()
+            ?? throw new AuthenticationExpiredException(self::SERVICE_NAME, 'No QuickBooks connection; run quickbooks:connect');
     }
 
     /**
