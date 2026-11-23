@@ -4,20 +4,23 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\QuickBooks;
 
-use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncErrorDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 
-/**
- * Append-only log of failed sync attempts.
- */
-interface OrderSyncErrorRepositoryInterface
+interface OrderSyncSourceQueryRepositoryInterface
 {
     /**
+     * Keyed by reference; a reference no order has is omitted.
+     *
+     * @param list<int> $references
+     *
+     * @return array<int, SourceOrderDTO>
+     *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function append(string $orderSyncId, OrderSyncErrorDTO $error): void;
+    public function findByReferences(array $references): array;
 }

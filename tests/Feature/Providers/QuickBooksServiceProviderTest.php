@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Providers;
 
+use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingCandidatesInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
+use App\Infrastructure\QuickBooks\EloquentOrderSyncSourceQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksMappingRepository;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
@@ -33,6 +35,13 @@ final class QuickBooksServiceProviderTest extends TestCase
     {
         $this->assertContains(QuickBooksMappingRepositoryInterface::class, new QuickBooksServiceProvider($this->app)->provides());
         $this->assertInstanceOf(EloquentQuickBooksMappingRepository::class, $this->app->make(QuickBooksMappingRepositoryInterface::class));
+    }
+
+    #[Test]
+    public function the_deferred_provider_resolves_the_source_orders(): void
+    {
+        $this->assertContains(OrderSyncSourceQueryRepositoryInterface::class, new QuickBooksServiceProvider($this->app)->provides());
+        $this->assertInstanceOf(EloquentOrderSyncSourceQueryRepository::class, $this->app->make(OrderSyncSourceQueryRepositoryInterface::class));
     }
 
     #[Test]

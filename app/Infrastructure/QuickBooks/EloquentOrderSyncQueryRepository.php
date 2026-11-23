@@ -14,15 +14,50 @@ use App\Domain\ValueObjects\PaginatedList;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Persistence\Models\QuickBooks\FailedOrderSyncViewModel;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncSourceViewModel;
+use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncStateViewModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\Expression;
 use Override;
 
 final readonly class EloquentOrderSyncQueryRepository implements OrderSyncQueryRepositoryInterface
 {
+    private const string LEASE_LIVE_SQL = "COALESCE(status = 'processing' AND lease_expires_at > now(), false) AS lease_live";
+
     public function __construct(
         private EloquentGateway $eloquentGateway,
     ) {}
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function statesFor(string $realmId, array $references): array
+    {
+        if ($references === []) {
+            return [];
+        }
+
+        /** @var Collection<int, OrderSyncStateViewModel> $rows */
+        $rows = $this->eloquentGateway->query(
+            static fn(): Collection => OrderSyncStateViewModel::query()
+                ->whereKey($references)
+                ->where('realm_id', $realmId)
+                ->get(['reference', 'status', 'doc_type', 'qbo_doc_number', 'qbo_txn_id', new Expression(self::LEASE_LIVE_SQL)]),
+        );
+
+        $states = [];
+        foreach ($rows as $row) {
+            $states[$row->reference] = $row->toDomain();
+        }
+
+        return $states;
+    }
 
     /**
      * {@inheritDoc}
