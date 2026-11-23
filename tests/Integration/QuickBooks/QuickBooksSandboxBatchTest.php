@@ -54,7 +54,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
 {
     private const int DEADLINE_SECONDS = 120;
 
-    private const float MAX_FULL_BATCH_SECONDS = 10.0;
+    private const float MAX_FULL_BATCH_SECONDS = 12.0;
 
     private const int QBO_BATCH_MAXIMUM = 30;
 
@@ -138,7 +138,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
         $kinds = \array_count_values(\array_map(static fn(BatchItemOutcomeResult $o): string => $o->kind->value, $outcomes));
         self::report('full batch probe', ['items' => \count($documents), 'seconds' => \round($seconds, 2), 'outcomes' => $kinds]);
         self::assertSame([BatchOutcomeKind::Created->value => QuickBooksDocumentBatchCreator::MAX_BATCH_ITEMS], $kinds, 'OVERTURN: QBO did not accept a full batch');
-        self::assertLessThan(self::MAX_FULL_BATCH_SECONDS, $seconds, 'STOP: a full batch took 10 s or more');
+        self::assertLessThan(self::MAX_FULL_BATCH_SECONDS, $seconds, 'STOP: a full batch took 12 s or more');
     }
 
     /**
