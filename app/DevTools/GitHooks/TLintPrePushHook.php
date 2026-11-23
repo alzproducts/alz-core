@@ -22,7 +22,7 @@ final class TLintPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 60; // 60 seconds (typically ~30s after #[Override] annotation sweep)
+        return 180; // 180 seconds: the full-repo scan takes seconds when idle but exceeded 60s on a loaded machine
     }
 
     protected function getSuccessMessage(): string
