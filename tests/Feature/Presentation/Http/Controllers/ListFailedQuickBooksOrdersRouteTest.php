@@ -176,6 +176,16 @@ final class ListFailedQuickBooksOrdersRouteTest extends TestCase
     }
 
     #[Test]
+    public function no_connection_with_unresolved_mappings_is_still_the_connection_failure(): void
+    {
+        $this->cacheToken();
+        DB::table('quickbooks.mappings')->update(['qbo_ref_id' => null, 'qbo_ref_name' => null, 'realm_id' => null]);
+        self::assertGreaterThan(0, DB::table('quickbooks.mappings')->whereNull('qbo_ref_id')->count());
+
+        $this->assertNotConnected($this->asRole('standard')->getJson(self::URL)->assertStatus(412)->json('error'));
+    }
+
+    #[Test]
     public function a_refused_refresh_is_a_precondition_failure(): void
     {
         $this->saveConnection();
