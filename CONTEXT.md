@@ -18,6 +18,10 @@ _Avoid_: storefront endpoints, public API
 
 ### Access
 
+**Service caller**:
+A named non-human system that calls alz-core with its own credential, which opens only that system's routes.
+_Avoid_: service account, API client, machine user
+
 **Role**:
 The single access level an approved **Admin Dashboard** user holds: `guest`, `standard`, `manager` or `admin`.
 _Avoid_: "staff" as a role name (it is a **Role tier**), permission, group

@@ -38,6 +38,7 @@
         -->
         <testsuite name="Providers">
             <directory>tests/Unit/Providers</directory>
+            <directory>tests/Feature/Providers</directory>
         </testsuite>
         <testsuite name="DevTools">
             <directory>tests/Unit/DevTools</directory>
