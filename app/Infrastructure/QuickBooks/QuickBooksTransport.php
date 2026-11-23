@@ -54,16 +54,29 @@ final readonly class QuickBooksTransport
     ) {}
 
     /**
-     * A plain call with no deadline: it waits the limiter's fixed timeout at most, and a 429 is not retried.
+     * A plain call: it waits the limiter's fixed bound at most, and a 429 is not retried.
      *
      * @throws AuthenticationExpiredException      on a 401 or 403, or an Authentication or Authorization Fault
-     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage, or a 429
-     * @throws QuickBooksDeadlineExceededException when the limiter has no room within its fixed timeout; nothing was sent
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage or a full limiter, or a 429
      * @throws QuickBooksFaultException            on any other Fault
      */
     public function companyInfo(#[SensitiveParameter] ApiKeyToken $accessToken): mixed
     {
-        return $this->send($accessToken, null, false, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
+        $this->limiter->acquire(false);
+
+        $session = $this->dataServices->create($accessToken);
+        $result = $this->attempt($session, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
+
+        $error = QuickBooksFaultMapper::faultOrNull($session->dataService->getLastError());
+        if ($error === null) {
+            return $result;
+        }
+
+        if (QuickBooksFaultMapper::status($error) === self::TOO_MANY_REQUESTS) {
+            throw $this->rateLimited($session->httpClient->retryAfterSeconds(), 0.0);
+        }
+
+        throw $this->callFailure($error, $session->httpClient);
     }
 
     /**
@@ -222,7 +235,7 @@ final readonly class QuickBooksTransport
     }
 
     /**
-     * Sends one call, retrying a 429 with back-off while the deadline allows; with no deadline, a 429 is not retried.
+     * Sends one call, retrying a 429 with back-off while the deadline allows.
      *
      * @param-immediately-invoked-callable $call
      * @param Closure(DataService): mixed $call
@@ -232,7 +245,7 @@ final readonly class QuickBooksTransport
      * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      */
-    private function send(#[SensitiveParameter] ApiKeyToken $accessToken, ?Deadline $deadline, bool $batchCall, Closure $call): mixed
+    private function send(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline, bool $batchCall, Closure $call): mixed
     {
         $this->awaitStart($deadline, $batchCall);
 
@@ -251,14 +264,19 @@ final readonly class QuickBooksTransport
 
             $retryAfter = $session->httpClient->retryAfterSeconds();
             $wait = \max(self::backoffSeconds($retry), (float) ($retryAfter ?? 0));
-            if ($deadline === null || !$this->awaitRetry($deadline, $batchCall, $wait)) {
-                throw $this->transientFailure(
-                    ExternalServiceUnavailableException::class,
-                    self::TOO_MANY_REQUESTS,
-                    new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, $retryAfter ?? (int) \ceil($wait)),
-                );
+            if (!$this->awaitRetry($deadline, $batchCall, $wait)) {
+                throw $this->rateLimited($retryAfter, $wait);
             }
         }
+    }
+
+    private function rateLimited(?int $retryAfter, float $wait): ExternalServiceUnavailableException
+    {
+        return $this->transientFailure(
+            ExternalServiceUnavailableException::class,
+            self::TOO_MANY_REQUESTS,
+            new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, $retryAfter ?? (int) \ceil($wait)),
+        );
     }
 
     /**
@@ -290,21 +308,15 @@ final readonly class QuickBooksTransport
      * @throws ExternalServiceUnavailableException
      * @throws QuickBooksDeadlineExceededException
      */
-    private function awaitStart(?Deadline $deadline, bool $batchCall): void
+    private function awaitStart(Deadline $deadline, bool $batchCall): void
     {
-        if ($deadline === null) {
-            $this->limiter->acquire($batchCall);
-
-            return;
-        }
-
         $latestStart = self::latestStart($deadline);
         $secondsLeft = $latestStart->secondsLeft(CarbonImmutable::now());
         if ($secondsLeft < 0) {
             throw new QuickBooksDeadlineExceededException($secondsLeft);
         }
 
-        $this->limiter->acquire($batchCall, $latestStart);
+        $this->limiter->acquireBy($batchCall, $latestStart);
     }
 
     /**
@@ -321,7 +333,7 @@ final readonly class QuickBooksTransport
         Sleep::for((int) \ceil($waitSeconds * 1000))->milliseconds();
 
         try {
-            $this->limiter->acquire($batchCall, $latestStart);
+            $this->limiter->acquireBy($batchCall, $latestStart);
         } catch (ExternalServiceUnavailableException|QuickBooksDeadlineExceededException) { // @ignoreException - a refused retry is reported as rate limiting
             return false;
         }

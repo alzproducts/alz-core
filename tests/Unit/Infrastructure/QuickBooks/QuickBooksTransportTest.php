@@ -173,7 +173,7 @@ final class QuickBooksTransportTest extends TestCase
     public function a_call_with_under_a_client_timeout_left_is_refused_before_the_limiter_and_the_sdk(): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldNotReceive('acquire');
+        $limiter->shouldNotReceive('acquire', 'acquireBy');
 
         try {
             $this->transport([], $limiter)->query(self::token(), self::QUERY, self::deadline(QuickBooksTransport::START_FLOOR_SECONDS - 1));
@@ -187,7 +187,7 @@ final class QuickBooksTransportTest extends TestCase
     public function the_limiter_may_start_the_call_no_later_than_one_client_timeout_before_the_deadline(): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->once()->withArgs(
+        $limiter->shouldReceive('acquireBy')->once()->withArgs(
             static fn(bool $batchCall, Deadline $startBy): bool => !$batchCall
                 && $startBy->secondsLeft(CarbonImmutable::now()) === (float) (30 - QuickBooksTransport::START_FLOOR_SECONDS),
         );
@@ -228,7 +228,7 @@ final class QuickBooksTransportTest extends TestCase
     public function a_refused_first_grant_sends_nothing(Throwable $refusal): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->once()->andThrow($refusal);
+        $limiter->shouldReceive('acquireBy')->once()->andThrow($refusal);
 
         $this->expectExceptionObject($refusal);
 
@@ -250,7 +250,7 @@ final class QuickBooksTransportTest extends TestCase
     public function each_429_retry_takes_a_new_grant_and_a_new_data_service(): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->twice();
+        $limiter->shouldReceive('acquireBy')->twice();
         $rows = [new IPPCustomer()];
 
         $result = $this->transport([$this->rateLimited(null), $this->querySession($rows, false)], $limiter)
@@ -321,8 +321,8 @@ final class QuickBooksTransportTest extends TestCase
     public function a_retry_the_limiter_refuses_is_rate_limited_not_a_deadline_error(Throwable $refusal): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->once()->ordered();
-        $limiter->shouldReceive('acquire')->once()->ordered()->andThrow($refusal);
+        $limiter->shouldReceive('acquireBy')->once()->ordered();
+        $limiter->shouldReceive('acquireBy')->once()->ordered()->andThrow($refusal);
 
         try {
             $this->transport([$this->rateLimited(7)], $limiter)->query(self::token(), self::QUERY, self::deadline());
@@ -530,7 +530,7 @@ final class QuickBooksTransportTest extends TestCase
 
         if ($limiter === null) {
             $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-            $limiter->shouldReceive('acquire');
+            $limiter->shouldReceive('acquire', 'acquireBy');
         }
 
         $logger ??= new NullLogger();

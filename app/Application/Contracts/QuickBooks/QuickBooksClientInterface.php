@@ -8,7 +8,6 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
-use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use SensitiveParameter;
 
@@ -22,7 +21,6 @@ interface QuickBooksClientInterface
      *
      * @throws AuthenticationExpiredException      when the access token is rejected (401 or 403)
      * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksDeadlineExceededException when the rate limiter has no room within its fixed wait; nothing was sent
      * @throws QuickBooksFaultException            on any other QuickBooks Fault
      * @throws UnexpectedApiResultException        on a missing company or a blank name
      */

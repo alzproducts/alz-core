@@ -57,7 +57,7 @@ final class QuickBooksRateLimiterRedisTest extends TestCase
         /** @var array<string, int> $grantsPerWindow */
         $grantsPerWindow = [];
         for ($i = 0; $i < self::WINDOWS * self::LIMIT; ++$i) {
-            ($i % 2 === 0 ? $first : $second)->acquire(false, Deadline::after(CarbonImmutable::now(), 10));
+            ($i % 2 === 0 ? $first : $second)->acquireBy(false, Deadline::after(CarbonImmutable::now(), 10));
             $grantedAt = \microtime(true);
 
             $start = $this->connection()->command('hget', [$this->key, 'start']);

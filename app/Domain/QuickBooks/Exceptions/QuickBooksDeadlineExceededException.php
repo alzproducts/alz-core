@@ -6,6 +6,7 @@ namespace App\Domain\QuickBooks\Exceptions;
 
 use App\Domain\Exceptions\DomainException;
 use Override;
+use Throwable;
 
 /**
  * A QuickBooks call could not start in time, so nothing was sent.
@@ -15,8 +16,9 @@ final class QuickBooksDeadlineExceededException extends DomainException
 {
     public function __construct(
         public readonly float $secondsLeft,
+        ?Throwable $previous = null,
     ) {
-        parent::__construct('QuickBooks call could not start before its deadline');
+        parent::__construct('QuickBooks call could not start before its deadline', 0, $previous);
     }
 
     #[Override]

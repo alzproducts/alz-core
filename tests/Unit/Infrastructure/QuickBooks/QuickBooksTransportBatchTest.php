@@ -248,8 +248,8 @@ final class QuickBooksTransportBatchTest extends TestCase
     public function a_429_retry_the_limiter_refuses_makes_every_item_rate_limited(): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->once()->ordered();
-        $limiter->shouldReceive('acquire')->once()->ordered()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
+        $limiter->shouldReceive('acquireBy')->once()->ordered();
+        $limiter->shouldReceive('acquireBy')->once()->ordered()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
 
         $execution = $this->transport([$this->batchSession(lastError: self::fault(429, ''), retryAfter: 2)], $limiter)
             ->executeBatch(self::token(), self::entities(), self::deadline(60));
@@ -261,7 +261,7 @@ final class QuickBooksTransportBatchTest extends TestCase
     public function a_limiter_outage_before_the_first_send_throws_and_sends_nothing(): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-        $limiter->shouldReceive('acquire')->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
+        $limiter->shouldReceive('acquireBy')->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
@@ -406,7 +406,7 @@ final class QuickBooksTransportBatchTest extends TestCase
 
         if ($limiter === null) {
             $limiter = Mockery::mock(QuickBooksRateLimiter::class);
-            $limiter->shouldReceive('acquire');
+            $limiter->shouldReceive('acquire', 'acquireBy');
         }
 
         $throttle = Mockery::mock(TransientLogThrottle::class);
