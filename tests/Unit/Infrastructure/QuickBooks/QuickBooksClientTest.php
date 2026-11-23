@@ -43,7 +43,7 @@ final class QuickBooksClientTest extends TestCase
     #[Test]
     public function it_returns_the_company_name(): void
     {
-        $this->assertSame('Sandbox Company_US_1', $this->clientReturning(self::companyInfo('Sandbox Company_US_1'))->companyName(new ApiKeyToken('access'), self::deadline()));
+        $this->assertSame('Sandbox Company_US_1', $this->clientReturning(self::companyInfo('Sandbox Company_US_1'))->companyName(new ApiKeyToken('access')));
     }
 
     #[Test]
@@ -51,7 +51,7 @@ final class QuickBooksClientTest extends TestCase
     public function an_unusable_result_raises_unexpected_api_result(mixed $result, string $reason): void
     {
         try {
-            $this->clientReturning($result)->companyName(new ApiKeyToken('access'), self::deadline());
+            $this->clientReturning($result)->companyName(new ApiKeyToken('access'));
             $this->fail('Expected UnexpectedApiResultException');
         } catch (UnexpectedApiResultException $e) {
             $this->assertSame($reason, $e->reason);
@@ -79,7 +79,7 @@ final class QuickBooksClientTest extends TestCase
 
         $this->expectException(AuthenticationExpiredException::class);
 
-        self::client($transport)->companyName(new ApiKeyToken('access'), self::deadline());
+        self::client($transport)->companyName(new ApiKeyToken('access'));
     }
 
     #[Test]

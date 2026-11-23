@@ -9,50 +9,27 @@ use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
+use Illuminate\Redis\Limiters\DurationLimiter;
 use Illuminate\Support\Sleep;
-use Illuminate\Support\Str;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use Webmozart\Assert\Assert;
 
 /**
- * QBO's per-realm limits, shared by every process through one Redis script over sliding logs timed by Redis `TIME`.
+ * QBO's per-realm limits, shared by every process through Laravel's Redis duration limiter (the one `Redis::throttle()`
+ * builds), one fixed window per bucket. A burst across a window edge can still draw a 429, which the transport retries.
  * Fails closed: when Redis errors or replies oddly, no call is sent (an open failure would break the caps across processes).
  */
 final readonly class QuickBooksRateLimiter
 {
     public const string CONNECTION = 'quickbooks-limiter';
 
+    /** The longest a call with no deadline waits for room: one full minute window. */
+    public const int NO_DEADLINE_WAIT_SECONDS = 60;
+
     private const string KEY_PREFIX = 'quickbooks-limiter:';
 
-    /**
-     * Returns 0 and records a grant in every bucket, or the milliseconds until every bucket has room, recording nothing.
-     * KEYS: one per bucket. ARGV: window ms and limit per bucket, then a unique grant id.
-     */
-    private const string SCRIPT = <<<'LUA'
-        if redis.replicate_commands then redis.replicate_commands() end
-        local t = redis.call('TIME')
-        local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
-        local wait = 0
-        for i = 1, #KEYS do
-          local window = tonumber(ARGV[i * 2 - 1])
-          local limit = tonumber(ARGV[i * 2])
-          redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now - window)
-          local count = redis.call('ZCARD', KEYS[i])
-          if count >= limit then
-            local oldest = redis.call('ZRANGE', KEYS[i], count - limit, count - limit, 'WITHSCORES')
-            local free = tonumber(oldest[2]) + window - now
-            if free > wait then wait = free end
-          end
-        end
-        if wait > 0 then return wait end
-        local member = now .. ':' .. ARGV[#KEYS * 2 + 1]
-        for i = 1, #KEYS do
-          redis.call('ZADD', KEYS[i], now, member)
-          redis.call('PEXPIRE', KEYS[i], tonumber(ARGV[i * 2 - 1]))
-        end
-        return 0
-        LUA;
+    private const int MIN_WAIT_MS = 50;
 
     /**
      * @param non-empty-list<QuickBooksRateLimitBucket> $buckets
@@ -74,78 +51,148 @@ final readonly class QuickBooksRateLimiter
     public static function defaultBuckets(): array
     {
         return [
-            new QuickBooksRateLimitBucket('second', 1_000, 10, false),
-            new QuickBooksRateLimitBucket('minute', 60_000, 500, false),
-            new QuickBooksRateLimitBucket('batch-minute', 60_000, 40, true),
+            new QuickBooksRateLimitBucket('second', 1, 10, false),
+            new QuickBooksRateLimitBucket('minute', 60, 500, false),
+            new QuickBooksRateLimitBucket('batch-minute', 60, 40, true),
         ];
     }
 
     /**
-     * Waits for a grant in every bucket the call counts against.
+     * Waits for a slot in every bucket the call counts against, checking every bucket before taking any slot.
      *
-     * @throws ExternalServiceUnavailableException  when Redis errors or replies with anything but a wait time
-     * @throws QuickBooksDeadlineExceededException when the grant would come after `$startBy`; nothing is recorded
+     * @throws ExternalServiceUnavailableException  when Redis errors or replies oddly
+     * @throws QuickBooksDeadlineExceededException when room would come after `$startBy`; nothing is recorded
      */
-    public function acquire(bool $batchCall, Deadline $startBy): void
+    public function acquire(bool $batchCall, ?Deadline $startBy = null): void
     {
-        $buckets = \array_values(\array_filter(
-            $this->buckets,
-            static fn(QuickBooksRateLimitBucket $bucket): bool => $batchCall || !$bucket->batchOnly,
-        ));
+        $startBy ??= Deadline::after(CarbonImmutable::now(), self::NO_DEADLINE_WAIT_SECONDS);
+        $limiters = $this->limiters($batchCall);
 
-        for ($waitMs = $this->tryGrant($buckets); $waitMs > 0; $waitMs = $this->tryGrant($buckets)) {
-            $secondsLeft = $startBy->secondsLeft(CarbonImmutable::now());
-            if ($waitMs / 1000 > $secondsLeft) {
-                throw new QuickBooksDeadlineExceededException($secondsLeft);
+        while (true) {
+            $waitSeconds = $this->secondsUntilRoom($limiters);
+            // intentional: a slot lost to another process mid-grant stays taken; the over-count only ever errs safe
+            if ($waitSeconds <= 0.0 && $this->grant($limiters)) {
+                return;
             }
 
-            Sleep::for($waitMs)->milliseconds();
+            self::waitUnlessPast($startBy, $waitSeconds);
         }
     }
 
     /**
-     * @param list<QuickBooksRateLimitBucket> $buckets
-     *
-     * @return int<0, max> milliseconds to wait; 0 once granted
+     * @throws QuickBooksDeadlineExceededException when the wait would end after `$startBy`
+     */
+    private static function waitUnlessPast(Deadline $startBy, float $waitSeconds): void
+    {
+        $secondsLeft = $startBy->secondsLeft(CarbonImmutable::now());
+        if ($waitSeconds > $secondsLeft) {
+            throw new QuickBooksDeadlineExceededException($secondsLeft);
+        }
+
+        if ($waitSeconds > 0.0) {
+            Sleep::for((int) \ceil($waitSeconds * 1000))->milliseconds();
+        }
+    }
+
+    /**
+     * @return non-empty-list<DurationLimiter>
      *
      * @throws ExternalServiceUnavailableException
      */
-    private function tryGrant(array $buckets): int
+    private function limiters(bool $batchCall): array
     {
         try {
-            // intentional: phpredis argument order (script, arguments, key count); the configured client is phpredis
-            $reply = $this->redis->connection(self::CONNECTION)->command('eval', [self::SCRIPT, $this->scriptArguments($buckets), \count($buckets)]);
+            $connection = $this->redis->connection(self::CONNECTION);
         } catch (Throwable $e) {
-            $this->logger->warning('QuickBooks rate limiter unavailable', ['exception' => $e::class]);
-
-            throw new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, null, $e);
+            throw $this->unavailable($e);
         }
 
-        // intentional: phpredis answers a script error with false rather than throwing; reading that as a grant fails open
-        if (!\is_int($reply) || $reply < 0) {
-            $this->logger->warning('QuickBooks rate limiter replied with a non-integer', ['reply_type' => \get_debug_type($reply)]);
-
-            throw new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME);
+        $limiters = [];
+        foreach ($this->buckets as $bucket) {
+            if ($batchCall || !$bucket->batchOnly) {
+                $limiters[] = new DurationLimiter($connection, self::KEY_PREFIX . $this->realmId . ':' . $bucket->name, $bucket->limit, $bucket->decaySeconds);
+            }
         }
 
-        return $reply;
+        Assert::notEmpty($limiters);
+
+        return $limiters;
     }
 
     /**
-     * @param list<QuickBooksRateLimitBucket> $buckets
+     * Reads every bucket without taking a slot.
      *
-     * @return list<int|string> the bucket keys, each bucket's window and limit, then a unique grant id
+     * @param non-empty-list<DurationLimiter> $limiters
+     *
+     * @return float seconds until the fullest bucket's window ends; 0 when all have room
+     *
+     * @throws ExternalServiceUnavailableException
      */
-    private function scriptArguments(array $buckets): array
+    private function secondsUntilRoom(array $limiters): float
     {
-        $arguments = \array_map(fn(QuickBooksRateLimitBucket $bucket): string => self::KEY_PREFIX . $this->realmId . ':' . $bucket->name, $buckets);
-        foreach ($buckets as $bucket) {
-            $arguments[] = $bucket->windowMs;
-            $arguments[] = $bucket->limit;
+        $wait = 0.0;
+        foreach ($limiters as $limiter) {
+            try {
+                $full = $limiter->tooManyAttempts();
+            } catch (Throwable $e) {
+                throw $this->unavailable($e);
+            }
+
+            $windowEnd = $this->windowEnd($limiter->decaysAt);
+            if ($full) {
+                $wait = \max($wait, self::MIN_WAIT_MS / 1000, $windowEnd - CarbonImmutable::now()->getPreciseTimestamp(3) / 1000);
+            }
         }
 
-        $arguments[] = Str::uuid()->toString();
+        return $wait;
+    }
 
-        return $arguments;
+    /**
+     * @param non-empty-list<DurationLimiter> $limiters
+     *
+     * @return bool false when another process took the last slot of a bucket first
+     *
+     * @throws ExternalServiceUnavailableException
+     */
+    private function grant(array $limiters): bool
+    {
+        foreach ($limiters as $limiter) {
+            try {
+                $granted = $limiter->acquire();
+            } catch (Throwable $e) {
+                throw $this->unavailable($e);
+            }
+
+            $this->windowEnd($limiter->decaysAt);
+            if (!$granted) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * phpredis answers a script error with false rather than throwing; the duration limiter then reads null as "no
+     * room" or "denied", never a grant, so the window end is what tells an odd reply apart.
+     *
+     * @throws ExternalServiceUnavailableException
+     */
+    private function windowEnd(mixed $decaysAt): float
+    {
+        if (\is_int($decaysAt) || (\is_string($decaysAt) && \ctype_digit($decaysAt))) {
+            return (float) $decaysAt;
+        }
+
+        $this->logger->warning('QuickBooks rate limiter replied without a window end', ['reply_type' => \get_debug_type($decaysAt)]);
+
+        throw new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME);
+    }
+
+    private function unavailable(Throwable $e): ExternalServiceUnavailableException
+    {
+        $this->logger->warning('QuickBooks rate limiter unavailable', ['exception' => $e::class]);
+
+        return new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, null, $e);
     }
 }

@@ -7,7 +7,7 @@ namespace App\Infrastructure\QuickBooks;
 use Webmozart\Assert\Assert;
 
 /**
- * One sliding-log bucket: at most `limit` grants in any `windowMs` span.
+ * One fixed-window bucket: at most `limit` grants in each `decaySeconds` window.
  */
 final readonly class QuickBooksRateLimitBucket
 {
@@ -16,11 +16,11 @@ final readonly class QuickBooksRateLimitBucket
      */
     public function __construct(
         public string $name,
-        public int $windowMs,
+        public int $decaySeconds,
         public int $limit,
         public bool $batchOnly,
     ) {
-        Assert::greaterThan($windowMs, 0);
+        Assert::greaterThan($decaySeconds, 0);
         Assert::greaterThan($limit, 0);
     }
 }

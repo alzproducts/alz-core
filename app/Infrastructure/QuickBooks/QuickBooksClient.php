@@ -39,14 +39,14 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
      *
      * @throws AuthenticationExpiredException      when the access token is rejected (401 or 403)
      * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksDeadlineExceededException when the call cannot start before the deadline
+     * @throws QuickBooksDeadlineExceededException when the rate limiter has no room within its fixed wait; nothing was sent
      * @throws QuickBooksFaultException            on any other QuickBooks Fault
      * @throws UnexpectedApiResultException        on a missing company or a blank name
      */
     #[Override]
-    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): string
+    public function companyName(#[SensitiveParameter] ApiKeyToken $accessToken): string
     {
-        $companyInfo = $this->transport->companyInfo($accessToken, $deadline);
+        $companyInfo = $this->transport->companyInfo($accessToken);
         if (!$companyInfo instanceof IPPCompanyInfo) {
             throw $this->unexpected('CompanyInfo missing from response');
         }

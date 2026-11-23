@@ -22,6 +22,9 @@ use SensitiveParameter;
 /**
  * Posting orders to QuickBooks Online: the item and customer finds a document needs, and the document creates. Names match ignoring case,
  * and nothing is cached between calls (ADR-0011).
+ *
+ * These calls run under a leased sync, so each takes a deadline: no call or wait starts after the lease would end, when
+ * another worker could re-claim the orders and post them again. Plain QuickBooks calls take none and rely on the transport timeout.
  */
 interface QuickBooksOrderPostingInterface
 {

@@ -27,7 +27,7 @@ final readonly class CustomerResolutionDTO
 
     public static function failed(string $displayName, CustomerFailureKind $failure, ?QuickBooksFault $fault = null): self
     {
-        Assert::false($failure === CustomerFailureKind::Faulted && $fault === null, 'A Faulted resolution carries its Fault');
+        Assert::false($failure === CustomerFailureKind::Faulted && $fault === null, 'A customer resolution that failed with a QuickBooks fault must include that fault');
 
         return new self($displayName, null, $failure, $fault);
     }

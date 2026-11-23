@@ -29,8 +29,8 @@ use Throwable;
 
 /**
  * Accounting API calls through the SDK: the only class that calls it. Each attempt, a 429 retry included, gets a fresh
- * DataService (a reused curl handle keeps stale options), and starts only with a full client timeout left before the
- * deadline and a rate-limiter grant. SDK messages and Fault bodies can hold customer data, so logs carry only the status,
+ * DataService (a reused curl handle keeps stale options) and a rate-limiter grant; a call given a deadline also starts
+ * only with a full client timeout left before it. SDK messages and Fault bodies can hold customer data, so logs carry only the status,
  * class, Intuit code and element, and no Domain exception chains the SDK exception as `previous`.
  */
 final readonly class QuickBooksTransport
@@ -54,14 +54,16 @@ final readonly class QuickBooksTransport
     ) {}
 
     /**
+     * A plain call with no deadline: it waits the limiter's fixed timeout at most, and a 429 is not retried.
+     *
      * @throws AuthenticationExpiredException      on a 401 or 403, or an Authentication or Authorization Fault
-     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage, or a 429 past the retry window
-     * @throws QuickBooksDeadlineExceededException when the call cannot start in time; nothing was sent
+     * @throws ExternalServiceUnavailableException on a 5xx, a transport error, a limiter outage, or a 429
+     * @throws QuickBooksDeadlineExceededException when the limiter has no room within its fixed timeout; nothing was sent
      * @throws QuickBooksFaultException            on any other Fault
      */
-    public function companyInfo(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): mixed
+    public function companyInfo(#[SensitiveParameter] ApiKeyToken $accessToken): mixed
     {
-        return $this->send($accessToken, $deadline, false, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
+        return $this->send($accessToken, null, false, static fn(DataService $dataService): mixed => $dataService->getCompanyInfo());
     }
 
     /**
@@ -220,7 +222,7 @@ final readonly class QuickBooksTransport
     }
 
     /**
-     * Sends one call, retrying a 429 with back-off while the deadline allows.
+     * Sends one call, retrying a 429 with back-off while the deadline allows; with no deadline, a 429 is not retried.
      *
      * @param-immediately-invoked-callable $call
      * @param Closure(DataService): mixed $call
@@ -230,7 +232,7 @@ final readonly class QuickBooksTransport
      * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      */
-    private function send(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline, bool $batchCall, Closure $call): mixed
+    private function send(#[SensitiveParameter] ApiKeyToken $accessToken, ?Deadline $deadline, bool $batchCall, Closure $call): mixed
     {
         $this->awaitStart($deadline, $batchCall);
 
@@ -249,7 +251,7 @@ final readonly class QuickBooksTransport
 
             $retryAfter = $session->httpClient->retryAfterSeconds();
             $wait = \max(self::backoffSeconds($retry), (float) ($retryAfter ?? 0));
-            if (!$this->awaitRetry($deadline, $batchCall, $wait)) {
+            if ($deadline === null || !$this->awaitRetry($deadline, $batchCall, $wait)) {
                 throw $this->transientFailure(
                     ExternalServiceUnavailableException::class,
                     self::TOO_MANY_REQUESTS,
@@ -288,8 +290,14 @@ final readonly class QuickBooksTransport
      * @throws ExternalServiceUnavailableException
      * @throws QuickBooksDeadlineExceededException
      */
-    private function awaitStart(Deadline $deadline, bool $batchCall): void
+    private function awaitStart(?Deadline $deadline, bool $batchCall): void
     {
+        if ($deadline === null) {
+            $this->limiter->acquire($batchCall);
+
+            return;
+        }
+
         $latestStart = self::latestStart($deadline);
         $secondsLeft = $latestStart->secondsLeft(CarbonImmutable::now());
         if ($secondsLeft < 0) {

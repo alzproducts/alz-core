@@ -17,8 +17,6 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
-use App\Domain\Shared\ValueObjects\Deadline;
-use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -26,8 +24,6 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class FetchQuickBooksCompanyNameUseCase
 {
-    private const int DEADLINE_SECONDS = 30;
-
     public function __construct(
         private QuickBooksTokenService $tokens,
         private QuickBooksClientInterface $client,
@@ -55,7 +51,7 @@ final readonly class FetchQuickBooksCompanyNameUseCase
         $accessToken = $this->tokens->accessToken();
 
         try {
-            $name = $this->client->companyName($accessToken, Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS));
+            $name = $this->client->companyName($accessToken);
         } catch (AuthenticationExpiredException $e) {
             // A rejected token must not be served from cache again; the next call refreshes.
             $this->tokens->forgetAccessToken();

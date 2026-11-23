@@ -11,7 +11,7 @@ use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
-use Illuminate\Redis\Connections\Connection;
+use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Sleep;
 use Mockery;
@@ -25,22 +25,28 @@ use Psr\Log\NullLogger;
 use RedisException;
 use RuntimeException;
 
+/**
+ * The wrapper around Laravel's duration limiter: which buckets a call counts against, the deadline, and failing closed.
+ * Replies are scripted per Redis call in order: a check answers [windowEnd, remaining], a grant [granted, windowEnd, remaining].
+ */
 #[CoversClass(QuickBooksRateLimiter::class)]
 final class QuickBooksRateLimiterTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
+    private const string NOW = '2026-11-22 10:00:00';
+
     /** @var list<float> */
     private array $slept = [];
 
-    /** @var list<array<mixed>> */
+    /** @var list<array{string, string}> kind ('check' or 'grant') and key, per Redis call */
     private array $calls = [];
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        Carbon::setTestNow('2026-11-22 10:00:00');
+        Carbon::setTestNow(self::NOW);
         Sleep::fake(syncWithCarbon: true);
         Sleep::whenFakingSleep(function (CarbonInterval $duration): void {
             $this->slept[] = $duration->totalMilliseconds;
@@ -56,53 +62,87 @@ final class QuickBooksRateLimiterTest extends TestCase
     }
 
     #[Test]
-    public function an_immediate_grant_does_not_sleep(): void
+    public function a_plain_call_checks_then_takes_a_slot_in_the_realm_buckets_only(): void
     {
-        $this->limiter([0])->acquire(false, self::startBy(10));
+        $this->limiter([self::room(), self::room(), self::granted(), self::granted()])->acquire(false, self::startBy(10));
 
+        $this->assertSame([
+            ['check', 'quickbooks-limiter:realm:second'],
+            ['check', 'quickbooks-limiter:realm:minute'],
+            ['grant', 'quickbooks-limiter:realm:second'],
+            ['grant', 'quickbooks-limiter:realm:minute'],
+        ], $this->calls);
         $this->assertSame([], $this->slept);
-        $this->assertCount(1, $this->calls);
     }
 
     #[Test]
-    public function a_full_bucket_is_waited_out_then_granted(): void
+    public function a_batch_call_also_counts_against_the_batch_bucket(): void
     {
-        $this->limiter([750, 0])->acquire(false, self::startBy(10));
+        $this->limiter([self::room(), self::room(), self::room(), self::granted(), self::granted(), self::granted()])->acquire(true, self::startBy(10));
 
-        $this->assertSame([750.0], $this->slept);
-        $this->assertCount(2, $this->calls);
+        $this->assertSame(['check', 'quickbooks-limiter:realm:batch-minute'], $this->calls[2]);
+        $this->assertSame(['grant', 'quickbooks-limiter:realm:batch-minute'], $this->calls[5]);
     }
 
     #[Test]
-    public function a_wait_past_the_start_by_time_raises_the_deadline_error_without_a_grant(): void
+    public function a_full_bucket_is_waited_out_before_any_slot_is_taken(): void
+    {
+        $this->limiter([self::full(1), self::room(), self::room(), self::room(), self::granted(), self::granted()])->acquire(false, self::startBy(10));
+
+        $this->assertSame([1_000.0], $this->slept);
+        $this->assertSame(['check', 'check', 'check', 'check', 'grant', 'grant'], \array_column($this->calls, 0));
+    }
+
+    #[Test]
+    public function a_wait_past_the_start_by_time_raises_the_deadline_error_without_taking_a_slot(): void
     {
         try {
-            $this->limiter([2_500])->acquire(false, self::startBy(2));
+            $this->limiter([self::room(), self::full(3)])->acquire(false, self::startBy(2));
             $this->fail('Expected QuickBooksDeadlineExceededException');
         } catch (QuickBooksDeadlineExceededException $e) {
             $this->assertEqualsWithDelta(2.0, $e->secondsLeft, 0.001);
         }
 
         $this->assertSame([], $this->slept);
-        $this->assertCount(1, $this->calls);
+        $this->assertSame(['check', 'check'], \array_column($this->calls, 0));
     }
 
     #[Test]
-    public function a_later_wait_is_checked_against_the_time_left_after_earlier_waits(): void
+    public function a_call_without_a_deadline_waits_at_most_the_fixed_timeout(): void
     {
         $this->expectException(QuickBooksDeadlineExceededException::class);
 
         try {
-            $this->limiter([1_500, 1_000])->acquire(false, self::startBy(2));
+            $this->limiter([self::room(), self::full(QuickBooksRateLimiter::NO_DEADLINE_WAIT_SECONDS + 1)])->acquire(false);
         } finally {
-            $this->assertSame([1_500.0], $this->slept);
+            $this->assertSame([], $this->slept);
         }
+    }
+
+    #[Test]
+    public function a_call_without_a_deadline_waits_out_a_full_minute_window(): void
+    {
+        $this->limiter([self::room(), self::full(QuickBooksRateLimiter::NO_DEADLINE_WAIT_SECONDS), self::room(), self::room(), self::granted(), self::granted()])->acquire(false);
+
+        $this->assertSame([60_000.0], $this->slept);
+    }
+
+    #[Test]
+    public function a_slot_lost_to_another_process_is_retried_after_the_window(): void
+    {
+        $this->limiter([
+            self::room(), self::room(), self::denied(1),
+            self::full(1), self::room(),
+            self::room(), self::room(), self::granted(), self::granted(),
+        ])->acquire(false, self::startBy(10));
+
+        $this->assertSame([1_000.0], $this->slept);
     }
 
     #[Test]
     public function a_redis_error_fails_closed(): void
     {
-        $connection = Mockery::mock(Connection::class);
+        $connection = Mockery::mock(PhpRedisConnection::class);
         $connection->shouldReceive('command')->once()->andThrow(new RedisException('connection refused'));
 
         $this->expectException(ExternalServiceUnavailableException::class);
@@ -121,56 +161,30 @@ final class QuickBooksRateLimiterTest extends TestCase
         new QuickBooksRateLimiter($redis, 'realm', new NullLogger(), QuickBooksRateLimiter::defaultBuckets())->acquire(false, self::startBy(10));
     }
 
+    /**
+     * @param list<mixed> $replies
+     */
     #[Test]
     #[DataProvider('oddReplies')]
-    public function a_reply_that_is_not_a_wait_time_fails_closed(mixed $reply): void
+    public function an_odd_reply_fails_closed_without_a_grant(array $replies): void
     {
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->limiter([$reply])->acquire(false, self::startBy(10));
+        $this->limiter($replies)->acquire(false, self::startBy(10));
     }
 
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{list<mixed>}>
      */
     public static function oddReplies(): array
     {
         return [
-            'false (script error)' => [false],
-            'null' => [null],
-            'string' => ['0'],
-            'negative' => [-1],
+            'false on the check (phpredis script error)' => [[false]],
+            'null on the check' => [[null]],
+            'no window end on the check' => [[[null, 10]]],
+            'a non-numeric window end on the check' => [[['soon', 10]]],
+            'no window end on the grant' => [[self::room(), self::room(), [1, null, 9]]],
         ];
-    }
-
-    #[Test]
-    public function a_plain_call_counts_against_the_realm_buckets_only(): void
-    {
-        $this->limiter([0])->acquire(false, self::startBy(10));
-
-        [, $arguments, $keyCount] = $this->calls[0];
-        $this->assertSame(2, $keyCount);
-        $this->assertSame(['quickbooks-limiter:realm:second', 'quickbooks-limiter:realm:minute'], \array_slice($arguments, 0, 2));
-        $this->assertSame([1_000, 10, 60_000, 500], \array_slice($arguments, 2, 4));
-    }
-
-    #[Test]
-    public function a_batch_call_also_counts_against_the_batch_bucket(): void
-    {
-        $this->limiter([0])->acquire(true, self::startBy(10));
-
-        [, $arguments, $keyCount] = $this->calls[0];
-        $this->assertSame(3, $keyCount);
-        $this->assertSame('quickbooks-limiter:realm:batch-minute', $arguments[2]);
-        $this->assertSame([1_000, 10, 60_000, 500, 60_000, 40], \array_slice($arguments, 3, 6));
-    }
-
-    #[Test]
-    public function each_attempt_carries_a_fresh_grant_id(): void
-    {
-        $this->limiter([500, 0])->acquire(false, self::startBy(10));
-
-        $this->assertNotSame(\end($this->calls[0][1]), \end($this->calls[1][1]));
     }
 
     private static function startBy(int $seconds): Deadline
@@ -179,16 +193,55 @@ final class QuickBooksRateLimiterTest extends TestCase
     }
 
     /**
-     * @param list<mixed> $replies one per script call, in order
+     * @return array{int, int}
+     */
+    private static function room(): array
+    {
+        return [self::at(1), 5];
+    }
+
+    /**
+     * @return array{int, int}
+     */
+    private static function full(int $windowEndsIn): array
+    {
+        return [self::at($windowEndsIn), 0];
+    }
+
+    /**
+     * @return array{int, int, int}
+     */
+    private static function granted(): array
+    {
+        return [1, self::at(1), 4];
+    }
+
+    /**
+     * @return array{int, int, int}
+     */
+    private static function denied(int $windowEndsIn): array
+    {
+        return [0, self::at($windowEndsIn), 0];
+    }
+
+    private static function at(int $seconds): int
+    {
+        return CarbonImmutable::parse(self::NOW)->addSeconds($seconds)->getTimestamp();
+    }
+
+    /**
+     * @param list<mixed> $replies one per Redis call, in order
      */
     private function limiter(array $replies): QuickBooksRateLimiter
     {
-        $connection = Mockery::mock(Connection::class);
+        $connection = Mockery::mock(PhpRedisConnection::class);
+        // intentional: Mockery cannot override a method named eval, so the real one runs and forwards to command()
         $connection->shouldReceive('command')
             ->times(\count($replies))
             ->with('eval', Mockery::type('array'))
             ->andReturnUsing(function (string $method, array $parameters) use (&$replies): mixed {
-                $this->calls[] = $parameters;
+                [$script, $arguments] = $parameters;
+                $this->calls[] = [\str_contains($script, 'HINCRBY') ? 'grant' : 'check', $arguments[0]];
 
                 return \array_shift($replies);
             });
@@ -196,7 +249,7 @@ final class QuickBooksRateLimiterTest extends TestCase
         return $this->limiterOn($connection);
     }
 
-    private function limiterOn(Connection $connection): QuickBooksRateLimiter
+    private function limiterOn(PhpRedisConnection $connection): QuickBooksRateLimiter
     {
         $redis = Mockery::mock(RedisFactory::class);
         $redis->shouldReceive('connection')->with(QuickBooksRateLimiter::CONNECTION)->andReturn($connection);
