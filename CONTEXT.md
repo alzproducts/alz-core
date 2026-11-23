@@ -236,7 +236,7 @@ _Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_at
 A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.
 
 **Mapping key**:
-A semantic name the document builder emits (a tax treatment, payment route or fixed ref) that a company-scoped mapping row resolves to a QBO entity ref (its ID).
+A semantic name the document builder emits (a tax treatment, payment route, fixed ref or custom field) that a company-scoped mapping row resolves to a QBO ref: an entity ID, or a definition ID for the two custom-field keys.
 _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 
 **Resolved mapping key**:

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\QuickBooks;
 
+use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
+use Override;
 use SensitiveParameter;
 
 /**
  * Validated QBO connection settings, built only by QuickBooksConfigFactory.
  */
-final readonly class QuickBooksConfig
+final readonly class QuickBooksConfig implements QuickBooksRealmInterface
 {
     public const string AUTHORIZE_URL = 'https://appcenter.intuit.com/connect/oauth2';
 
@@ -30,4 +32,10 @@ final readonly class QuickBooksConfig
         public string $redirectUri,
         public string $realmId,
     ) {}
+
+    #[Override]
+    public function realmId(): string
+    {
+        return $this->realmId;
+    }
 }
