@@ -8,13 +8,11 @@ use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksFaultMapper;
 use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
 use ErrorException;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use QuickBooksOnline\API\Core\CoreConstants;
-use QuickBooksOnline\API\Core\HttpClients\BaseCurl;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
 use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
 
@@ -107,68 +105,33 @@ final class QuickBooksCurlHttpClientTest extends TestCase
     }
 
     #[Test]
+    public function the_intuit_tid_is_read_in_any_header_case_from_an_error_response(): void
+    {
+        foreach (['intuit_tid', 'Intuit_Tid', 'INTUIT_TID'] as $name) {
+            $client = new QuickBooksCurlHttpClient(new SpyCurl("HTTP/1.1 503 Service Unavailable\r\n{$name}: 1-abc-def\r\n\r\n", '', 503));
+            $client->makeAPICall('https://example.test', 'GET', ['Accept' => 'application/xml'], null, null, false);
+
+            $this->assertSame('1-abc-def', $client->intuitTid(), $name);
+        }
+    }
+
+    #[Test]
+    public function the_intuit_tid_is_null_without_a_value_headers_or_a_response(): void
+    {
+        $rawHeaders = ["HTTP/1.1 500\r\nContent-Type: text/plain\r\n\r\n", "HTTP/1.1 500\r\nintuit_tid: \r\n\r\n", "HTTP/1.1 500\r\n\r\n"];
+        foreach ($rawHeaders as $raw) {
+            $client = new QuickBooksCurlHttpClient(new SpyCurl($raw, '', 500));
+            $client->makeAPICall('https://example.test', 'GET', ['Accept' => 'application/xml'], null, null, false);
+
+            $this->assertNull($client->intuitTid(), $raw);
+        }
+
+        $this->assertNull(new QuickBooksCurlHttpClient(new SpyCurl('', '', 0))->intuitTid());
+    }
+
+    #[Test]
     public function retry_after_is_null_before_any_response(): void
     {
         $this->assertNull(new QuickBooksCurlHttpClient(new SpyCurl('', '', 0))->retryAfterSeconds());
     }
-}
-
-/**
- * Records curl options and replays a canned response instead of opening a connection.
- */
-final class SpyCurl extends BaseCurl
-{
-    /** @var array<int, mixed> */
-    public array $options = [];
-
-    public function __construct(
-        private readonly string $rawHeaders,
-        private readonly string $body,
-        private readonly int $status,
-    ) {}
-
-    #[Override]
-    public function init(): void {}
-
-    #[Override]
-    public function isCurlSet(): bool
-    {
-        return true;
-    }
-
-    /**
-     * @param array<int, mixed> $ary
-     */
-    #[Override]
-    public function setupCurlOptArray(array $ary): void
-    {
-        $this->options = $ary;
-    }
-
-    #[Override]
-    public function execute(): string
-    {
-        return $this->rawHeaders . $this->body;
-    }
-
-    #[Override]
-    public function errno(): int
-    {
-        return 0;
-    }
-
-    #[Override]
-    public function error(): string
-    {
-        return '';
-    }
-
-    #[Override]
-    public function getInfo($type): int
-    {
-        return $type === \CURLINFO_HEADER_SIZE ? \mb_strlen($this->rawHeaders) : $this->status;
-    }
-
-    #[Override]
-    public function close(): void {}
 }

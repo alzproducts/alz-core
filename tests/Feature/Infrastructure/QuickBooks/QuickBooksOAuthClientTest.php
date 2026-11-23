@@ -12,15 +12,19 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksOAuthClient;
 use App\Infrastructure\QuickBooks\QuickBooksOAuthHttpTransport;
+use App\Infrastructure\Support\TransientLogThrottle;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Mockery;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 #[CoversClass(QuickBooksOAuthClient::class)]
@@ -107,7 +111,7 @@ final class QuickBooksOAuthClientTest extends TestCase
 
         Log::shouldHaveReceived('error')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => $context === ['status' => 400, 'error' => 'invalid_grant']);
+            ->withArgs(static fn(string $message, array $context): bool => $context === ['status' => 400, 'error' => 'invalid_grant', 'intuit_tid' => null]);
     }
 
     #[Test]
@@ -142,6 +146,50 @@ final class QuickBooksOAuthClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->refresh(new ApiKeyToken('old-refresh'));
+    }
+
+    /**
+     * @return iterable<string, array{int, string, string}>
+     */
+    public static function loggedStatuses(): iterable
+    {
+        foreach ([QuickBooksConfig::TOKEN_URL => 'token', QuickBooksConfig::REVOKE_URL => 'revoke'] as $url => $endpoint) {
+            yield "{$endpoint} 401" => [401, $url, 'error'];
+            yield "{$endpoint} 400" => [400, $url, 'error'];
+            yield "{$endpoint} 429" => [429, $url, 'logTransient'];
+            yield "{$endpoint} 503" => [503, $url, 'logTransient'];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('loggedStatuses')]
+    public function a_failed_response_is_logged_with_its_intuit_tid_or_null(int $status, string $url, string $logMethod): void
+    {
+        foreach (['tid-oauth' => 'tid-oauth', ' ' => null] as $header => $expected) {
+            foreach ($expected === null ? [[], ['intuit_tid' => $header]] : [['Intuit_Tid' => $header]] as $headers) {
+                $contexts = $this->contextsLogged(
+                    $logMethod,
+                    Http::response([], $status, $headers),
+                    static fn(QuickBooksOAuthClientInterface $client) => $url === QuickBooksConfig::TOKEN_URL
+                        ? $client->refresh(new ApiKeyToken('old-refresh'))
+                        : $client->revoke(new ApiKeyToken('old-refresh')),
+                );
+
+                $this->assertSame([['status' => $status, 'error' => null, 'intuit_tid' => $expected]], $contexts);
+            }
+        }
+    }
+
+    #[Test]
+    public function a_connection_failure_is_logged_with_a_null_intuit_tid(): void
+    {
+        $contexts = $this->contextsLogged(
+            'logTransient',
+            static fn() => throw new ConnectionException('timed out'),
+            static fn(QuickBooksOAuthClientInterface $client) => $client->refresh(new ApiKeyToken('old-refresh')),
+        );
+
+        $this->assertSame([['exception' => ConnectionException::class, 'intuit_tid' => null]], $contexts);
     }
 
     #[Test]
@@ -186,6 +234,33 @@ final class QuickBooksOAuthClientTest extends TestCase
         $this->expectException(InvalidApiResponseException::class);
 
         $this->client->refresh(new ApiKeyToken('old-refresh'));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function contextsLogged(string $logMethod, mixed $response, callable $call): array
+    {
+        $contexts = [];
+        $record = static function (array $context) use (&$contexts): void {
+            $contexts[] = $context;
+        };
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldReceive('error')->andReturnUsing(static fn(string $message, array $context) => $record($context));
+        $throttle = Mockery::mock(TransientLogThrottle::class);
+        $throttle->shouldReceive('logTransient')->andReturnUsing(static fn(string $service, string $message, array $context) => $record($context));
+        ($logMethod === 'error' ? $throttle : $logger)->shouldNotReceive($logMethod === 'error' ? 'logTransient' : 'error');
+
+        Http::swap(new Factory());
+        Http::fake(\is_callable($response) ? $response : static fn() => $response);
+
+        try {
+            $call(new QuickBooksOAuthClient(new QuickBooksOAuthHttpTransport($this->config, $throttle, $logger), $this->config));
+            $this->fail('Expected a translated failure');
+        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException) {
+        }
+
+        return $contexts;
     }
 
     /**

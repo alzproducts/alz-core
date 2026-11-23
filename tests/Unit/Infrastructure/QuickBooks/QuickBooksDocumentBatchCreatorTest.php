@@ -45,10 +45,10 @@ final class QuickBooksDocumentBatchCreatorTest extends TestCase
                 '1' => self::created(new IPPInvoice(), '101'),
                 '2' => self::faulted(),
                 '3' => self::created(new IPPInvoice(), '103'),
-            ]));
+            ], 'tid-batch'));
         $logger = Mockery::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()
-            ->with('QuickBooks batch item not created', ['batch_item_id' => '2', 'outcome' => BatchOutcomeKind::Faulted->value, 'code' => '6140']);
+            ->with('QuickBooks batch item not created', ['batch_item_id' => '2', 'outcome' => BatchOutcomeKind::Faulted->value, 'code' => '6140', 'intuit_tid' => 'tid-batch']);
 
         $outcomes = new QuickBooksDocumentBatchCreator($transport, $logger)->create(new ApiKeyToken('access'), [self::invoice(), self::receipt(), self::invoice()], self::deadline());
 
@@ -67,6 +67,23 @@ final class QuickBooksDocumentBatchCreatorTest extends TestCase
         $outcomes = new QuickBooksDocumentBatchCreator($transport, new NullLogger())->create(new ApiKeyToken('access'), [self::invoice()], self::deadline());
 
         $this->assertSame(BatchOutcomeKind::Ambiguous, $outcomes[0]->kind);
+    }
+
+    #[Test]
+    public function every_item_not_created_is_logged_with_the_call_s_intuit_tid_or_null(): void
+    {
+        foreach (['tid-batch', null] as $intuitTid) {
+            $transport = Mockery::mock(QuickBooksTransport::class);
+            $transport->shouldReceive('executeBatch')->once()->andReturn(QuickBooksBatchExecution::responses(['1' => self::faulted()], $intuitTid));
+            $logger = new RecordingLogger();
+
+            new QuickBooksDocumentBatchCreator($transport, $logger)->create(new ApiKeyToken('access'), [self::invoice(), self::receipt()], self::deadline());
+
+            $this->assertSame([
+                ['QuickBooks batch item not created', ['batch_item_id' => '1', 'outcome' => BatchOutcomeKind::Faulted->value, 'code' => '6140', 'intuit_tid' => $intuitTid]],
+                ['QuickBooks batch item not created', ['batch_item_id' => '2', 'outcome' => BatchOutcomeKind::Ambiguous->value, 'code' => null, 'intuit_tid' => $intuitTid]],
+            ], $logger->records);
+        }
     }
 
     #[Test]

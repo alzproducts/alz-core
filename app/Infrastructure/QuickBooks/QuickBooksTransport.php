@@ -31,7 +31,7 @@ use Throwable;
  * Accounting API calls through the SDK: the only class that calls it. Each attempt, a 429 retry included, gets a fresh
  * DataService (a reused curl handle keeps stale options) and a rate-limiter grant; a call given a deadline also starts
  * only with a full client timeout left before it. SDK messages and Fault bodies can hold customer data, so logs carry only the status,
- * class, Intuit code and element, and no Domain exception chains the SDK exception as `previous`.
+ * class, Intuit code and element, and Intuit transaction ID, and no Domain exception chains the SDK exception as `previous`.
  */
 final readonly class QuickBooksTransport
 {
@@ -73,7 +73,7 @@ final readonly class QuickBooksTransport
         }
 
         if (QuickBooksFaultMapper::status($error) === self::TOO_MANY_REQUESTS) {
-            throw $this->rateLimited($session->httpClient->retryAfterSeconds(), 0.0);
+            throw $this->rateLimited($session->httpClient, 0.0);
         }
 
         throw $this->callFailure($error, $session->httpClient);
@@ -125,27 +125,40 @@ final readonly class QuickBooksTransport
      */
     public function add(#[SensitiveParameter] ApiKeyToken $accessToken, IPPIntuitEntity $entity, string $expected, Deadline $deadline): IPPIntuitEntity
     {
-        $created = $this->send($accessToken, $deadline, false, static function (DataService $dataService) use ($entity): mixed {
+        $intuitTid = null;
+        $created = $this->send($accessToken, $deadline, false, static function (DataService $dataService, QuickBooksCurlHttpClient $httpClient) use ($entity, &$intuitTid): mixed {
             try {
-                return $dataService->Add($entity);
+                $result = $dataService->Add($entity);
             } catch (IdsException $e) { // @ignoreException - classified below
-                return $e;
+                $result = $e;
             }
+
+            $intuitTid = $httpClient->intuitTid();
+
+            return $result;
         });
 
         // intentional: only a bare IdsException is the SDK refusing the entity before sending; its subclasses (curl errors among them) are transport failures
         if ($created instanceof IdsException && $created::class !== IdsException::class) {
-            throw $this->transientFailure($created::class, null);
+            throw $this->transientFailure($created::class, null, $intuitTid);
         }
 
         // intentional: the SDK returns, not throws, an \Exception when it cannot parse the response, so only the sent type counts as created
         if (!$created instanceof $expected) {
-            $this->logger->error(self::LOG_PREFIX . ' returned an unexpected create result', ['result_type' => \get_debug_type($created)]);
-
-            throw new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Create result is not the entity sent');
+            throw $this->unexpectedCreateResult($created, $intuitTid);
         }
 
         return $created;
+    }
+
+    private function unexpectedCreateResult(mixed $created, ?string $intuitTid): UnexpectedApiResultException
+    {
+        $this->logger->error(self::LOG_PREFIX . ' returned an unexpected create result', [
+            'result_type' => \get_debug_type($created),
+            'intuit_tid' => $intuitTid,
+        ]);
+
+        return new UnexpectedApiResultException(QuickBooksOAuthHttpTransport::SERVICE_NAME, 'Create result is not the entity sent');
     }
 
     /**
@@ -166,26 +179,26 @@ final readonly class QuickBooksTransport
             $session = $this->dataServices->create($accessToken);
             $batch = $this->sendBatch($session, $entities);
             if ($batch === null) {
-                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous());
+                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous(), $session->httpClient->intuitTid());
             }
 
             $error = QuickBooksFaultMapper::faultOrNull($batch->getLastError());
             if ($error === null) {
                 $responses = $batch->ReadOnlyCollection();
 
-                return QuickBooksBatchExecution::responses(\is_array($responses) ? $responses : []);
+                return QuickBooksBatchExecution::responses(\is_array($responses) ? $responses : [], $session->httpClient->intuitTid());
             }
 
             if (QuickBooksFaultMapper::status($error) !== self::TOO_MANY_REQUESTS) {
-                return self::batchFailure($this->callFailure($error, $session->httpClient));
+                return self::batchFailure($this->callFailure($error, $session->httpClient), $session->httpClient->intuitTid());
             }
 
             $retryAfter = $session->httpClient->retryAfterSeconds();
             $wait = \max(self::backoffSeconds($retry), (float) ($retryAfter ?? 0));
             if (!$this->awaitRetry($deadline, true, $wait)) {
-                $this->logTransient(ExternalServiceUnavailableException::class, self::TOO_MANY_REQUESTS);
+                $this->logTransient(ExternalServiceUnavailableException::class, self::TOO_MANY_REQUESTS, $session->httpClient->intuitTid());
 
-                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::rateLimited($retryAfter ?? (int) \ceil($wait)));
+                return QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::rateLimited($retryAfter ?? (int) \ceil($wait)), $session->httpClient->intuitTid());
             }
         }
     }
@@ -213,7 +226,7 @@ final readonly class QuickBooksTransport
 
         // intentional: logged outside the catch so the SDK exception cannot become `previous` (see class doc)
         if ($thrown !== null) {
-            $this->logTransient($thrown, null);
+            $this->logTransient($thrown, null, $session->httpClient->intuitTid());
 
             return null;
         }
@@ -226,11 +239,12 @@ final readonly class QuickBooksTransport
      */
     private static function batchFailure(
         AuthenticationExpiredException|ExternalServiceUnavailableException|QuickBooksFaultException $failure,
+        ?string $intuitTid,
     ): QuickBooksBatchExecution {
         return match (true) {
             $failure instanceof AuthenticationExpiredException => throw $failure,
-            $failure instanceof QuickBooksFaultException => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::faulted($failure->fault)),
-            default => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous()),
+            $failure instanceof QuickBooksFaultException => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::faulted($failure->fault), $intuitTid),
+            default => QuickBooksBatchExecution::everyItem(BatchItemOutcomeResult::ambiguous(), $intuitTid),
         };
     }
 
@@ -238,7 +252,7 @@ final readonly class QuickBooksTransport
      * Sends one call, retrying a 429 with back-off while the deadline allows.
      *
      * @param-immediately-invoked-callable $call
-     * @param Closure(DataService): mixed $call
+     * @param Closure(DataService, QuickBooksCurlHttpClient): mixed $call
      *
      * @throws AuthenticationExpiredException
      * @throws ExternalServiceUnavailableException
@@ -265,23 +279,26 @@ final readonly class QuickBooksTransport
             $retryAfter = $session->httpClient->retryAfterSeconds();
             $wait = \max(self::backoffSeconds($retry), (float) ($retryAfter ?? 0));
             if (!$this->awaitRetry($deadline, $batchCall, $wait)) {
-                throw $this->rateLimited($retryAfter, $wait);
+                throw $this->rateLimited($session->httpClient, $wait);
             }
         }
     }
 
-    private function rateLimited(?int $retryAfter, float $wait): ExternalServiceUnavailableException
+    private function rateLimited(QuickBooksCurlHttpClient $httpClient, float $wait): ExternalServiceUnavailableException
     {
+        $retryAfter = $httpClient->retryAfterSeconds();
+
         return $this->transientFailure(
             ExternalServiceUnavailableException::class,
             self::TOO_MANY_REQUESTS,
+            $httpClient->intuitTid(),
             new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME, $retryAfter ?? (int) \ceil($wait)),
         );
     }
 
     /**
      * @param-immediately-invoked-callable $call
-     * @param Closure(DataService): mixed $call
+     * @param Closure(DataService, QuickBooksCurlHttpClient): mixed $call
      *
      * @throws ExternalServiceUnavailableException
      */
@@ -291,14 +308,14 @@ final readonly class QuickBooksTransport
         $thrown = null;
 
         try {
-            $result = $call($session->dataService);
+            $result = $call($session->dataService, $session->httpClient);
         } catch (Exception $e) { // @ignoreException - curl and SDK errors are transport failures; translated below
             $thrown = $e::class;
         }
 
         // intentional: translated outside the catch so the SDK exception cannot become `previous` (see class doc)
         if ($thrown !== null) {
-            throw $this->transientFailure($thrown, null);
+            throw $this->transientFailure($thrown, null, $session->httpClient->intuitTid());
         }
 
         return $result;
@@ -368,10 +385,10 @@ final readonly class QuickBooksTransport
         $status = QuickBooksFaultMapper::status($error);
 
         if ($failure instanceof ExternalServiceUnavailableException) {
-            return $this->transientFailure($failure::class, $status, $failure);
+            return $this->transientFailure($failure::class, $status, $httpClient->intuitTid(), $failure);
         }
 
-        $context = ['status' => $status, 'exception' => $failure::class];
+        $context = ['status' => $status, 'exception' => $failure::class, 'intuit_tid' => $httpClient->intuitTid()];
         if ($failure instanceof QuickBooksFaultException) {
             $context += ['code' => $failure->fault->code, 'element' => $failure->fault->element];
         }
@@ -384,18 +401,20 @@ final readonly class QuickBooksTransport
     private function transientFailure(
         string $exceptionClass,
         ?int $status,
+        ?string $intuitTid,
         ?ExternalServiceUnavailableException $failure = null,
     ): ExternalServiceUnavailableException {
-        $this->logTransient($exceptionClass, $status);
+        $this->logTransient($exceptionClass, $status, $intuitTid);
 
         return $failure ?? new ExternalServiceUnavailableException(QuickBooksOAuthHttpTransport::SERVICE_NAME);
     }
 
-    private function logTransient(string $exceptionClass, ?int $status): void
+    private function logTransient(string $exceptionClass, ?int $status, ?string $intuitTid): void
     {
         $this->logThrottle->logTransient(QuickBooksOAuthHttpTransport::SERVICE_NAME, self::LOG_PREFIX . ' request failed', [
             'status' => $status,
             'exception' => $exceptionClass,
+            'intuit_tid' => $intuitTid,
         ]);
     }
 }

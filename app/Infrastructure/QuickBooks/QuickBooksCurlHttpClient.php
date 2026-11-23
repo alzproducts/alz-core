@@ -74,6 +74,24 @@ final class QuickBooksCurlHttpClient extends CurlHttpClient
     }
 
     /**
+     * The last response's Intuit transaction ID, null without a response or the header.
+     */
+    public function intuitTid(): ?string
+    {
+        $response = $this->getLastResponse();
+
+        return $response instanceof IntuitResponse ? self::nonBlank($response->getIntuitTid()) : null;
+    }
+
+    /**
+     * The SDK's PHPDoc promises a string; it holds null when the response had no such header.
+     */
+    private static function nonBlank(mixed $value): ?string
+    {
+        return \is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
      * The SDK's PHPDoc promises an array; it holds null when the response had no headers.
      *
      * @return array<mixed>

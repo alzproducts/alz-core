@@ -32,6 +32,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
 use QuickBooksOnline\API\Core\HttpClients\FaultHandler;
 use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
@@ -300,6 +301,73 @@ final class QuickBooksTransportBatchTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{int, string, ?string}>
+     */
+    public static function loggedFailures(): iterable
+    {
+        foreach (['with the header' => 'tid-1', 'without it' => null] as $case => $intuitTid) {
+            yield "400 fault {$case}" => [400, self::faultXml('6210'), $intuitTid];
+            yield "429 {$case}" => [429, '', $intuitTid];
+            yield "503 {$case}" => [503, '', $intuitTid];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('loggedFailures')]
+    public function a_failed_batch_call_is_logged_with_its_intuit_tid_and_carries_it(int $status, string $body, ?string $intuitTid): void
+    {
+        $logger = new RecordingLogger();
+        $session = $this->batchSession(lastError: self::fault($status, $body), retryAfter: 120, intuitTid: $intuitTid);
+
+        $execution = $this->transport([$session], logger: $logger)->executeBatch(self::token(), self::entities(), self::deadline());
+
+        $this->assertSame($intuitTid, $execution->intuitTid);
+        $this->assertCount(1, $logger->records);
+        $this->assertSame($status, $logger->records[0][1]['status']);
+        $this->assertArrayHasKey('intuit_tid', $logger->records[0][1]);
+        $this->assertSame($intuitTid, $logger->records[0][1]['intuit_tid']);
+    }
+
+    #[Test]
+    public function a_401_batch_call_is_logged_with_its_intuit_tid(): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $this->transport([$this->batchSession(lastError: self::fault(401, ''), intuitTid: 'tid-1')], logger: $logger)
+                ->executeBatch(self::token(), self::entities(), self::deadline());
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException) {
+            $this->assertSame('tid-1', $logger->records[0][1]['intuit_tid']);
+        }
+    }
+
+    #[Test]
+    public function a_batch_send_that_threw_is_logged_with_the_intuit_tid_of_any_response_it_got(): void
+    {
+        foreach (['tid-1', null] as $intuitTid) {
+            $logger = new RecordingLogger();
+            $session = $this->batchSession(throws: new TypeError('code must be int'), intuitTid: $intuitTid);
+
+            $execution = $this->transport([$session], logger: $logger)->executeBatch(self::token(), self::entities(), self::deadline());
+
+            $this->assertSame($intuitTid, $execution->intuitTid);
+            $this->assertSame(['status' => null, 'exception' => TypeError::class, 'intuit_tid' => $intuitTid], $logger->records[0][1]);
+        }
+    }
+
+    #[Test]
+    public function an_answered_batch_carries_the_intuit_tid_of_the_response_that_answered_it(): void
+    {
+        $execution = $this->transport([
+            $this->batchSession(lastError: self::fault(429, ''), retryAfter: 3, intuitTid: 'tid-429'),
+            $this->batchSession(responses: ['1' => self::failed(new ValidationException('Rejected', 2500))], intuitTid: 'tid-200'),
+        ])->executeBatch(self::token(), self::entities(), self::deadline(60));
+
+        $this->assertSame('tid-200', $execution->intuitTid);
+    }
+
+    /**
      * @return list<IPPInvoice|IPPSalesReceipt>
      */
     private static function entities(): array
@@ -368,6 +436,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         FaultHandler|false $lastError = false,
         ?Throwable $throws = null,
         ?int $retryAfter = null,
+        ?string $intuitTid = null,
     ): QuickBooksDataServiceSession {
         $batch = Mockery::mock(Batch::class);
         $batch->shouldReceive('AddEntity');
@@ -380,6 +449,7 @@ final class QuickBooksTransportBatchTest extends TestCase
 
         $httpClient = Mockery::mock(QuickBooksCurlHttpClient::class);
         $httpClient->shouldReceive('retryAfterSeconds')->andReturn($retryAfter);
+        $httpClient->shouldReceive('intuitTid')->andReturn($intuitTid);
 
         return self::sessionWith($batch, $httpClient);
     }
@@ -395,7 +465,7 @@ final class QuickBooksTransportBatchTest extends TestCase
     /**
      * @param list<QuickBooksDataServiceSession> $sessions one per expected attempt, in order
      */
-    private function transport(array $sessions, ?QuickBooksRateLimiter $limiter = null): QuickBooksTransport
+    private function transport(array $sessions, ?QuickBooksRateLimiter $limiter = null, ?AbstractLogger $logger = null): QuickBooksTransport
     {
         $factory = Mockery::mock(QuickBooksDataServiceFactory::class);
         if ($sessions === []) {
@@ -409,9 +479,14 @@ final class QuickBooksTransportBatchTest extends TestCase
             $limiter->shouldReceive('acquire', 'acquireBy');
         }
 
+        $logger ??= new NullLogger();
         $throttle = Mockery::mock(TransientLogThrottle::class);
-        $throttle->shouldReceive('logTransient');
+        $throttle->shouldReceive('logTransient')->andReturnUsing(
+            static function (string $service, string $message, array $context) use ($logger): void {
+                $logger->warning($message, $context);
+            },
+        );
 
-        return new QuickBooksTransport($factory, $limiter, $throttle, new NullLogger());
+        return new QuickBooksTransport($factory, $limiter, $throttle, $logger);
     }
 }

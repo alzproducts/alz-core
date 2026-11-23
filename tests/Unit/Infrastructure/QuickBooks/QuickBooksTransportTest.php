@@ -12,10 +12,13 @@ use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceSession;
+use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
 use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
+use App\Infrastructure\QuickBooks\QuickBooksRestHandlerSeam;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use App\Infrastructure\QuickBooks\QuickBooksXmlParsing;
 use App\Infrastructure\Support\TransientLogThrottle;
@@ -41,7 +44,6 @@ use QuickBooksOnline\API\Data\IPPCustomer;
 use QuickBooksOnline\API\DataService\DataService;
 use QuickBooksOnline\API\Exception\IdsException;
 use QuickBooksOnline\API\Exception\SdkException;
-use Stringable;
 use Throwable;
 
 #[CoversClass(QuickBooksTransport::class)]
@@ -411,6 +413,39 @@ final class QuickBooksTransportTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string, ?string}>
+     */
+    public static function createFaultHeaders(): array
+    {
+        return [
+            'with the header' => ["intuit_tid: tid-1\r\n", 'tid-1'],
+            'without it' => ['', null],
+        ];
+    }
+
+    /**
+     * Runs the real SDK: it records a Fault only outside 200-299, so a 2xx one reaches the transport as a null result.
+     */
+    #[Test]
+    #[DataProvider('createFaultHeaders')]
+    public function an_add_answered_2xx_with_a_fault_is_logged_with_its_intuit_tid(string $header, ?string $intuitTid): void
+    {
+        $logger = new RecordingLogger();
+        $session = self::sdkSession(new SpyCurl("HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\n{$header}\r\n", self::faultXml('6240', 'Name'), 200));
+
+        try {
+            $this->transport([$session], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+            $this->fail('Expected UnexpectedApiResultException');
+        } catch (UnexpectedApiResultException) {
+        }
+
+        $this->assertSame(
+            [['QuickBooks API returned an unexpected create result', ['result_type' => 'null', 'intuit_tid' => $intuitTid]]],
+            $logger->records,
+        );
+    }
+
+    /**
      * @param class-string<Throwable> $expected
      */
     #[Test]
@@ -428,6 +463,71 @@ final class QuickBooksTransportTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->transport([$this->addSession(new SdkException('curl failed'), false, throws: true)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+    }
+
+    /**
+     * @return iterable<string, array{int, string, ?string}>
+     */
+    public static function loggedFailures(): iterable
+    {
+        foreach (['with the header' => 'tid-1', 'without it' => null] as $case => $intuitTid) {
+            yield "401 {$case}" => [401, '', $intuitTid];
+            yield "400 fault {$case}" => [400, self::faultXml('6240', 'Name'), $intuitTid];
+            yield "429 {$case}" => [429, '', $intuitTid];
+            yield "503 {$case}" => [503, '', $intuitTid];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('loggedFailures')]
+    public function a_failed_response_is_logged_with_its_intuit_tid(int $status, string $body, ?string $intuitTid): void
+    {
+        $fault = self::fault($status, $body);
+        $httpClient = self::retryAfter(60, $intuitTid);
+
+        foreach ([
+            fn(RecordingLogger $logger): mixed => $this->transport([$this->session(null, $fault, $httpClient)], logger: $logger)->companyInfo(self::token()),
+            fn(RecordingLogger $logger): mixed => $this->transport([$this->querySession(null, $fault, $httpClient)], logger: $logger)->query(self::token(), self::QUERY, self::deadline()),
+            fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession(null, $fault, httpClient: $httpClient)], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+        ] as $call) {
+            $this->assertLoggedOnce($call, $status, $intuitTid);
+        }
+    }
+
+    #[Test]
+    public function a_call_that_threw_is_logged_with_the_intuit_tid_of_any_response_it_got(): void
+    {
+        foreach (['tid-1', null] as $intuitTid) {
+            $httpClient = self::retryAfter(null, $intuitTid);
+            foreach ([new SdkException('failed'), new Exception('failed')] as $thrown) {
+                $this->assertLoggedOnce(
+                    fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession($thrown, false, true, $httpClient)], logger: $logger)
+                        ->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+                    null,
+                    $intuitTid,
+                );
+            }
+        }
+    }
+
+    /**
+     * @param callable(RecordingLogger): mixed $call
+     */
+    private function assertLoggedOnce(callable $call, ?int $status, ?string $intuitTid): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $call($logger);
+            $this->fail('Expected a translated failure');
+        } catch (AuthenticationExpiredException|ExternalServiceUnavailableException|QuickBooksFaultException) {
+        }
+
+        $this->assertCount(1, $logger->records);
+        $context = $logger->records[0][1];
+        $this->assertSame($status, $context['status']);
+        $this->assertArrayHasKey('intuit_tid', $context);
+        $this->assertSame($intuitTid, $context['intuit_tid']);
     }
 
     private static function token(): ApiKeyToken
@@ -465,6 +565,23 @@ final class QuickBooksTransportTest extends TestCase
             XML;
     }
 
+    private static function sdkSession(SpyCurl $curl): QuickBooksDataServiceSession
+    {
+        $config = new QuickBooksConfig(
+            environment: QuickBooksEnvironment::Sandbox,
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+            redirectUri: 'http://localhost/quickbooks/callback',
+            realmId: '9130000000000001',
+        );
+        $dataService = new QuickBooksDataServiceFactory($config)->create(self::token())->dataService;
+        $httpClient = new QuickBooksCurlHttpClient($curl);
+        QuickBooksRestHandlerSeam::install($dataService, $httpClient);
+        $dataService->disableLog();
+
+        return new QuickBooksDataServiceSession($dataService, $httpClient);
+    }
+
     private function querySession(mixed $result, FaultHandler|false $lastError, ?QuickBooksCurlHttpClient $httpClient = null): QuickBooksDataServiceSession
     {
         $dataService = Mockery::mock(DataService::class);
@@ -477,7 +594,7 @@ final class QuickBooksTransportTest extends TestCase
     /**
      * An IdsException result is thrown, as the SDK throws it for a local refusal; `throws` throws any other exception.
      */
-    private function addSession(mixed $result, FaultHandler|false $lastError, bool $throws = false): QuickBooksDataServiceSession
+    private function addSession(mixed $result, FaultHandler|false $lastError, bool $throws = false, ?QuickBooksCurlHttpClient $httpClient = null): QuickBooksDataServiceSession
     {
         $dataService = Mockery::mock(DataService::class);
         $expectation = $dataService->shouldReceive('Add')->once()->with(Mockery::type(IPPCustomer::class));
@@ -488,7 +605,7 @@ final class QuickBooksTransportTest extends TestCase
         }
         $dataService->shouldReceive('getLastError')->andReturn($lastError);
 
-        return new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient());
+        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient());
     }
 
     private function session(mixed $result, FaultHandler|false $lastError, ?QuickBooksCurlHttpClient $httpClient = null): QuickBooksDataServiceSession
@@ -505,10 +622,11 @@ final class QuickBooksTransportTest extends TestCase
         return $this->querySession(null, self::fault(429, ''), self::retryAfter($retryAfter));
     }
 
-    private static function retryAfter(?int $seconds): QuickBooksCurlHttpClient
+    private static function retryAfter(?int $seconds, ?string $intuitTid = null): QuickBooksCurlHttpClient
     {
         $httpClient = Mockery::mock(QuickBooksCurlHttpClient::class);
         $httpClient->shouldReceive('retryAfterSeconds')->andReturn($seconds);
+        $httpClient->shouldReceive('intuitTid')->andReturn($intuitTid);
 
         return $httpClient;
     }
@@ -542,20 +660,5 @@ final class QuickBooksTransportTest extends TestCase
         );
 
         return new QuickBooksTransport($factory, $limiter, $throttle, $logger);
-    }
-}
-
-final class RecordingLogger extends AbstractLogger
-{
-    /** @var list<array{string, array<mixed>}> */
-    public array $records = [];
-
-    /**
-     * @param array<mixed> $context
-     */
-    #[Override]
-    public function log($level, string|Stringable $message, array $context = []): void
-    {
-        $this->records[] = [(string) $message, $context];
     }
 }
