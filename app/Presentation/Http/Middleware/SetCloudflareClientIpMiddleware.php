@@ -26,7 +26,9 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Trade-off (accepted): a request reaching Railway directly, bypassing
  * Cloudflare, could forge CF-Connecting-IP. Tolerable — the resulting IP feeds
- * fuzzy order matching, rate limiting and logging, never authorization.
+ * fuzzy order matching, rate limiting and logging, and is never the sole basis
+ * for authorization: the service caller allowlist is a secondary check on it,
+ * made only after the caller's token is accepted (docs/adr/0023).
  */
 final class SetCloudflareClientIpMiddleware
 {

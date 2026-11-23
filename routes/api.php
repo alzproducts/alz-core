@@ -20,6 +20,7 @@ use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ListFailedQuickBooksOrdersController;
+use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
@@ -34,6 +35,7 @@ use App\Presentation\Http\HelpScout\Controllers\ConversationsController;
 use App\Presentation\Http\HelpScout\Controllers\ProfileController;
 use App\Presentation\Http\HelpScout\Middleware\DetectRefreshMiddleware;
 use App\Presentation\Http\HelpScout\Middleware\HandleHelpScoutExceptionsMiddleware;
+use App\Presentation\Http\Middleware\AuthenticateServiceCallerMiddleware;
 use App\Presentation\Http\Middleware\EnsureRoleTierMiddleware;
 use App\Presentation\Http\Middleware\EnsureUserApprovedMiddleware;
 use App\Presentation\Http\Middleware\RejectHoneypotMiddleware;
@@ -118,6 +120,23 @@ Route::prefix('webhooks/twilio')
     ->group(static function (): void {
         Route::post('call-started', TwilioCallStartedController::class);
     });
+
+/*
+|--------------------------------------------------------------------------
+| Service Caller Routes
+|--------------------------------------------------------------------------
+|
+| Called by a named service caller with its own bearer token and IP
+| allowlist (config/service-callers.php, docs/adr/0023), never a JWT.
+|
+*/
+
+Route::middleware([
+    'throttle:api',
+    AuthenticateServiceCallerMiddleware::using('alz_connect'),
+])->group(static function (): void {
+    Route::get('orders/status-summary', OrderStatusSummaryController::class);
+});
 
 /*
 |--------------------------------------------------------------------------
