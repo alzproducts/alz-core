@@ -11,6 +11,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
+use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -963,6 +964,122 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         $this->assertRow($empty, ['status' => 'failed', 'last_error_code' => 'zero_lines']);
         $this->assertRow($postable, ['status' => 'pending', 'claim_token' => null]);
         self::assertSame(['findDocuments'], $this->posting->calls);
+    }
+
+    /**
+     * The port reports a timeout and a 5xx after the send as ambiguous documents.
+     *
+     * @return iterable<string, array{Throwable|null, string|null}>
+     */
+    public static function unknownBatchOutcomes(): iterable
+    {
+        yield 'times out' => [null, null];
+        yield 'returns a 5xx' => [null, null];
+        yield 'throws a runtime exception before its documents' => [new RuntimeException('test'), 'createDocuments'];
+        yield 'throws a runtime exception after its documents' => [new RuntimeException('test'), 'afterCreate'];
+        yield 'throws an error before its documents' => [new Error('test'), 'createDocuments'];
+        yield 'throws an error after its documents' => [new Error('test'), 'afterCreate'];
+        yield 'throws an unexpected result' => [new UnexpectedApiResultException('QuickBooks', 'test'), 'afterCreate'];
+    }
+
+    #[Test]
+    #[DataProvider('unknownBatchOutcomes')]
+    public function an_unknown_batch_outcome_fails_every_order(?Throwable $throw, ?string $step): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        foreach ($references as $reference) {
+            $this->posting->batchOutcomes["A{$reference}"] = BatchItemOutcomeResult::ambiguous();
+        }
+        if ($throw !== null && $step !== null) {
+            $this->posting->throws[$step] = $throw;
+        }
+
+        $this->sync(['references' => $references, 'force_retry' => true])
+            ->assertOk()
+            ->assertJsonPath('counts.failed', 5)
+            ->assertJsonPath('results.*.reason.code', \array_fill(0, 5, 'outcome_unknown'))
+            ->assertJsonPath('results.*.reason.retryable', \array_fill(0, 5, true));
+
+        foreach ($references as $reference) {
+            $this->assertRow($reference, ['status' => 'failed', 'last_error_code' => 'outcome_unknown', 'claim_token' => null]);
+            self::assertEquals([(object) ['trigger' => 'manual', 'reason_code' => 'outcome_unknown']], self::errors($reference));
+        }
+        self::assertSame(0, DB::table('quickbooks.order_syncs')->whereIn('status', ['pending', 'processing'])->count());
+        self::assertSame(['findDocuments', 'findItems', 'findOrCreateCustomers', 'createDocuments'], $this->posting->calls);
+    }
+
+    #[Test]
+    public function an_unknown_batch_outcome_is_logged_by_class_even_when_a_record_throws(): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->throws['afterCreate'] = new RuntimeException('customer data');
+        $failures = 0;
+        $this->interceptRepository()->beforeFailed = static function () use (&$failures): void {
+            $failures++;
+            if ($failures === 1) {
+                throw new DatabaseOperationFailedException('recordFailed', 'test');
+            }
+        };
+        $errors = [];
+        Event::listen(MessageLogged::class, static function (MessageLogged $log) use (&$errors): void {
+            if ($log->level === 'error') {
+                $errors[] = [$log->message, $log->context];
+            }
+        });
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus(500);
+
+        self::assertSame(5, $failures);
+        self::assertContains([
+            'QuickBooks batch create outcome is unknown',
+            ['references' => $references, 'exception' => RuntimeException::class],
+        ], $errors);
+        $this->assertRow($references[0], ['status' => 'processing', 'last_error_code' => null]);
+        foreach (\array_slice($references, 1) as $reference) {
+            $this->assertRow($reference, ['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{Throwable, int}>
+     */
+    public static function recordThrows(): iterable
+    {
+        yield 'unavailable' => [new ExternalServiceUnavailableException('Database'), 503];
+        yield 'database' => [new DatabaseOperationFailedException('recordSynced', 'test'), 500];
+        yield 'runtime exception' => [new RuntimeException('test'), 500];
+    }
+
+    #[Test]
+    #[DataProvider('recordThrows')]
+    public function a_record_that_throws_after_the_batch_create_stops_no_other_record(Throwable $throw, int $status): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->batchOutcomes["A{$references[2]}"] = BatchItemOutcomeResult::ambiguous();
+        $this->posting->batchOutcomes["A{$references[3]}"] = BatchItemOutcomeResult::rateLimited(null);
+        $unrecorded = "txn-A{$references[0]}";
+        $released = 0;
+        $repository = $this->interceptRepository();
+        $repository->beforeSynced = static function (OrderSyncPostedDTO $posted) use ($unrecorded, $throw): void {
+            if ($posted->qboTxnId === $unrecorded) {
+                throw $throw;
+            }
+        };
+        $repository->beforeRelease = static function () use (&$released): void {
+            $released++;
+        };
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus($status);
+
+        self::assertSame(0, $released);
+        $this->assertRow($references[0], ['status' => 'processing', 'qbo_txn_id' => null]);
+        $this->assertRow($references[1], ['status' => 'synced', 'qbo_txn_id' => "txn-A{$references[1]}"]);
+        $this->assertRow($references[2], ['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+        $this->assertRow($references[3], ['status' => 'failed', 'last_error_code' => 'qbo_unavailable']);
+        $this->assertRow($references[4], ['status' => 'synced', 'qbo_txn_id' => "txn-A{$references[4]}"]);
     }
 
     /**
