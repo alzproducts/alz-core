@@ -15,4 +15,5 @@ enum ExpectedOutcome: string
     case SkippedPaymentMethodUnmapped = 'skipped:payment_method_unmapped';
     case FailedItemMissing = 'failed:item_missing';
     case FailedZeroLines = 'failed:zero_lines';
+    case FailedQboValidation = 'failed:qbo_validation';
 }
