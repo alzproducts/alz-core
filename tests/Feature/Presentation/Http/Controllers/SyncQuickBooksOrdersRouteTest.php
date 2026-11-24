@@ -11,6 +11,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
+use App\Application\QuickBooks\OrderSync\Enums\CustomerFailureKind;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -1080,6 +1081,194 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         $this->assertRow($references[2], ['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
         $this->assertRow($references[3], ['status' => 'failed', 'last_error_code' => 'qbo_unavailable']);
         $this->assertRow($references[4], ['status' => 'synced', 'qbo_txn_id' => "txn-A{$references[4]}"]);
+    }
+
+    /**
+     * @return iterable<string, array{CustomerFailureKind|QuickBooksFault, string}>
+     */
+    public static function customerFailures(): iterable
+    {
+        yield 'inactive' => [CustomerFailureKind::Inactive, 'qbo_validation'];
+        yield 'name clash' => [CustomerFailureKind::NameClash, 'qbo_validation'];
+        foreach (self::faults() as $name => [$fault, $code]) {
+            yield "fault {$name}" => [$fault, $code];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('customerFailures')]
+    public function a_failed_customer_fails_its_order(CustomerFailureKind|QuickBooksFault $failure, string $code): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->posting->customerFailures['buyer@example.test'] = $failure;
+
+        $this->assertFailed($code, ['references' => [self::REFERENCE]]);
+        self::assertSame([], $this->posting->documents);
+    }
+
+    /**
+     * @return iterable<string, array{BatchItemOutcomeResult, string}>
+     */
+    public static function failedBatchItems(): iterable
+    {
+        yield 'rate limited' => [BatchItemOutcomeResult::rateLimited(1), 'qbo_unavailable'];
+        foreach (self::faults() as $name => [$fault, $code]) {
+            yield "fault {$name}" => [BatchItemOutcomeResult::faulted($fault), $code];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('failedBatchItems')]
+    public function a_failed_batch_item_fails_its_order(BatchItemOutcomeResult $item, string $code): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->posting->batchOutcomes['A' . self::REFERENCE] = $item;
+
+        $this->assertFailed($code, ['references' => [self::REFERENCE]]);
+    }
+
+    #[Test]
+    public function an_order_that_cannot_be_built_makes_no_call(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->insertOrder(self::OTHER_REFERENCE);
+        DB::table('shopwired.order_products')->where('order_external_id', self::REFERENCE)->delete();
+        $this->changeLine(self::OTHER_REFERENCE, ['vat_rate' => '5']);
+
+        $this->sync(['references' => [self::REFERENCE, self::OTHER_REFERENCE]])->assertOk();
+
+        $this->assertRow(self::REFERENCE, ['status' => 'failed', 'last_error_code' => 'zero_lines']);
+        $this->assertRow(self::OTHER_REFERENCE, ['status' => 'failed', 'last_error_code' => 'tax_rate_unsupported']);
+        self::assertSame([], $this->posting->calls);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, array<string, mixed>, string}>
+     */
+    public static function lineDefects(): iterable
+    {
+        yield 'no SKU' => [[], ['sku' => ''], 'item_missing'];
+        yield 'no VAT rate' => [['shipping_vat_rate' => null], [], 'tax_rate_unsupported'];
+        yield 'negative VAT rate' => [[], ['vat_rate' => '-20'], 'tax_rate_unsupported'];
+        yield 'quantity below one' => [[], ['quantity' => 0], 'qbo_validation'];
+    }
+
+    #[Test]
+    public function orders_with_defective_lines_fail_and_the_postable_order_is_synced(): void
+    {
+        $this->connect();
+        $expected = [];
+        $reference = self::REFERENCE;
+        foreach (self::lineDefects() as [$state, $line, $code]) {
+            $this->insertOrder($reference, state: $state);
+            $this->changeLine($reference, $line);
+            $expected[$reference++] = $code;
+        }
+        $this->insertOrder($reference);
+
+        $this->sync(['references' => [...\array_keys($expected), $reference]])
+            ->assertOk()
+            ->assertJsonPath('results.*.outcome', ['failed', 'failed', 'failed', 'failed', 'synced']);
+
+        foreach ($expected as $failed => $code) {
+            $this->assertRow($failed, ['status' => 'failed', 'last_error_code' => $code]);
+        }
+        $this->assertRow($reference, ['status' => 'synced', 'qbo_txn_id' => "txn-A{$reference}"]);
+        self::assertSame(["A{$reference}"], $this->posting->lookedUp);
+        self::assertCount(1, $this->posting->customers);
+        self::assertCount(1, $this->posting->documents);
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     * @param array<string, mixed> $line
+     */
+    #[Test]
+    #[DataProvider('lineDefects')]
+    public function a_defective_line_keeps_a_stored_unknown_outcome(array $state, array $line, string $code): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, state: $state);
+        $this->changeLine(self::REFERENCE, $line);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+
+        $response = $this->assertFailed('outcome_unknown', ['references' => [self::REFERENCE], 'force_retry' => true])
+            ->assertJsonPath('results.0.reason.retryable', true);
+
+        self::assertStringContainsString($code, (string) \json_encode($response->json('results.0.reason.message')));
+        self::assertStringContainsString($code, (string) \json_encode(DB::table('quickbooks.order_syncs')->value('last_error_message')));
+        self::assertEquals([(object) ['trigger' => 'manual', 'reason_code' => $code]], self::errors(self::REFERENCE));
+    }
+
+    #[Test]
+    public function each_failed_order_appends_one_error(): void
+    {
+        $this->connect();
+        [$unpaid, $noSku, $empty, $taxed, $closed, $invalid] = $references = \range(self::REFERENCE, self::REFERENCE + 5);
+        foreach ($references as $reference) {
+            $this->insertOrder($reference, state: $reference === $unpaid ? ['payment_method_raw' => null] : []);
+        }
+        $this->changeLine($noSku, ['sku' => '']);
+        DB::table('shopwired.order_products')->where('order_external_id', $empty)->delete();
+        $this->changeLine($taxed, ['vat_rate' => '5']);
+        $this->posting->batchOutcomes = [
+            "A{$closed}" => BatchItemOutcomeResult::faulted(new QuickBooksFault(QuickBooksFaultKind::ClosedPeriod, '6210')),
+            "A{$invalid}" => BatchItemOutcomeResult::faulted(new QuickBooksFault(QuickBooksFaultKind::Validation, '6000')),
+        ];
+
+        $this->sync(['references' => $references])->assertOk()->assertJsonPath('counts.failed', 6);
+
+        $codes = ['mapping_missing', 'item_missing', 'zero_lines', 'tax_rate_unsupported', 'closed_period', 'qbo_validation'];
+        foreach ($references as $index => $reference) {
+            self::assertEquals([(object) ['trigger' => 'manual', 'reason_code' => $codes[$index]]], self::errors($reference));
+        }
+        self::assertSame(6, DB::table('quickbooks.order_sync_errors')->count());
+    }
+
+    #[Test]
+    public function an_order_that_did_not_fail_appends_no_error(): void
+    {
+        $this->connect();
+        [$new, $synced, $failed, $leased] = $references = \range(self::REFERENCE, self::REFERENCE + 3);
+        foreach ($references as $reference) {
+            $this->insertOrder($reference);
+        }
+        $this->insertSync(['status' => 'synced', 'doc_type' => 'invoice', 'qbo_doc_number' => 'DOC-1', 'qbo_txn_id' => 'txn-1'], $synced);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'item_missing'], $failed);
+        $this->insertSync(self::LIVE, $leased);
+
+        $this->sync(['references' => $references])
+            ->assertOk()
+            ->assertJsonPath('results.*.outcome', ['synced', 'already_synced', 'skipped', 'not_attempted']);
+
+        $this->assertRow($new, ['status' => 'synced']);
+        self::assertSame(0, DB::table('quickbooks.order_sync_errors')->count());
+    }
+
+    /**
+     * @return iterable<string, array{QuickBooksFault, string}>
+     */
+    private static function faults(): iterable
+    {
+        foreach (QuickBooksFaultKind::cases() as $kind) {
+            yield $kind->value => [
+                new QuickBooksFault($kind, '6000'),
+                $kind === QuickBooksFaultKind::ClosedPeriod ? 'closed_period' : 'qbo_validation',
+            ];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $line
+     */
+    private function changeLine(int $reference, array $line): void
+    {
+        if ($line !== []) {
+            self::assertSame(1, DB::table('shopwired.order_products')->where('order_external_id', $reference)->update($line));
+        }
     }
 
     /**

@@ -10,12 +10,14 @@ use App\Application\QuickBooks\OrderSync\DTOs\CustomerMatchDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerResolutionDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
+use App\Application\QuickBooks\OrderSync\Enums\CustomerFailureKind;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Application\QuickBooks\OrderSync\Results\DocumentLookupResult;
 use App\Application\QuickBooks\OrderSync\Results\ItemLookupResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Closure;
 use Override;
@@ -50,6 +52,9 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
 
     /** @var array<string, string|null> by customer email */
     public array $currencies = [];
+
+    /** @var array<string, CustomerFailureKind|QuickBooksFault> by customer email */
+    public array $customerFailures = [];
 
     /** @var array<string, BatchItemOutcomeResult> by DocNumber */
     public array $batchOutcomes = [];
@@ -108,15 +113,7 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
         $this->customers = [...$this->customers, ...$customers];
         $this->throwAt('customerCreate');
 
-        return CustomerResolutionResult::of(\array_map(
-            fn(CustomerDraftDTO $customer): CustomerResolutionDTO => CustomerResolutionDTO::matched($customer->displayName, new CustomerMatchDTO(
-                'customer-1',
-                $customer->displayName,
-                null,
-                \array_key_exists($customer->email, $this->currencies) ? $this->currencies[$customer->email] : 'GBP',
-            )),
-            $customers,
-        ));
+        return CustomerResolutionResult::of(\array_map($this->resolve(...), $customers));
     }
 
     /**
@@ -140,6 +137,22 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
                 ?? BatchItemOutcomeResult::created('txn-' . $document->draft->core->docNumber),
             $documents,
         );
+    }
+
+    private function resolve(CustomerDraftDTO $customer): CustomerResolutionDTO
+    {
+        $failure = $this->customerFailures[$customer->email] ?? null;
+
+        return match (true) {
+            $failure instanceof QuickBooksFault => CustomerResolutionDTO::failed($customer->displayName, CustomerFailureKind::Faulted, $failure),
+            $failure !== null => CustomerResolutionDTO::failed($customer->displayName, $failure),
+            default => CustomerResolutionDTO::matched($customer->displayName, new CustomerMatchDTO(
+                'customer-1',
+                $customer->displayName,
+                null,
+                \array_key_exists($customer->email, $this->currencies) ? $this->currencies[$customer->email] : 'GBP',
+            )),
+        };
     }
 
     private function throwAt(string $step): void
