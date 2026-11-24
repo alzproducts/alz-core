@@ -57,7 +57,7 @@ final class QueueHealthRouteTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('status', 'ok');
-        $response->assertJsonStructure(['status', 'queues' => ['high', 'default', 'low'], 'total_depth']);
+        $response->assertJsonStructure(['status', 'queues' => ['high', 'default', 'low', 'bulk', 'background'], 'total_depth']);
     }
 
     // bootstrap/app.php registers routes/web.php outside the 'web' middleware group, so these

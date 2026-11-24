@@ -163,7 +163,7 @@ return [
     'metrics' => [
         'trim_snapshots' => [
             'job' => 24,
-            'queue' => 24,
+            'queue' => 2016,
         ],
     ],
 

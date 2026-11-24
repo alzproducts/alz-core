@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Queue;
  */
 final class QueueHealthController
 {
-    private const array QUEUES = ['high', 'default', 'low'];
+    private const array QUEUES = ['high', 'default', 'low', 'bulk', 'background'];
 
     public function __invoke(): JsonResponse
     {
