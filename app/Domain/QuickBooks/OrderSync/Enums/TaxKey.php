@@ -32,4 +32,12 @@ enum TaxKey: string
             SupportedVatRate::Zero => $deliveryCountry === self::IRELAND ? self::EuShipping : self::Zero,
         };
     }
+
+    public function vatRate(): SupportedVatRate
+    {
+        return match ($this) {
+            self::Standard => SupportedVatRate::Standard,
+            self::Zero, self::EuGoods, self::EuShipping => SupportedVatRate::Zero,
+        };
+    }
 }
