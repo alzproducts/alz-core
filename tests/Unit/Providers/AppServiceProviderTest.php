@@ -124,6 +124,8 @@ final class AppServiceProviderTest extends TestCase
     {
         // Arrange: Set production env, but also a CI environment variable
         $this->app->detectEnvironment(static fn(): string => 'production');
+        \putenv('CI');
+        \putenv('GITHUB_ACTIONS');
         \putenv("{$ciVariable}=true");
         \config(['app.key' => null]); // This would fail if not skipped
 

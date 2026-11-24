@@ -78,13 +78,12 @@ final class AppServiceProviderCiEnvironmentTest extends TestCase
         $inner = new AppServiceProviderTest($test);
         $lifecycle = static function (AppServiceProviderTest $case, string $test, string $name): void {
             $case->setUp();
-            \putenv("{$name}=true");
 
-            if ($test === 'boots_successfully_in_production_with_valid_configuration') {
-                $case->setupProductionEnvironment();
+            try {
+                $case->{$test}(...($test === 'skips_validation_in_ci_environments' ? [$name] : []));
+            } finally {
+                $case->tearDown();
             }
-
-            $case->tearDown();
         };
 
         Closure::bind($lifecycle, null, AppServiceProviderTest::class)($inner, $test, $name);
