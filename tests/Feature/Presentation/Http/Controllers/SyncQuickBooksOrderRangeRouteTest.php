@@ -231,6 +231,18 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
     }
 
     #[Test]
+    public function the_floor_date_is_sent_only_under_the_from_key(): void
+    {
+        $this->connect();
+
+        $response = $this->sync(['from' => '2031-05-31', 'to' => '2031-06-02']);
+
+        $this->assertRefused($response, 'from');
+        $response->assertJsonPath('error.errors.from', ['The from date must not be before 2031-06-01.']);
+        self::assertSame(1, \mb_substr_count((string) $response->getContent(), '2031-06-01'));
+    }
+
+    #[Test]
     public function a_malformed_date_keeps_its_key_while_the_floor_is_unset(): void
     {
         $this->connect();

@@ -54,6 +54,6 @@ final class OrderRangeLimitResolver
 
     private static function refused(string $field, string $reason): ValidationFailedException
     {
-        return new ValidationFailedException($reason, [$field => [$reason]]);
+        return new ValidationFailedException('The date range is outside the allowed limits.', [$field => [$reason]]);
     }
 }
