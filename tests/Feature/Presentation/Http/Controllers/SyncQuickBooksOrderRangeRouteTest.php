@@ -10,12 +10,14 @@ use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
+use App\Infrastructure\Jobs\QuickBooks\SyncQuickBooksOrderRangeJob;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Override;
@@ -134,6 +136,44 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
 
         self::assertNotSame($first, $second);
         self::assertSame([$first, $second], \array_column($this->dispatcher->ranges, 'runId'));
+    }
+
+    #[Test]
+    public function each_accepted_request_queues_its_own_range_job(): void
+    {
+        Queue::fake();
+        $this->app->forgetInstance(OrderSyncDispatcherInterface::class);
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, '2031-07-12 10:00:00+00');
+
+        $first = $this->sync([...self::RANGE, 'force_retry' => true])->assertStatus(202)->json('run_id');
+        Queue::assertCount(1);
+        $second = $this->sync([...self::RANGE, 'force_retry' => true])->assertStatus(202)->json('run_id');
+
+        Queue::assertCount(2);
+        $jobs = Queue::pushed(SyncQuickBooksOrderRangeJob::class, static fn(SyncQuickBooksOrderRangeJob $job, ?string $queue): bool => $queue === 'low')->values();
+        self::assertNotSame($first, $second);
+        self::assertSame([$first, $second], $jobs->map(static fn(SyncQuickBooksOrderRangeJob $job): string => $job->run->runId)->all());
+        foreach ($jobs as $job) {
+            self::assertSame(
+                [self::REALM, '2031-07-10', '2031-07-15', true],
+                [$job->run->realmId, $job->run->from->format('Y-m-d'), $job->run->to->format('Y-m-d'), $job->run->forceRetry],
+            );
+        }
+    }
+
+    #[Test]
+    public function an_invalid_concurrency_fails_the_request_before_anything_is_queued(): void
+    {
+        Queue::fake();
+        $this->app->forgetInstance(OrderSyncDispatcherInterface::class);
+        \config(['quickbooks.order_sync_concurrency' => '0']);
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, '2031-07-12 10:00:00+00');
+
+        $this->sync(self::RANGE)->assertServerError();
+
+        Queue::assertNothingPushed();
     }
 
     /**
