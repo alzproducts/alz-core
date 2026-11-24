@@ -6,11 +6,7 @@ allowed-tools: Bash(git *), Bash(make *), Bash(php *), Bash(curl *), Bash(jq *),
 
 # Debug Project
 
-**BEFORE DOING ANYTHING**, read these sections in `CLAUDE.md`:
-- Development Environment (Quick Reference)
-- Local API Testing
-- Debugging & Logs
-- Queue Processing
+**BEFORE DOING ANYTHING**, read the "Local environment" section in `AGENTS.md`.
 
 ## Principles
 
