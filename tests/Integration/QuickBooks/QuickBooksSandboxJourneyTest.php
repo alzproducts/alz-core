@@ -102,6 +102,7 @@ final class QuickBooksSandboxJourneyTest extends TestCase
     {
         $statuses = self::syntheticOrders();
         $references = \array_keys($statuses);
+        self::assertNoOtherOrderInRange($references);
         DB::table('quickbooks.order_syncs')->whereIn('reference', $references)->delete();
 
         $this->syncRange();
@@ -160,6 +161,22 @@ final class QuickBooksSandboxJourneyTest extends TestCase
         self::assertSame([], $missing, 'Missing: the seeded orders (php artisan dev:seed-fake)');
 
         return $statuses;
+    }
+
+    /**
+     * The range sync posts every order placed in it, so another order's customer would reach the sandbox.
+     *
+     * @param list<int> $references
+     */
+    private static function assertNoOtherOrderInRange(array $references): void
+    {
+        $others = DB::table('shopwired.orders_deduplicated')
+            ->where('order_placed_at', '>=', self::FROM . ' 00:00:00 Europe/London')
+            ->where('order_placed_at', '<', '2026-11-01 00:00:00 Europe/London')
+            ->whereNotIn('reference', $references)
+            ->count();
+
+        self::assertSame(0, $others, 'Refusing to run: the range holds orders dev:seed-fake did not seed');
     }
 
     private static function edgeOrder(EdgeCase $case): EdgeCaseOrder
