@@ -9,6 +9,7 @@ use App\Application\Contracts\QuickBooks\OrderSyncQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
+use App\Application\Contracts\QuickBooks\OrderTotalsQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksClientInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
@@ -25,6 +26,7 @@ use App\Infrastructure\QuickBooks\Dispatchers\QueuedOrderSyncDispatcher;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncSourceQueryRepository;
+use App\Infrastructure\QuickBooks\EloquentOrderTotalsQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksConnectionRepository;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksMappingRepository;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
@@ -59,18 +61,24 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         );
 
         $this->app->bind(QuickBooksConnectionRepositoryInterface::class, EloquentQuickBooksConnectionRepository::class);
-        $this->app->bind(OrderSyncRepositoryInterface::class, EloquentOrderSyncRepository::class);
-        $this->app->bind(OrderSyncSourceQueryRepositoryInterface::class, EloquentOrderSyncSourceQueryRepository::class);
-        $this->app->bind(OrderSyncQueryRepositoryInterface::class, EloquentOrderSyncQueryRepository::class);
         $this->app->bind(QuickBooksMappingRepositoryInterface::class, EloquentQuickBooksMappingRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksMappingCandidatesInterface::class, QuickBooksMappingCandidateReader::class);
         $this->app->bind(QuickBooksRealmInterface::class, QuickBooksConfig::class);
+        $this->registerOrderSyncRepositories();
         $this->registerOrderSyncQueue();
         $this->registerRateLimiter();
         $this->registerCacheBackedStores();
+    }
+
+    private function registerOrderSyncRepositories(): void
+    {
+        $this->app->bind(OrderSyncRepositoryInterface::class, EloquentOrderSyncRepository::class);
+        $this->app->bind(OrderSyncSourceQueryRepositoryInterface::class, EloquentOrderSyncSourceQueryRepository::class);
+        $this->app->bind(OrderSyncQueryRepositoryInterface::class, EloquentOrderSyncQueryRepository::class);
+        $this->app->bind(OrderTotalsQueryRepositoryInterface::class, EloquentOrderTotalsQueryRepository::class);
     }
 
     private function registerOrderSyncQueue(): void
@@ -139,6 +147,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             OrderSyncRepositoryInterface::class,
             OrderSyncSourceQueryRepositoryInterface::class,
             OrderSyncQueryRepositoryInterface::class,
+            OrderTotalsQueryRepositoryInterface::class,
             OrderSyncSettingsInterface::class,
             QuickBooksMappingRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,

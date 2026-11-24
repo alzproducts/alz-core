@@ -32,6 +32,7 @@ final readonly class OrderSyncAttemptService
     public function __construct(
         private OrderSyncSettingsInterface $settings,
         private OrderSyncPreparationService $preparation,
+        private OrderSyncExistingDocumentService $existing,
         private OrderSyncResolutionService $resolution,
         private OrderSyncPostingService $posting,
         private OrderSyncRecordService $records,
@@ -88,7 +89,7 @@ final readonly class OrderSyncAttemptService
     {
         $built = $this->preparation->build(new OrderPreparationDTO($chunk->realmId, $claim->claimed, $this->settings->runLabels()));
         $results = $this->records->record($chunk, $built->settled);
-        $open = $this->preparation->withoutExisting($accessToken, $built->open, $deadline);
+        $open = $this->existing->withoutExisting($accessToken, $built->open, $deadline);
         $results = [...$results, ...$this->records->record($chunk, $open->settled)];
         $items = $this->resolution->withItems($accessToken, $open->open, $deadline);
         $results = [...$results, ...$this->records->record($chunk, $items->settled)];
