@@ -35,6 +35,8 @@ final class SyncOutcomeResolverTest extends TestCase
         yield 'invalid quantity' => [SyncOutcomeResolver::forDefect(SourceOrderDefect::QuantityInvalid, SyncReasonCode::ItemMissing), SyncReasonCode::QboValidation];
         yield 'no lines' => [SyncOutcomeResolver::forBuildFailure(FailReason::ZeroLines, null), SyncReasonCode::ZeroLines];
         yield 'unsupported rate' => [SyncOutcomeResolver::forBuildFailure(FailReason::TaxRateUnsupported, null), SyncReasonCode::TaxRateUnsupported];
+        yield 'unavailable' => [SyncOutcomeResolver::forUnavailable(null), SyncReasonCode::QboUnavailable];
+        yield 'unavailable over a stored failure' => [SyncOutcomeResolver::forUnavailable(SyncReasonCode::ItemMissing), SyncReasonCode::QboUnavailable];
         yield 'missing item' => [SyncOutcomeResolver::forMissingItem(), SyncReasonCode::ItemMissing];
         yield 'no missing refs' => [SyncOutcomeResolver::forMissingRefs([]), null];
         yield 'missing mapping' => [SyncOutcomeResolver::forMissingRefs(['terms']), SyncReasonCode::MappingMissing];
@@ -88,11 +90,12 @@ final class SyncOutcomeResolverTest extends TestCase
     }
 
     #[Test]
-    public function a_build_failure_keeps_a_stored_unknown_outcome(): void
+    public function a_stop_before_the_batch_create_keeps_a_stored_unknown_outcome(): void
     {
         foreach ([
             SyncOutcomeResolver::forDefect(SourceOrderDefect::PaymentMethodMissing, SyncReasonCode::OutcomeUnknown),
             SyncOutcomeResolver::forBuildFailure(FailReason::ZeroLines, SyncReasonCode::OutcomeUnknown),
+            SyncOutcomeResolver::forUnavailable(SyncReasonCode::OutcomeUnknown),
         ] as $failure) {
             self::assertSame(SyncReasonCode::OutcomeUnknown, $failure->code);
             self::assertNotSame(SyncReasonCode::OutcomeUnknown, $failure->loggedCode);

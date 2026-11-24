@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\OrderSync\DTOs;
 
 use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 
 /**
- * A claimed order's outcome before it is recorded: a document QBO holds, or a failure.
+ * A claimed order's outcome before it is recorded: a document QBO holds, a failure, or a deadline refusal.
  */
 final readonly class OrderSyncOutcomeDTO
 {
@@ -37,5 +38,15 @@ final readonly class OrderSyncOutcomeDTO
     public static function failed(ClaimedOrderDTO $order, SyncFailureDTO $failure, ?DocType $docType): self
     {
         return new self($order, $failure, $failure->code->outcome(), $docType);
+    }
+
+    /**
+     * Nothing was attempted for the order, so its row is released.
+     */
+    public static function released(ClaimedOrderDTO $order): self
+    {
+        $refusal = SyncFailureDTO::of(SyncReasonCode::DeadlineExceeded);
+
+        return new self($order, $refusal, $refusal->code->outcome(), null);
     }
 }

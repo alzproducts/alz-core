@@ -47,6 +47,23 @@ final class SyncOutcomeResolver
         }));
     }
 
+    /**
+     * @param SyncReasonCode|null $storedCode the row's code before this attempt; null at the batch create, after the
+     *                                        DocNumber lookup found no document
+     */
+    public static function forUnavailable(?SyncReasonCode $storedCode): SyncFailureDTO
+    {
+        return self::keepingUnknownOutcome($storedCode, SyncFailureDTO::of(SyncReasonCode::QboUnavailable));
+    }
+
+    /**
+     * The batch create may have stored the document.
+     */
+    public static function forUnknown(): SyncFailureDTO
+    {
+        return SyncFailureDTO::of(SyncReasonCode::OutcomeUnknown);
+    }
+
     public static function forMissingItem(): SyncFailureDTO
     {
         return SyncFailureDTO::of(SyncReasonCode::ItemMissing);
@@ -86,7 +103,7 @@ final class SyncOutcomeResolver
             BatchOutcomeKind::Created => null,
             BatchOutcomeKind::Faulted => self::forFault($outcome->fault),
             BatchOutcomeKind::RateLimited => SyncFailureDTO::of(SyncReasonCode::QboUnavailable),
-            BatchOutcomeKind::Ambiguous => SyncFailureDTO::of(SyncReasonCode::OutcomeUnknown),
+            BatchOutcomeKind::Ambiguous => self::forUnknown(),
         };
     }
 
