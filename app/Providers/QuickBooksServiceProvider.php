@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
@@ -20,6 +21,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksStateStoreInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\QuickBooks\CacheQuickBooksAccessTokenCache;
 use App\Infrastructure\QuickBooks\CacheQuickBooksStateStore;
+use App\Infrastructure\QuickBooks\Dispatchers\QueuedOrderSyncDispatcher;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncSourceQueryRepository;
@@ -30,11 +32,13 @@ use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksConfigFactory;
 use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksOAuthClient;
+use App\Infrastructure\QuickBooks\QuickBooksOrderChunkSlot;
 use App\Infrastructure\QuickBooks\QuickBooksOrderSyncSettings;
 use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Queue\Factory as QueueFactory;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
@@ -58,15 +62,36 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(OrderSyncRepositoryInterface::class, EloquentOrderSyncRepository::class);
         $this->app->bind(OrderSyncSourceQueryRepositoryInterface::class, EloquentOrderSyncSourceQueryRepository::class);
         $this->app->bind(OrderSyncQueryRepositoryInterface::class, EloquentOrderSyncQueryRepository::class);
-        $this->app->bind(OrderSyncSettingsInterface::class, QuickBooksOrderSyncSettings::class);
         $this->app->bind(QuickBooksMappingRepositoryInterface::class, EloquentQuickBooksMappingRepository::class);
         $this->app->bind(QuickBooksOAuthClientInterface::class, QuickBooksOAuthClient::class);
         $this->app->bind(QuickBooksClientInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksOrderPostingInterface::class, QuickBooksClient::class);
         $this->app->bind(QuickBooksMappingCandidatesInterface::class, QuickBooksMappingCandidateReader::class);
         $this->app->bind(QuickBooksRealmInterface::class, QuickBooksConfig::class);
+        $this->registerOrderSyncQueue();
         $this->registerRateLimiter();
         $this->registerCacheBackedStores();
+    }
+
+    private function registerOrderSyncQueue(): void
+    {
+        $this->app->bind(OrderSyncSettingsInterface::class, QuickBooksOrderSyncSettings::class);
+        $this->app->bind(OrderSyncDispatcherInterface::class, QueuedOrderSyncDispatcher::class);
+        $this->app->bind(
+            QueuedOrderSyncDispatcher::class,
+            static fn(Application $app): QueuedOrderSyncDispatcher => new QueuedOrderSyncDispatcher(
+                queue: $app->make(QueueFactory::class),
+                concurrency: self::orderSyncConcurrency(),
+            ),
+        );
+        $this->app->bind(
+            QuickBooksOrderChunkSlot::class,
+            static fn(Application $app): QuickBooksOrderChunkSlot => new QuickBooksOrderChunkSlot(
+                redis: $app->make(RedisFactory::class),
+                logger: $app->make(LoggerInterface::class),
+                concurrency: self::orderSyncConcurrency(),
+            ),
+        );
     }
 
     private function registerRateLimiter(): void
@@ -121,10 +146,21 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QuickBooksOrderPostingInterface::class,
             QuickBooksMappingCandidatesInterface::class,
             QuickBooksRealmInterface::class,
+            OrderSyncDispatcherInterface::class,
+            QueuedOrderSyncDispatcher::class,
+            QuickBooksOrderChunkSlot::class,
             QuickBooksRateLimiter::class,
             QuickBooksAccessTokenCacheInterface::class,
             QuickBooksStateStoreInterface::class,
         ];
+    }
+
+    /**
+     * Anything but a whole number is 0, which the dispatcher refuses.
+     */
+    private static function orderSyncConcurrency(): int
+    {
+        return (int) \filter_var(\config('quickbooks.order_sync_concurrency'), \FILTER_VALIDATE_INT);
     }
 
     /**

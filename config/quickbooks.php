@@ -38,4 +38,10 @@ return [
     | never synced. While it is unset, every sync request is refused.
     */
     'backfill_floor_date' => env('QUICKBOOKS_BACKFILL_FLOOR_DATE'),
+
+    /*
+    | How many queued order chunks may run at once, across every run. A value
+    | below 1 refuses the request.
+    */
+    'order_sync_concurrency' => env('QUICKBOOKS_ORDER_SYNC_CONCURRENCY', 1),
 ];

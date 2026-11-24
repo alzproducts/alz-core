@@ -27,7 +27,7 @@ final class OrderSliceEdgeCasesTest extends TestCase
         'edited' => 'synced',
         'invoice_with_company' => 'synced',
         'sales_receipt_without_company' => 'synced',
-        'name_cleaning' => 'synced',
+        'name_cleaning' => 'failed:qbo_validation',
         'name_apostrophe' => 'synced',
         'display_name_case_variant' => 'synced',
         'country_ireland' => 'synced',
@@ -84,7 +84,7 @@ final class OrderSliceEdgeCasesTest extends TestCase
         }
 
         $this->assertSame(
-            ['synced', 'skipped:cancelled', 'skipped:payment_method_unmapped', 'failed:item_missing', 'failed:zero_lines'],
+            ['synced', 'skipped:cancelled', 'skipped:payment_method_unmapped', 'failed:item_missing', 'failed:zero_lines', 'failed:qbo_validation'],
             \array_map(static fn(ExpectedOutcome $outcome): string => $outcome->value, ExpectedOutcome::cases()),
         );
     }

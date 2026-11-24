@@ -8,6 +8,7 @@ use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
 use App\Application\QuickBooks\OrderSync\Enums\SourceOrderDefect;
+use App\Application\QuickBooks\OrderSync\Resolvers\OrderSyncCalendarResolver;
 use App\Application\QuickBooks\OrderSync\Transformers\SourceOrderTransformer;
 use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
@@ -207,6 +208,82 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
         self::assertNull($orders[self::OTHER_REFERENCE]->order);
         self::assertSame(SourceOrderDefect::PaymentMethodMissing, $orders[self::OTHER_REFERENCE]->defect);
         self::assertSame([], $this->repository->findByReferences([]));
+    }
+
+    /**
+     * @return iterable<string, array{string, string, list<string>, list<string>}>
+     */
+    public static function placedInRanges(): iterable
+    {
+        yield 'one summer day, with its first London hour' => [
+            '2031-07-15', '2031-07-15',
+            ['2031-07-14 23:00:00+00', '2031-07-14 23:30:00+00', '2031-07-15 22:59:59+00'],
+            ['2031-07-14 22:59:59+00', '2031-07-15 23:00:00+00', '2031-07-15 23:30:00+00'],
+        ];
+        yield 'one winter day' => [
+            '2031-01-15', '2031-01-15',
+            ['2031-01-15 00:00:00+00', '2031-01-15 23:59:59+00'],
+            ['2031-01-14 23:59:59+00', '2031-01-16 00:00:00+00'],
+        ];
+        yield 'across the clocks going forward' => [
+            '2031-03-29', '2031-03-30',
+            ['2031-03-29 00:00:00+00', '2031-03-30 22:59:59+00'],
+            ['2031-03-28 23:59:59+00', '2031-03-30 23:00:00+00'],
+        ];
+        yield 'across the clocks going back' => [
+            '2031-10-25', '2031-10-26',
+            ['2031-10-24 23:00:00+00', '2031-10-26 23:59:59+00'],
+            ['2031-10-24 22:59:59+00', '2031-10-27 00:00:00+00'],
+        ];
+    }
+
+    /**
+     * @param list<string> $inRange
+     * @param list<string> $outOfRange
+     */
+    #[Test]
+    #[DataProvider('placedInRanges')]
+    public function the_references_of_a_range_of_london_days_are_counted_and_listed_in_order(string $from, string $to, array $inRange, array $outOfRange): void
+    {
+        foreach ([...$outOfRange, ...\array_reverse($inRange)] as $i => $placedAt) {
+            $this->insertOrder(['reference' => self::REFERENCE - $i, 'external_id' => self::EXTERNAL_ID - $i, 'order_placed_at' => $placedAt], []);
+        }
+        $first = self::REFERENCE - \count($outOfRange) - \count($inRange) + 1;
+
+        $this->assertPlacedIn(\range($first, $first + \count($inRange) - 1), $from, $to);
+    }
+
+    #[Test]
+    public function a_duplicate_reference_is_one_reference_and_neither_status_nor_sync_row_matters(): void
+    {
+        $placedAt = ['order_placed_at' => '2031-07-15 12:00:00+00'];
+        $this->insertOrder([...$placedAt, 'reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID], [[]]);
+        $this->insertOrder([...$placedAt, 'reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID + 1, 'lifecycle_status' => 'cancelled'], [[]]);
+        $this->insertOrder([...$placedAt, 'lifecycle_status' => 'cancelled'], [[]]);
+        foreach (['synced', 'failed'] as $i => $status) {
+            $reference = self::OTHER_REFERENCE + 1 + $i;
+            $this->insertOrder([...$placedAt, 'reference' => $reference, 'external_id' => self::OTHER_EXTERNAL_ID + 2 + $i], [[]]);
+            DB::table('quickbooks.order_syncs')->insert(['reference' => $reference, 'order_external_id' => $reference, 'realm_id' => 'realm-1', 'status' => $status]);
+        }
+
+        $this->assertPlacedIn([self::REFERENCE, self::OTHER_REFERENCE, self::OTHER_REFERENCE + 1, self::OTHER_REFERENCE + 2], '2031-07-15', '2031-07-15');
+    }
+
+    #[Test]
+    public function a_range_without_orders_has_no_references(): void
+    {
+        $this->assertPlacedIn([], '2031-07-15', '2031-07-16');
+    }
+
+    /**
+     * @param list<int> $expected
+     */
+    private function assertPlacedIn(array $expected, string $from, string $to): void
+    {
+        $bounds = OrderSyncCalendarResolver::rangeBounds(new DateTimeImmutable($from), new DateTimeImmutable($to));
+
+        self::assertSame($expected, $this->repository->referencesPlacedIn(...$bounds));
+        self::assertSame(\count($expected), $this->repository->countPlacedIn(...$bounds));
     }
 
     private function find(): SourceOrderDTO
