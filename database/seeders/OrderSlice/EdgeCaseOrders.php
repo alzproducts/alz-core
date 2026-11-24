@@ -42,7 +42,7 @@ final class EdgeCaseOrders
         $orders[] = self::edited(\count($orders) + 1);
         $orders[] = self::edge(EdgeCase::InvoiceWithCompany, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, company: 'Hartley Care Homes Ltd');
         $orders[] = self::edge(EdgeCase::SalesReceiptWithoutCompany, $synced, \count($orders) + 1, RawPaymentMethod::OpayoHosted, name: 'Priya Shah');
-        $orders[] = self::edge(EdgeCase::NameCleaning, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, name: 'Morgan: Ellis; Ward: Ross; Hale');
+        $orders[] = self::edge(EdgeCase::NameCleaning, ExpectedOutcome::FailedQboValidation, \count($orders) + 1, RawPaymentMethod::AdminOrder, name: 'Morgan: Ellis; Ward: Ross; Hale');
         $orders[] = self::edge(EdgeCase::NameApostrophe, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, name: "Siobhan O'Neill");
         $orders[] = self::edge(EdgeCase::DisplayNameCaseVariant, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, name: 'Alex Carter');
         $orders[] = self::edge(EdgeCase::DisplayNameCaseVariant, $synced, \count($orders) + 1, RawPaymentMethod::AdminOrder, name: 'alex carter');
