@@ -6,14 +6,12 @@ namespace App\Application\QuickBooks\OrderSync\UseCases;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
-use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\Resolvers\OrderSyncCalendarResolver;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
+use App\Application\QuickBooks\OrderSync\Services\OrderSyncPreflightService;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\CorruptApiKeyException;
@@ -36,9 +34,8 @@ final readonly class SyncOrdersByReferenceUseCase
     public function __construct(
         private OrderSyncSettingsInterface $settings,
         private OrderSyncSourceQueryRepositoryInterface $sourceOrders,
+        private OrderSyncPreflightService $preflight,
         private QuickBooksTokenService $tokens,
-        private QuickBooksRealmInterface $realm,
-        private QuickBooksMappingRepositoryInterface $mappings,
         private SyncOrderChunkUseCase $syncChunk,
         private LoggerInterface $logger,
     ) {}
@@ -65,9 +62,7 @@ final readonly class SyncOrdersByReferenceUseCase
         $this->logger->info('Syncing QuickBooks orders by reference', ['references' => $references, 'force_retry' => $forceRetry]);
 
         $this->assertOnOrAfterFloor($references);
-        $this->tokens->assertConnected();
-        $realmId = $this->realm->realmId();
-        $this->assertMappingsResolved($realmId);
+        $realmId = $this->preflight->realmReadyToSync();
 
         $chunk = new OrderSyncChunkDTO($realmId, $references, $forceRetry, OrderSyncTrigger::Manual, null);
         $results = $this->syncChunk->execute($this->tokens->accessToken(), $chunk, $deadline);
@@ -103,19 +98,5 @@ final readonly class SyncOrdersByReferenceUseCase
     private static function refusedReferences(string $reason): ValidationFailedException
     {
         return new ValidationFailedException($reason, ['references' => [$reason]]);
-    }
-
-    /**
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksMappingsUnresolvedException
-     */
-    private function assertMappingsResolved(string $realmId): void
-    {
-        $unresolved = $this->mappings->unresolvedKeys($realmId);
-        if ($unresolved !== []) {
-            throw new QuickBooksMappingsUnresolvedException(\array_map(static fn(MappingKey $key): string => $key->value, $unresolved));
-        }
     }
 }
