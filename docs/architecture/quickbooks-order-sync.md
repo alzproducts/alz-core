@@ -28,7 +28,7 @@ flowchart LR
 | Source views | The synced ShopWired order, line and customer data the sync reads; never written by the sync |
 | Sync-source view | Gives exactly one order per `reference`, through `shopwired.orders_deduplicated` |
 | Document builder | An Application transformer over Domain tax and routing policy. Turns one order into an Invoice or SalesReceipt draft holding mapping keys, never QBO IDs (ADR-0018), or into a `failed` (`zero_lines`, `tax_rate_unsupported`) outcome |
-| Sync use case | Picks candidates, applies the row-state rules through `OrderEligibilityResolver`, which owns the cancelled skip, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk and records each outcome |
+| Sync use case | Picks candidates, applies the row-state rules through `OrderEligibilityResolver`, which owns the cancelled skip, resolves the draft's mapping keys to the connected company's refs (COR-305), claims rows, calls the adapter per chunk, records each outcome and releases claimed rows no outcome was reached for |
 | QBO adapter | Finds items by SKU, finds and creates customers, maps resolved drafts to QBO payloads, and posts each chunk's documents as one SDK batch call (ADR-0019). It resolves no mapping keys: the use case passes it resolved refs |
 
 - An edited ShopWired order keeps its `reference` and the original row is cancelled. `shopwired.orders_deduplicated` picks the live row, and the cancelled skip is checked on that chosen row, so an edited order is not skipped for its cancelled original.
@@ -49,19 +49,51 @@ sequenceDiagram
 
     UC->>DB: Claim each row (processing, lease)
     DB-->>UC: Claimed rows
-    UC->>QA: Find items, find or create customers, post chunk
+    UC->>UC: Cap the deadline at the lease, build drafts
+    UC->>DB: Record orders that cannot be built
+    UC->>QA: Look up DocNumbers
+    QA->>QB: Document query
+    UC->>DB: Record orders QBO already holds
+    UC->>QA: Find items
     QA->>QB: Item query (Name IN)
+    UC->>DB: Record orders with a missing item
+    UC->>QA: Find or create customers
     QA->>QB: Customer query (DisplayName IN)
     QA->>QB: Create each missing customer
+    UC->>DB: Record orders with no usable customer or a missing ref
+    UC->>QA: Post the remaining orders
     QA->>QB: Batch create documents
     QB-->>QA: Per-item result or fault
     QA-->>UC: Outcome per order
-    UC->>DB: Record synced or failed per row
+    UC->>DB: Record synced or failed, or release a deadline refusal
+    opt A throw before the batch create, or a rejected token
+        UC->>DB: Release the claimed rows with no outcome
+    end
 ```
 
-- Claim, call and record are three separate steps. No database transaction wraps the QBO call: the claim commits before the call, and the record runs after it.
+- Claim, call and record are three separate steps. No database transaction wraps a QBO call: the claim commits before the first call, and each step's settled orders are recorded before the next call. Posted orders are recorded first, and a failed write never stops the other records.
 - The lease follows ADR-0012. A row whose lease is still live is `in_progress` to any other worker; an expired lease lets a later run attempt the row again.
+- The call deadline is 150 s before the earliest lease expiry in the chunk, or the caller's deadline when that is earlier.
+- A row is recorded or released only under the claim that took it.
 - A post can reach QBO and go unrecorded (a lost batch response, or a worker dying between call and record). The row then reads `failed` with `outcome_unknown`, or stays `processing` until its lease expires. A re-attempt can post the document again; recovery is COR-321 points 2 and 3 (ADR-0019).
+
+### Failure path
+
+Open orders are the claimed orders with no recorded outcome. A release returns a row to `failed` when it stores a reason, else to `pending`.
+
+| Where | What fails | Rows | Response |
+|-------|------------|------|----------|
+| Claim | Anything | Rows claimed so far are released | The error's status |
+| Any QBO call | The deadline | Open orders are released | 200, `not_attempted` (`deadline_exceeded`) |
+| Any QBO call | QBO unavailable | Open orders are `failed` (`qbo_unavailable`); before the batch create, a stored `outcome_unknown` is kept | 200 |
+| Any QBO call | Authorization | Open orders are released; a rejected access token is dropped from the cache | 412 |
+| Lookup, items or customers | Anything else | Open orders are released | 502 for an unexpected result or a fault, else the error's status |
+| Reading mapping refs, or recording before the batch create | Anything | Open orders are released; earlier records stand, and a recording step finishes its other records | 503 when transient, else the error's status |
+| Batch create | Anything else | Open orders are `failed` (`outcome_unknown`), logged by error class | 200 |
+| Recording after the batch create | Anything | Never released; the other orders are still recorded. The unrecorded row waits for its lease, then the DocNumber lookup | The error's status |
+| The release itself, or a killed worker | Anything | The row waits for its lease | The original error's status, if any |
+
+A release is per row and best effort: one that fails is logged and never replaces the original error.
 
 ---
 
