@@ -34,7 +34,7 @@ final class SyncReasonCodeTest extends TestCase
     private static function documentedCodes(): array
     {
         $contract = (string) \file_get_contents(\base_path('docs/api-contracts/quickbooks-order-sync.md'));
-        $found = \preg_match_all('/^\| `(\w+)` \| `(\w+)` \| `(true|false)` \|[^|]*`POST sync`[^|]*\|/m', $contract, $rows, \PREG_SET_ORDER);
+        $found = \preg_match_all('/^\| `(\w+)` \| `(\w+)` \| `(true|false)` \| (?:—|`GET failed`) \|/m', $contract, $rows, \PREG_SET_ORDER);
         self::assertGreaterThan(0, $found);
 
         $documented = [];

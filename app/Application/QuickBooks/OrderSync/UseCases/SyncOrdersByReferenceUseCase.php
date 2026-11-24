@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\OrderSync\UseCases;
 
+use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\Resolvers\OrderSyncCalendarResolver;
-use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncPreflightService;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -18,17 +19,17 @@ use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\KeyEncryptionFailedException;
-use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\ValidationFailedException;
-use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
-use App\Domain\Shared\ValueObjects\Deadline;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Accepts orders to sync by reference. Everything a caller can act on is checked here, before anything is queued.
+ */
 final readonly class SyncOrdersByReferenceUseCase
 {
     public function __construct(
@@ -36,7 +37,7 @@ final readonly class SyncOrdersByReferenceUseCase
         private OrderSyncSourceQueryRepositoryInterface $sourceOrders,
         private OrderSyncPreflightService $preflight,
         private QuickBooksTokenService $tokens,
-        private SyncOrderChunkUseCase $syncChunk,
+        private OrderSyncDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {}
 
@@ -52,24 +53,26 @@ final readonly class SyncOrdersByReferenceUseCase
      * @throws InvalidConfigurationException
      * @throws KeyEncryptionFailedException
      * @throws LockAcquisitionException
-     * @throws QuickBooksFaultException
      * @throws QuickBooksMappingsUnresolvedException
-     * @throws UnexpectedApiResultException
      * @throws ValidationFailedException when the floor is unset or an order predates it
      */
-    public function execute(array $references, bool $forceRetry, Deadline $deadline): OrderSyncResultsResult
+    public function execute(array $references, bool $forceRetry, string $runId): void
     {
-        $this->logger->info('Syncing QuickBooks orders by reference', ['references' => $references, 'force_retry' => $forceRetry]);
+        $this->logger->info('Requesting QuickBooks order sync by reference', [
+            'run_id' => $runId,
+            'references' => $references,
+            'force_retry' => $forceRetry,
+        ]);
 
         $this->assertOnOrAfterFloor($references);
         $realmId = $this->preflight->realmReadyToSync();
+        // intentional: the token is unused; this refuses now what the chunk would fail on.
+        $this->tokens->accessToken();
 
-        $chunk = new OrderSyncChunkDTO($realmId, $references, $forceRetry, OrderSyncTrigger::Manual, null);
-        $results = $this->syncChunk->execute($this->tokens->accessToken(), $chunk, $deadline);
+        $chunk = new OrderSyncChunkDTO($realmId, $references, $forceRetry, OrderSyncTrigger::Manual, $runId);
+        $this->dispatcher->dispatchChunk(new OrderChunkRunDTO($chunk));
 
-        $this->logger->info('Synced QuickBooks orders by reference', ['counts' => $results->counts()]);
-
-        return $results;
+        $this->logger->info('Requested QuickBooks order sync by reference', ['run_id' => $runId]);
     }
 
     /**

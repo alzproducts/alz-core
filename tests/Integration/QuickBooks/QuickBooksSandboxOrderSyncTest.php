@@ -13,11 +13,15 @@ use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\ResolvedMappingRefsDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
+use App\Application\QuickBooks\OrderSync\UseCases\SyncOrderChunkUseCase;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\Jobs\QuickBooks\SyncQuickBooksOrderChunkJob;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -27,13 +31,12 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use QuickBooksOnline\API\Data\IPPItem;
-use Tests\Feature\Concerns\AuthenticatesAsApprovedUser;
 use Tests\Feature\Concerns\InsertsSourceOrders;
 use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
 use Tests\TestCase;
 
 /**
- * Measures the sync route at its largest request. The live run posts 100 documents and 100 customers to the sandbox.
+ * Measures the chunk use case at its largest chunk. The live run posts 100 documents and 100 customers to the sandbox.
  *
  * Seeds order rows only, in the developer's database with no transaction: the connection, mappings and cached token
  * there are the real sandbox ones, and a rollback would lose a rotated refresh token.
@@ -43,14 +46,11 @@ use Tests\TestCase;
 #[Group('quickbooks-sandbox')]
 final class QuickBooksSandboxOrderSyncTest extends TestCase
 {
-    use AuthenticatesAsApprovedUser;
     use InsertsSourceOrders;
 
-    private const string URL = '/api/quickbooks/orders/sync';
+    private const int CHUNKS = 5;
 
-    private const int REQUESTS = 10;
-
-    private const int REFERENCES = 10;
+    private const int REFERENCES = 20;
 
     // intentional: the run's references sit above ShopWired's, inside the integer column
     private const int FIRST_REFERENCE = 2_000_000_000;
@@ -89,10 +89,10 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
         $references = $this->references;
         $this->deleteOrders();
 
-        self::assertCount(self::REQUESTS, $measured['seconds']);
-        self::assertSame(['synced' => self::REQUESTS * self::REFERENCES], $measured['outcomes']);
+        self::assertCount(self::CHUNKS, $measured['seconds']);
+        self::assertSame(['synced' => self::CHUNKS * self::REFERENCES], $measured['outcomes']);
         self::assertSame(\array_map(static fn(int $reference): string => "A{$reference}", $references), $posting->lookedUp);
-        self::assertCount(self::REQUESTS * self::REFERENCES, \array_unique(\array_map(
+        self::assertCount(self::CHUNKS * self::REFERENCES, \array_unique(\array_map(
             static fn(CustomerDraftDTO $customer): string => $customer->displayName,
             $posting->customers,
         )));
@@ -101,7 +101,7 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
     }
 
     #[Test]
-    public function the_sandbox_syncs_ten_requests_of_ten_new_customers(): void
+    public function the_sandbox_syncs_five_chunks_of_twenty_new_customers(): void
     {
         if (\getenv('QUICKBOOKS_SANDBOX_MEASURE') !== '1') {
             self::markTestSkipped('The live measurement runs only with QUICKBOOKS_SANDBOX_MEASURE=1');
@@ -120,28 +120,34 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
             \array_diff(\array_keys($measured['outcomes']), ['synced', 'deadline_exceeded']),
             'An order ended neither synced nor deadline_exceeded',
         );
-        self::assertSame(self::REQUESTS * self::REFERENCES, \array_sum($measured['outcomes']));
+        self::assertSame(self::CHUNKS * self::REFERENCES, \array_sum($measured['outcomes']));
     }
 
     /**
-     * Seeds one order per new customer, then sends the requests one after another.
+     * Seeds one order per new customer, then syncs the chunks one after another.
      *
      * @return array{seconds: list<float>, outcomes: array<string, int>}
      */
     private function measure(string $sku): array
     {
         $this->seedOrders($sku);
-        $this->asApprovedUser();
+        $realmId = $this->app->make(QuickBooksRealmInterface::class)->realmId();
         $seconds = [];
         $outcomes = [];
         foreach (\array_chunk($this->references, self::REFERENCES) as $references) {
+            $chunk = new OrderSyncChunkDTO($realmId, $references, false, OrderSyncTrigger::Manual, null);
+            $accessToken = $this->app->make(QuickBooksTokenService::class)->accessToken();
             $started = \hrtime(true);
-            $response = $this->postJson(self::URL, ['references' => $references]);
+            $results = $this->app->make(SyncOrderChunkUseCase::class)->execute(
+                $accessToken,
+                $chunk,
+                Deadline::after(CarbonImmutable::now(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
+            )->results;
             $seconds[] = \round((\hrtime(true) - $started) / 1e9, 2);
 
-            $response->assertOk()->assertJsonCount(self::REFERENCES, 'results');
-            foreach ($response->json('results') as $result) {
-                $outcomes[] = $result['outcome'] === 'synced' ? 'synced' : (string) ($result['reason']['code'] ?? $result['outcome']);
+            self::assertCount(self::REFERENCES, $results);
+            foreach ($results as $result) {
+                $outcomes[] = $result->reason->value ?? $result->outcome->value;
             }
         }
 
@@ -150,8 +156,8 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
 
     private function seedOrders(string $sku): void
     {
-        $first = self::FIRST_REFERENCE + \random_int(0, self::RUNS - 1) * self::REQUESTS * self::REFERENCES;
-        $references = \range($first, $first + self::REQUESTS * self::REFERENCES - 1);
+        $first = self::FIRST_REFERENCE + \random_int(0, self::RUNS - 1) * self::CHUNKS * self::REFERENCES;
+        $references = \range($first, $first + self::CHUNKS * self::REFERENCES - 1);
         // intentional: an existing row must never reach the cleanup's references
         self::assertSame([0, 0, 0, 0], self::seededRows($references), 'The chosen references are taken; run again');
 
@@ -233,7 +239,7 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
     }
 
     /**
-     * Stops before the first request unless the sandbox can post.
+     * Stops before the first chunk unless the sandbox can post.
      *
      * @return non-empty-string the name of an item the sandbox holds
      */

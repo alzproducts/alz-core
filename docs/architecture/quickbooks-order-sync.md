@@ -32,7 +32,7 @@ flowchart LR
 | QBO adapter | Finds items by SKU, finds and creates customers, maps resolved drafts to QBO payloads, and posts each chunk's documents as one SDK batch call (ADR-0019). It resolves no mapping keys: the use case passes it resolved refs |
 
 - An edited ShopWired order keeps its `reference` and the original row is cancelled. `shopwired.orders_deduplicated` picks the live row, and the cancelled skip is checked on that chosen row, so an edited order is not skipped for its cancelled original.
-- A range request queues a run that walks the range in chunks; a reference request runs the same use case in the request. Both paths share the row-state rules in the contract doc.
+- A range request queues a run that walks the range in chunks; a reference request queues a chunk job holding its references. Both run the same chunk use case, share one slot, and share the row-state rules in the contract doc.
 
 ---
 
@@ -81,17 +81,17 @@ sequenceDiagram
 
 Open orders are the claimed orders with no recorded outcome. A release returns a row to `failed` when it stores a reason, else to `pending`.
 
-| Where | What fails | Rows | Response |
-|-------|------------|------|----------|
-| Claim | Anything | Rows claimed so far are released | The error's status |
-| Any QBO call | The deadline | Open orders are released | 200, `not_attempted` (`deadline_exceeded`) |
-| Any QBO call | QBO unavailable | Open orders are `failed` (`qbo_unavailable`); before the batch create, a stored `outcome_unknown` is kept | 200 |
-| Any QBO call | Authorization | Open orders are released; a rejected access token is dropped from the cache | 412 |
-| Lookup, items or customers | Anything else | Open orders are released | 502 for an unexpected result or a fault, else the error's status |
-| Reading mapping refs, or recording before the batch create | Anything | Open orders are released; earlier records stand, and a recording step finishes its other records | 503 when transient, else the error's status |
-| Batch create | Anything else | Open orders are `failed` (`outcome_unknown`), logged by error class | 200 |
-| Recording after the batch create | Anything | Never released; the other orders are still recorded. The unrecorded row waits for its lease, then the DocNumber lookup | The error's status |
-| The release itself, or a killed worker | Anything | The row waits for its lease | The original error's status, if any |
+| Where | What fails | Rows |
+|-------|------------|------|
+| Claim | Anything | Rows claimed so far are released |
+| Any QBO call | The deadline | Open orders are released: `not_attempted` (`deadline_exceeded`) |
+| Any QBO call | QBO unavailable | Open orders are `failed` (`qbo_unavailable`); before the batch create, a stored `outcome_unknown` is kept |
+| Any QBO call | Authorization | Open orders are released; a rejected access token is dropped from the cache |
+| Lookup, items or customers | Anything else | Open orders are released |
+| Reading mapping refs, or recording before the batch create | Anything | Open orders are released; earlier records stand, and a recording step finishes its other records |
+| Batch create | Anything else | Open orders are `failed` (`outcome_unknown`), logged by error class |
+| Recording after the batch create | Anything | Never released; the other orders are still recorded. The unrecorded row waits for its lease, then the DocNumber lookup |
+| The release itself, or a killed worker | Anything | The row waits for its lease |
 
 A release is per row and best effort: one that fails is logged and never replaces the original error.
 
