@@ -23,9 +23,16 @@ final class AppServiceProviderTest extends TestCase
 {
     private AppServiceProvider $provider;
 
+    /** @var array<string, string|false> */
+    private array $originalCiEnvironment = [];
+
     #[Override]
     protected function setUp(): void
     {
+        foreach (['CI', 'GITHUB_ACTIONS'] as $name) {
+            $this->originalCiEnvironment[$name] = \getenv($name);
+        }
+
         parent::setUp();
         $this->provider = new AppServiceProvider($this->app);
     }
@@ -33,9 +40,10 @@ final class AppServiceProviderTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        // Clean up environment variables
-        \putenv('CI');
-        \putenv('GITHUB_ACTIONS');
+        foreach ($this->originalCiEnvironment as $name => $value) {
+            \putenv($value === false ? $name : "{$name}={$value}");
+        }
+
         parent::tearDown();
     }
 
