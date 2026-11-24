@@ -6,10 +6,12 @@ namespace Tests\Unit\Application\QuickBooks\OrderSync\Enums;
 
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 #[CoversClass(SyncReasonCode::class)]
+#[Group('repo-static')]
 final class SyncReasonCodeTest extends TestCase
 {
     #[Test]
