@@ -12,6 +12,7 @@ use App\Infrastructure\Queue\HorizonQueueWaitInputsReader;
 use App\Infrastructure\Queue\QueueWaitInputs;
 use Illuminate\Contracts\Queue\Factory as QueueFactory;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Laravel\Horizon\Contracts\MetricsRepository;
 use Laravel\Horizon\Contracts\SupervisorRepository;
 use Laravel\Horizon\Events\LongWaitDetected;
@@ -65,6 +66,16 @@ final class HorizonLongWaitSlackListenerTest extends TestCase
         $this->supervisors->shouldReceive('all')->andReturn([
             (object) ['processes' => ['redis-long:low' => 1, 'redis:high' => 9]],
             (object) ['processes' => ['redis-long:low' => 1]],
+        ]);
+
+        Log::shouldReceive('warning')->once()->with('Queue long wait detected', [
+            'connection' => 'redis-long',
+            'queue' => 'low',
+            'estimated_wait_seconds' => 50,
+            'threshold_seconds' => 120,
+            'ready_jobs' => 40,
+            'mean_runtime_ms' => 2500.0,
+            'worker_processes' => 2,
         ]);
 
         $this->chat->shouldReceive('sendAlert')->once()->withArgs(
