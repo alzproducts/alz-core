@@ -29,7 +29,7 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 ## Linting
 
 - Run tools through `make` (`make help`). With several worktrees active run `make lint-sequential`: `make lint` shares `/tmp/alz-lint` across checkouts.
-- Run the relevant tests yourself before calling a change done; stop hooks run only `make lint`.
+- Run the relevant tests and `make lint` yourself before calling a change done.
 - Before any suppression work through `docs/guides/common-linting-errors.md`. If one is still needed, make it a scoped `phpstan.neon` entry rather than an inline ignore, and flag it in the PR for review.
 - `phpstan-complexity-baseline.neon`: adjust existing entries only; new code is decomposed to fit.
 - Never add an assertion to satisfy PHPStan.
