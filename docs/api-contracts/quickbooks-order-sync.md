@@ -108,7 +108,7 @@ Every limit returns 422 `validation_error`.
 | `from` before the floor date | 422 | `from` |
 
 - The floor date is a server-side config value a human sets at cutover. It is never sent to ADM except inside the `errors.from` message.
-- Until the floor date is set, every range request fails closed with 422 keyed under `from`.
+- Until the floor date is set, every range request whose `from` and `to` are `YYYY-MM-DD` dates fails closed with 422 keyed under `from`.
 
 ### Responses
 

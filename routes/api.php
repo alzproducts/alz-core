@@ -26,6 +26,7 @@ use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
+use App\Presentation\Http\Api\Controllers\SyncQuickBooksOrderRangeController;
 use App\Presentation\Http\Api\Controllers\SyncQuickBooksOrdersController;
 use App\Presentation\Http\Api\Controllers\VariationController;
 use App\Presentation\Http\Auth\Middleware\ValidateSupabaseJwtMiddleware;
@@ -305,6 +306,8 @@ Route::middleware([
             ->name('quickbooks.orders.failed');
         Route::post('quickbooks/orders/sync', SyncQuickBooksOrdersController::class)
             ->name('quickbooks.orders.sync');
+        Route::post('quickbooks/orders/sync-range', SyncQuickBooksOrderRangeController::class)
+            ->name('quickbooks.orders.sync-range');
 
         // Contact submissions dashboard — staff-only, requires admin approval.
         Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);
