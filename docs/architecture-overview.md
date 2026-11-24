@@ -207,8 +207,9 @@ No general-purpose cache sits in front of synced data. Caching is applied where 
 flowchart LR
     STAFF["Staff sync page"] -->|"Range or references"| QAPI["QuickBooks sync endpoints"]
     QAPI -->|"Range: queued run"| QRUN["Range sync run"]
-    QAPI -->|"References: in request"| QUC["Order sync use case"]
-    QRUN --> QUC
+    QAPI -->|"References: queued chunk job"| QJOB["Order chunk job"]
+    QRUN --> QJOB
+    QJOB --> QUC["Order sync use case"]
     QUC -->|"Lease, then outcome or release"| QROWS[("Order sync rows")]
     QUC -->|"DocNumber, item and customer queries, customer creates, batch create"| QBO["QuickBooks Online"]
 ```

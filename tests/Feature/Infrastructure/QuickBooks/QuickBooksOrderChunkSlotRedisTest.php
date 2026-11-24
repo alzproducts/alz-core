@@ -17,10 +17,13 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Infrastructure\Jobs\QuickBooks\SyncQuickBooksOrderChunkJob;
 use App\Infrastructure\QuickBooks\QuickBooksOrderChunkSlot;
 use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
+use Closure;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Redis\Connections\Connection;
 use Illuminate\Redis\Limiters\ConcurrencyLimiter;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Override;
@@ -29,6 +32,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Feature\Concerns\RunsQueuedJobs;
+use Tests\Feature\Concerns\SendsRoleTokens;
 use Tests\TestCase;
 
 /**
@@ -38,7 +42,9 @@ use Tests\TestCase;
 #[Group('redis')]
 final class QuickBooksOrderChunkSlotRedisTest extends TestCase
 {
+    use DatabaseTransactions;
     use RunsQueuedJobs;
+    use SendsRoleTokens;
 
     private const string REALM = '9130000000000001';
 
@@ -46,6 +52,8 @@ final class QuickBooksOrderChunkSlotRedisTest extends TestCase
 
     /** @var list<OrderSyncChunkDTO> */
     private array $synced = [];
+
+    private ?Closure $duringSync = null;
 
     #[Override]
     protected function setUp(): void
@@ -67,6 +75,7 @@ final class QuickBooksOrderChunkSlotRedisTest extends TestCase
         $chunk = $this->createStub(SyncOrderChunkUseCase::class);
         $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderSyncChunkDTO $chunk): OrderSyncResultsResult {
             $this->synced[] = $chunk;
+            $this->duringSync?->__invoke();
 
             return OrderSyncResultsResult::inRequestOrder([1], [OrderSyncResultDTO::refused(1, SyncReasonCode::OrderNotFound)]);
         });
@@ -105,6 +114,28 @@ final class QuickBooksOrderChunkSlotRedisTest extends TestCase
 
         $this->work(self::job($runId));
         self::assertCount(1, $this->synced);
+    }
+
+    #[Test]
+    public function a_requested_chunk_waits_while_a_range_chunk_holds_the_slot(): void
+    {
+        $this->fakeSupabaseJwks();
+        DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref-1', 'qbo_ref_name' => 'Ref 1', 'realm_id' => self::REALM]);
+        \config(['quickbooks.backfill_floor_date' => '2026-07-01']);
+        $this->asRole('standard')->postJson('/api/quickbooks/orders/sync', ['references' => [890000001]])->assertStatus(202);
+        $requested = Queue::pushed(SyncQuickBooksOrderChunkJob::class)->sole();
+        self::assertInstanceOf(SyncQuickBooksOrderChunkJob::class, $requested);
+        $this->duringSync = function () use ($requested): void {
+            self::assertFalse($this->work($requested)->hasFailed());
+        };
+
+        self::assertFalse($this->work(self::job('range-run'))->hasFailed());
+
+        self::assertSame([OrderSyncTrigger::Range], \array_column($this->synced, 'trigger'));
+        $copies = Queue::pushed(SyncQuickBooksOrderChunkJob::class)->values()->slice(1)->values();
+        self::assertCount(1, $copies);
+        self::assertEquals($requested->run, $copies[0]->run ?? null);
+        self::assertContains($copies[0]->delay ?? null, \range(20, 40));
     }
 
     #[Test]
