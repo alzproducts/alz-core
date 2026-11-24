@@ -10,6 +10,9 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncSourceViewModel;
+use DateTimeImmutable;
+use DateTimeZone;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Override;
 
@@ -45,5 +48,59 @@ final readonly class EloquentOrderSyncSourceQueryRepository implements OrderSync
         }
 
         return $orders;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function countPlacedIn(DateTimeImmutable $from, DateTimeImmutable $before): int
+    {
+        return $this->eloquentGateway->query(static fn(): int => self::placedIn($from, $before)->toBase()->count());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function referencesPlacedIn(DateTimeImmutable $from, DateTimeImmutable $before): array
+    {
+        /** @var Collection<int, OrderSyncSourceViewModel> $rows */
+        $rows = $this->eloquentGateway->query(
+            static fn(): Collection => self::placedIn($from, $before)->oldest('reference')->get(['reference']),
+        );
+
+        $references = [];
+        foreach ($rows as $row) {
+            $references[] = $row->reference;
+        }
+
+        return $references;
+    }
+
+    /**
+     * @return Builder<OrderSyncSourceViewModel>
+     */
+    private static function placedIn(DateTimeImmutable $from, DateTimeImmutable $before): Builder
+    {
+        return OrderSyncSourceViewModel::query()
+            ->where('order_placed_at', '>=', self::instant($from))
+            ->where('order_placed_at', '<', self::instant($before));
+    }
+
+    /**
+     * intentional: the framework binds a date object without its offset, which reads a London instant as UTC.
+     */
+    private static function instant(DateTimeImmutable $instant): string
+    {
+        return $instant->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.uP');
     }
 }
