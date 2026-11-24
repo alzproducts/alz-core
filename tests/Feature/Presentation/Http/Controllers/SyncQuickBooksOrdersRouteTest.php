@@ -7,14 +7,25 @@ namespace Tests\Feature\Presentation\Http\Controllers;
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
+use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
+use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
+use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use Carbon\CarbonImmutable;
+use Error;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
@@ -25,12 +36,16 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Feature\Concerns\InsertsSourceOrders;
 use Tests\Feature\Concerns\SendsRoleTokens;
 use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
+use Tests\Fixtures\QuickBooks\InterceptedMappingRepository;
 use Tests\Fixtures\QuickBooks\InterceptedOrderSyncRepository;
+use Tests\Fixtures\QuickBooks\UnforgettableTokenCache;
 use Tests\TestCase;
+use Throwable;
 
 #[CoversNothing]
 final class SyncQuickBooksOrdersRouteTest extends TestCase
@@ -702,6 +717,262 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
 
         $this->assertReleased($references);
         self::assertSame([], $this->posting->calls);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function steps(): iterable
+    {
+        yield from self::stepsBeforeTheBatchCreate();
+        yield 'batch create' => ['createDocuments'];
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function stepsBeforeTheBatchCreate(): iterable
+    {
+        yield 'DocNumber lookup' => ['findDocuments'];
+        yield 'item query' => ['findItems'];
+        yield 'customer query' => ['customerQuery'];
+        yield 'customer create' => ['customerCreate'];
+    }
+
+    #[Test]
+    #[DataProvider('steps')]
+    public function a_call_refused_for_its_deadline_releases_its_orders(string $step): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->throws[$step] = new QuickBooksDeadlineExceededException(0.5);
+
+        $response = $this->sync(['references' => $references, 'force_retry' => true])
+            ->assertOk()
+            ->assertJsonPath('counts.not_attempted', 5);
+
+        self::assertSame(\array_map(
+            static fn(int $reference): array
+                => self::expected($reference, 'not_attempted', reason: ['code' => 'deadline_exceeded', 'retryable' => true]),
+            $references,
+        ), self::withoutMessages($response));
+        $this->assertReleased($references);
+    }
+
+    #[Test]
+    #[DataProvider('steps')]
+    public function an_unavailable_call_fails_its_orders(string $step): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->throws[$step] = new ExternalServiceUnavailableException('QuickBooks');
+
+        $this->sync(['references' => $references, 'force_retry' => true])
+            ->assertOk()
+            ->assertJsonPath('counts.failed', 5)
+            ->assertJsonPath('results.*.reason.code', \array_fill(0, 5, 'qbo_unavailable'));
+
+        foreach ($references as $reference) {
+            $this->assertRow($reference, ['status' => 'failed', 'last_error_code' => 'qbo_unavailable', 'claim_token' => null]);
+            self::assertEquals([(object) ['trigger' => 'manual', 'reason_code' => 'qbo_unavailable']], self::errors($reference));
+        }
+        self::assertSame([], $this->posting->documents);
+    }
+
+    #[Test]
+    #[DataProvider('stepsBeforeTheBatchCreate')]
+    public function an_unavailable_call_keeps_a_stored_unknown_outcome(string $step): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
+        $this->posting->throws[$step] = new ExternalServiceUnavailableException('QuickBooks');
+
+        $response = $this->assertFailed('outcome_unknown', ['references' => [self::REFERENCE], 'force_retry' => true])
+            ->assertJsonPath('results.0.reason.retryable', true);
+
+        self::assertStringContainsString('qbo_unavailable', (string) \json_encode($response->json('results.0.reason.message')));
+        self::assertStringContainsString('qbo_unavailable', (string) \json_encode(DB::table('quickbooks.order_syncs')->value('last_error_message')));
+        self::assertEquals([(object) ['trigger' => 'manual', 'reason_code' => 'qbo_unavailable']], self::errors(self::REFERENCE));
+    }
+
+    #[Test]
+    #[DataProvider('steps')]
+    public function a_rejected_access_token_releases_the_rows_and_is_forgotten(string $step): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->throws[$step] = new AuthenticationExpiredException('QuickBooks');
+
+        $this->sync(['references' => $references, 'force_retry' => true])
+            ->assertStatus(412)
+            ->assertJsonPath('error.type', 'precondition_failed')
+            ->assertJsonMissingPath('error.errors');
+
+        $this->assertReleased($references);
+        self::assertNull($this->app->make(QuickBooksAccessTokenCacheInterface::class)->get());
+    }
+
+    #[Test]
+    public function a_failed_token_drop_hides_neither_the_rejection_nor_the_releases(): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $cache = new UnforgettableTokenCache($this->app->make(QuickBooksAccessTokenCacheInterface::class));
+        $this->app->instance(QuickBooksAccessTokenCacheInterface::class, $cache);
+        $this->posting->throws['findDocuments'] = new AuthenticationExpiredException('QuickBooks');
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus(412);
+
+        self::assertSame(1, $cache->forgets);
+        $this->assertReleased($references);
+    }
+
+    /**
+     * @return iterable<string, array{Throwable, int}>
+     */
+    public static function customerCreateThrows(): iterable
+    {
+        yield 'deadline' => [new QuickBooksDeadlineExceededException(0.5), 200];
+        yield 'unavailable' => [new ExternalServiceUnavailableException('QuickBooks'), 200];
+        yield 'rejected token' => [new AuthenticationExpiredException('QuickBooks'), 412];
+        yield 'unexpected result' => [new UnexpectedApiResultException('QuickBooks', 'test'), 502];
+    }
+
+    #[Test]
+    #[DataProvider('customerCreateThrows')]
+    public function a_customer_create_that_throws_leaves_the_records_before_it(Throwable $throw, int $status): void
+    {
+        $this->connect();
+        [$held, $empty, $postable] = \range(self::REFERENCE, self::REFERENCE + 2);
+        foreach ([$held, $empty, $postable] as $reference) {
+            $this->insertOrder($reference);
+        }
+        DB::table('shopwired.order_products')->where('order_external_id', $empty)->delete();
+        $this->posting->existing = [new ExistingDocumentDTO("A{$held}", 'qbo-7', DocType::Invoice)];
+        $this->posting->throws['customerCreate'] = $throw;
+
+        $this->sync(['references' => [$held, $empty, $postable]])->assertStatus($status);
+
+        self::assertCount(1, $this->posting->customers);
+        $this->assertRow($held, ['status' => 'synced', 'qbo_txn_id' => 'qbo-7']);
+        $this->assertRow($empty, ['status' => 'failed', 'last_error_code' => 'zero_lines']);
+    }
+
+    /**
+     * @return iterable<string, array{string, Throwable, int}>
+     */
+    public static function unhandledThrows(): iterable
+    {
+        foreach (self::stepsBeforeTheBatchCreate() as $name => [$step]) {
+            yield "unexpected result from {$name}" => [$step, new UnexpectedApiResultException('QuickBooks', 'test'), 502];
+            yield "fault from {$name}" => [
+                $step,
+                new QuickBooksFaultException('QuickBooks', new QuickBooksFault(QuickBooksFaultKind::Validation, '6000')),
+                502,
+            ];
+            yield "error from {$name}" => [$step, new Error('test'), 500];
+            yield "runtime exception from {$name}" => [$step, new RuntimeException('test'), 500];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('unhandledThrows')]
+    public function an_unhandled_throw_before_the_batch_create_releases_the_rows(string $step, Throwable $throw, int $status): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->posting->throws[$step] = $throw;
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus($status);
+
+        $this->assertReleased($references);
+        self::assertSame([], $this->posting->documents);
+    }
+
+    /**
+     * @return iterable<string, array{Throwable, int}>
+     */
+    public static function mappingThrows(): iterable
+    {
+        yield 'repository unavailable' => [new ExternalServiceUnavailableException('Database'), 503];
+        yield 'cache unavailable' => [new ExternalServiceUnavailableException('QuickBooks token cache'), 503];
+        yield 'lock' => [new LockAcquisitionException('test', 1), 503];
+        yield 'database' => [new DatabaseOperationFailedException('resolvedRefs', 'test'), 500];
+    }
+
+    #[Test]
+    #[DataProvider('mappingThrows')]
+    public function a_mapping_read_that_throws_releases_the_rows(Throwable $throw, int $status): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $this->app->instance(QuickBooksMappingRepositoryInterface::class, new InterceptedMappingRepository(
+            $this->app->make(QuickBooksMappingRepositoryInterface::class),
+            $throw,
+        ));
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus($status);
+
+        $this->assertReleased($references);
+        self::assertSame(0, DB::table('quickbooks.order_syncs')->where('last_error_code', 'qbo_unavailable')->count());
+        self::assertSame(['findDocuments', 'findItems'], $this->posting->calls);
+    }
+
+    #[Test]
+    public function a_release_that_throws_does_not_replace_the_original_error(): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $released = 0;
+        $this->interceptRepository()->beforeRelease = static function () use (&$released): void {
+            $released++;
+
+            throw new DatabaseOperationFailedException('release', 'test');
+        };
+        $this->posting->throws['findDocuments'] = new UnexpectedApiResultException('QuickBooks', 'test');
+
+        $this->sync(['references' => $references, 'force_retry' => true])->assertStatus(502);
+
+        self::assertSame(5, $released);
+    }
+
+    #[Test]
+    public function a_record_that_throws_stops_no_other_record(): void
+    {
+        $this->connect();
+        [$first, $second, $empty, $postable] = \range(self::REFERENCE, self::REFERENCE + 3);
+        foreach ([$first, $second, $empty, $postable] as $reference) {
+            $this->insertOrder($reference);
+        }
+        DB::table('shopwired.order_products')->where('order_external_id', $empty)->delete();
+        $this->posting->existing = [
+            new ExistingDocumentDTO("A{$first}", 'qbo-1', DocType::Invoice),
+            new ExistingDocumentDTO("A{$second}", 'qbo-2', DocType::Invoice),
+        ];
+        $this->interceptRepository()->beforeSynced = static function (OrderSyncPostedDTO $posted): void {
+            if ($posted->qboTxnId === 'qbo-1') {
+                throw new DatabaseOperationFailedException('recordSynced', 'test');
+            }
+        };
+
+        $this->sync(['references' => [$first, $second, $empty, $postable]])->assertStatus(500);
+
+        $this->assertRow($first, ['status' => 'pending', 'claim_token' => null]);
+        $this->assertRow($second, ['status' => 'synced', 'qbo_txn_id' => 'qbo-2']);
+        $this->assertRow($empty, ['status' => 'failed', 'last_error_code' => 'zero_lines']);
+        $this->assertRow($postable, ['status' => 'pending', 'claim_token' => null]);
+        self::assertSame(['findDocuments'], $this->posting->calls);
+    }
+
+    /**
+     * @return list<object>
+     */
+    private static function errors(int $reference): array
+    {
+        $id = DB::table('quickbooks.order_syncs')->where('reference', $reference)->value('id');
+
+        return \array_values(DB::table('quickbooks.order_sync_errors')->where('order_sync_id', $id)->get(['trigger', 'reason_code'])->all());
     }
 
     /**

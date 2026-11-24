@@ -4,38 +4,38 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\OrderSync\Results;
 
+use App\Application\QuickBooks\OrderSync\DTOs\BuiltOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncOutcomeDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\ReadyOrderDTO;
 
 /**
- * A chunk's orders ready to post, and the outcome of each that will not be.
+ * The orders a step left open, and the outcome of each order it settled.
  */
 final readonly class OrderPreparationResult
 {
     /**
-     * @param list<ReadyOrderDTO>       $ready
+     * @param list<BuiltOrderDTO>       $open
      * @param list<OrderSyncOutcomeDTO> $settled
      */
     private function __construct(
-        public array $ready,
+        public array $open,
         public array $settled,
     ) {}
 
     /**
-     * @param list<OrderSyncOutcomeDTO|ReadyOrderDTO> $orders
+     * @param list<BuiltOrderDTO|OrderSyncOutcomeDTO> $orders
      */
     public static function of(array $orders): self
     {
-        $ready = [];
+        $open = [];
         $settled = [];
         foreach ($orders as $order) {
-            if ($order instanceof ReadyOrderDTO) {
-                $ready[] = $order;
+            if ($order instanceof BuiltOrderDTO) {
+                $open[] = $order;
             } else {
                 $settled[] = $order;
             }
         }
 
-        return new self($ready, $settled);
+        return new self($open, $settled);
     }
 }

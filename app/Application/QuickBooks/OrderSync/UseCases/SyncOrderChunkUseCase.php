@@ -16,7 +16,6 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use Psr\Log\LoggerInterface;
@@ -40,7 +39,6 @@ final readonly class SyncOrderChunkUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidConfigurationException
-     * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */

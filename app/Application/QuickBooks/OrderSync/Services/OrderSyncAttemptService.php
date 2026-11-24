@@ -5,16 +5,11 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\OrderSync\Services;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderPreparationDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncOutcomeDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\ReadyOrderDTO;
 use App\Application\QuickBooks\OrderSync\Resolvers\OrderSyncDeadlineResolver;
-use App\Application\QuickBooks\OrderSync\Resolvers\SyncOutcomeResolver;
-use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Results\OrderClaimResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -23,22 +18,22 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\InvalidConfigurationException;
-use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
-use LogicException;
 use SensitiveParameter;
 use Throwable;
 
 /**
- * Prepares, posts and records a chunk's claimed orders.
+ * Prepares, posts and records a chunk's claimed orders. A throw before the batch create releases the rows; from the
+ * batch create on, only a rejected token does.
  */
 final readonly class OrderSyncAttemptService
 {
     public function __construct(
         private OrderSyncSettingsInterface $settings,
         private OrderSyncPreparationService $preparation,
-        private QuickBooksOrderPostingInterface $posting,
+        private OrderSyncResolutionService $resolution,
+        private OrderSyncPostingService $posting,
         private OrderSyncRecordService $records,
         private OrderSyncRecoveryService $recovery,
     ) {}
@@ -51,7 +46,6 @@ final readonly class OrderSyncAttemptService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidConfigurationException
-     * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
@@ -59,43 +53,47 @@ final readonly class OrderSyncAttemptService
     {
         try {
             $capped = OrderSyncDeadlineResolver::resolve($claim->claimed, $deadline);
-            $preparation = new OrderPreparationDTO($chunk->realmId, $claim->claimed, $this->settings->runLabels());
-            $prepared = $this->preparation->prepare($accessToken, $preparation, $capped);
+            [$ready, $results] = $this->prepare($accessToken, $chunk, $claim, $capped);
         } catch (Throwable $e) {
             $this->recovery->recover($claim->claimed, $e);
 
             throw $e;
         }
 
-        return $this->records->record($chunk, [...$prepared->settled, ...$this->post($accessToken, $prepared->ready, $capped)]);
+        try {
+            $posted = $this->posting->post($accessToken, $ready, $capped);
+        } catch (AuthenticationExpiredException $e) {
+            $this->recovery->recover($claim->claimed, $e);
+
+            throw $e;
+        }
+
+        return [...$results, ...$this->records->record($chunk, $posted)];
     }
 
     /**
-     * @param list<ReadyOrderDTO> $ready
+     * Each step's settled orders are recorded before the next QuickBooks call, so a later throw cannot release them.
      *
-     * @return list<OrderSyncOutcomeDTO>
+     * @return array{list<ReadyOrderDTO>, list<OrderSyncResultDTO>}
      *
      * @throws AuthenticationExpiredException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
-     * @throws QuickBooksDeadlineExceededException
+     * @throws InvalidConfigurationException
+     * @throws QuickBooksFaultException
+     * @throws UnexpectedApiResultException
      */
-    private function post(#[SensitiveParameter] ApiKeyToken $accessToken, array $ready, Deadline $deadline): array
+    private function prepare(#[SensitiveParameter] ApiKeyToken $accessToken, OrderSyncChunkDTO $chunk, OrderClaimResult $claim, Deadline $deadline): array
     {
-        if ($ready === []) {
-            return [];
-        }
+        $built = $this->preparation->build(new OrderPreparationDTO($chunk->realmId, $claim->claimed, $this->settings->runLabels()));
+        $results = $this->records->record($chunk, $built->settled);
+        $open = $this->preparation->withoutExisting($accessToken, $built->open, $deadline);
+        $results = [...$results, ...$this->records->record($chunk, $open->settled)];
+        $items = $this->resolution->withItems($accessToken, $open->open, $deadline);
+        $results = [...$results, ...$this->records->record($chunk, $items->settled)];
+        $ready = $this->resolution->ready($accessToken, $chunk->realmId, $items, $deadline);
 
-        $documents = \array_map(static fn(ReadyOrderDTO $order): PostableDocumentDTO => $order->document, $ready);
-
-        return \array_map(self::outcome(...), $ready, $this->posting->createDocuments($accessToken, $documents, $deadline));
-    }
-
-    private static function outcome(ReadyOrderDTO $order, BatchItemOutcomeResult $item): OrderSyncOutcomeDTO
-    {
-        $failure = SyncOutcomeResolver::forBatch($item);
-
-        return $failure === null
-            ? OrderSyncOutcomeDTO::created($order, $item->qboId ?? throw new LogicException('A created document has an id'))
-            : OrderSyncOutcomeDTO::failed($order->order, $failure, $order->document->draft->docType());
+        return [$ready->ready, [...$results, ...$this->records->record($chunk, $ready->settled)]];
     }
 }

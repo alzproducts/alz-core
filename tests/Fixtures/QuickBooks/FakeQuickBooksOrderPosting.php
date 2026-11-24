@@ -20,6 +20,7 @@ use App\Domain\Shared\ValueObjects\Deadline;
 use Closure;
 use Override;
 use SensitiveParameter;
+use Throwable;
 
 /**
  * A QuickBooks company that holds every item, finds every customer in GBP and posts every document, unless told otherwise.
@@ -53,6 +54,9 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     /** @var array<string, BatchItemOutcomeResult> by DocNumber */
     public array $batchOutcomes = [];
 
+    /** @var array<string, Throwable> by step: findDocuments, findItems, customerQuery, customerCreate, createDocuments (nothing sent) or afterCreate */
+    public array $throws = [];
+
     /** @var (Closure(): void)|null */
     public ?Closure $duringLookup = null;
 
@@ -66,6 +70,7 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     public function findItems(#[SensitiveParameter] ApiKeyToken $accessToken, array $skus, Deadline $deadline): ItemLookupResult
     {
         $this->called('findItems', $deadline);
+        $this->throwAt('findItems');
         $found = [];
         foreach ($skus as $sku) {
             if ($sku->value !== '' && !\in_array($sku->value, $this->missingSkus, true)) {
@@ -87,6 +92,7 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
         if ($this->duringLookup !== null) {
             ($this->duringLookup)();
         }
+        $this->throwAt('findDocuments');
 
         return new DocumentLookupResult($this->existing);
     }
@@ -98,7 +104,9 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     public function findOrCreateCustomers(#[SensitiveParameter] ApiKeyToken $accessToken, array $customers, Deadline $deadline): CustomerResolutionResult
     {
         $this->called('findOrCreateCustomers', $deadline);
+        $this->throwAt('customerQuery');
         $this->customers = [...$this->customers, ...$customers];
+        $this->throwAt('customerCreate');
 
         return CustomerResolutionResult::of(\array_map(
             fn(CustomerDraftDTO $customer): CustomerResolutionDTO => CustomerResolutionDTO::matched($customer->displayName, new CustomerMatchDTO(
@@ -120,16 +128,25 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     public function createDocuments(#[SensitiveParameter] ApiKeyToken $accessToken, array $documents, Deadline $deadline): array
     {
         $this->called('createDocuments', $deadline);
+        $this->throwAt('createDocuments');
         $this->documents = [...$this->documents, ...$documents];
         if ($this->duringCreate !== null) {
             ($this->duringCreate)();
         }
+        $this->throwAt('afterCreate');
 
         return \array_map(
             fn(PostableDocumentDTO $document): BatchItemOutcomeResult => $this->batchOutcomes[$document->draft->core->docNumber]
                 ?? BatchItemOutcomeResult::created('txn-' . $document->draft->core->docNumber),
             $documents,
         );
+    }
+
+    private function throwAt(string $step): void
+    {
+        if (isset($this->throws[$step])) {
+            throw $this->throws[$step];
+        }
     }
 
     private function called(string $method, Deadline $deadline): void

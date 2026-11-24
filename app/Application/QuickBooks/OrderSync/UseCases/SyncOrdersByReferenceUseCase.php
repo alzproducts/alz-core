@@ -26,7 +26,6 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\ValidationFailedException;
-use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
 use App\Domain\Shared\ValueObjects\Deadline;
@@ -56,7 +55,6 @@ final readonly class SyncOrdersByReferenceUseCase
      * @throws InvalidConfigurationException
      * @throws KeyEncryptionFailedException
      * @throws LockAcquisitionException
-     * @throws QuickBooksDeadlineExceededException
      * @throws QuickBooksFaultException
      * @throws QuickBooksMappingsUnresolvedException
      * @throws UnexpectedApiResultException
