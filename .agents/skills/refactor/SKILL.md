@@ -47,7 +47,7 @@ Test **assertions and expectations must not change**. Tests may only change to a
 ### Step 1 — Load Context
 
 1. Find and read the plan document (`.ai/plans/` matching the issue), if one exists
-2. Find or create the implementation log (`.ai/implementation-logs/`, follow template in `.ai/implementation-logs/CLAUDE.md`)
+2. Find or create the implementation log (in the run home, following `~/.agents/references/implementation-log.md`)
 3. If resuming: read the implementation log to understand current state
 4. Break scope into sections of ~5-10 files, grouped by module or dependency order
 
