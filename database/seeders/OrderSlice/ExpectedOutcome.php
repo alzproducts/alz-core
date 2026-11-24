@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Database\Seeders\OrderSlice;
 
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
+
 /**
  * The sync outcome an edge-case order must produce: `synced`, or `skipped:` / `failed:` plus a reason code from
- * the QuickBooks order sync API contract (`docs/api-contracts/quickbooks-order-sync.md` §Outcomes and reason codes).
+ * {@see SyncReasonCode}.
  */
 enum ExpectedOutcome: string
 {

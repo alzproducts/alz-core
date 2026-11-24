@@ -11,7 +11,8 @@ use App\Application\QuickBooks\OrderSync\Results\OrderEligibilityResult;
 use App\Domain\Catalog\Order\ValueObjects\OrderLifecycleStatus;
 
 /**
- * The row-state rules of docs/api-contracts/quickbooks-order-sync.md, first match wins.
+ * The row-state rules, first match wins. A posted order is checked first so it never reads as skipped; a cancelled
+ * or missing order is checked before a stored failure so it reports its current state over a stale one.
  */
 final class OrderEligibilityResolver
 {

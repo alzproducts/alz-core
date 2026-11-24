@@ -8,7 +8,7 @@ use App\Domain\Exceptions\ValidationFailedException;
 use DateTimeImmutable;
 
 /**
- * The contract's limits on a range of business days, refused under the field each one belongs to.
+ * The limits on a range of business days, refused under the field each one belongs to.
  */
 final class OrderRangeLimitResolver
 {
