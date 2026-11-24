@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Controllers;
 
+use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
@@ -24,14 +26,17 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Feature\Concerns\InsertsSourceOrders;
 use Tests\Feature\Concerns\SendsRoleTokens;
 use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
+use Tests\Fixtures\QuickBooks\InterceptedOrderSyncRepository;
 use Tests\TestCase;
 
 #[CoversNothing]
 final class SyncQuickBooksOrdersRouteTest extends TestCase
 {
     use DatabaseTransactions;
+    use InsertsSourceOrders;
     use SendsRoleTokens;
 
     private const string URL = '/api/quickbooks/orders/sync';
@@ -653,6 +658,101 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         self::assertSame([], $this->posting->calls);
     }
 
+    #[Test]
+    public function a_passed_deadline_claims_nothing(): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $synced = self::REFERENCE + 5;
+        $this->insertOrder($synced);
+        $this->insertSync(['status' => 'synced', 'doc_type' => 'invoice', 'qbo_doc_number' => 'DOC-1', 'qbo_txn_id' => 'txn-1'], $synced);
+        $before = DB::table('quickbooks.order_syncs')->orderBy('reference')->get()->toArray();
+
+        $response = $this->withServerVariables(['REQUEST_TIME_FLOAT' => \microtime(true) - 26])
+            ->sync(['references' => [...$references, $synced], 'force_retry' => true])
+            ->assertOk();
+
+        self::assertSame([
+            ...\array_map(
+                static fn(int $reference): array
+                    => self::expected($reference, 'not_attempted', reason: ['code' => 'deadline_exceeded', 'retryable' => true]),
+                $references,
+            ),
+            self::expected($synced, 'already_synced', 'invoice', 'DOC-1', 'txn-1'),
+        ], self::withoutMessages($response));
+        self::assertEquals($before, DB::table('quickbooks.order_syncs')->orderBy('reference')->get()->toArray());
+        self::assertSame([], $this->posting->calls);
+    }
+
+    #[Test]
+    public function a_claim_that_throws_releases_the_rows_claimed_before_it(): void
+    {
+        $this->connect();
+        $references = $this->insertReleaseSet();
+        $last = self::REFERENCE + 5;
+        $this->insertOrder($last);
+        $repository = $this->interceptRepository();
+        $repository->beforeClaim = static function (int $reference) use ($last): void {
+            if ($reference === $last) {
+                throw new DatabaseOperationFailedException('claim', 'test');
+            }
+        };
+
+        $this->sync(['references' => [...$references, $last], 'force_retry' => true])->assertStatus(500);
+
+        $this->assertReleased($references);
+        self::assertSame([], $this->posting->calls);
+    }
+
+    /**
+     * Postable orders with new customers, one per claimable row state.
+     *
+     * @return non-empty-list<int> no row, pending, failed, lapsed with a stored reason, lapsed with none
+     */
+    private function insertReleaseSet(): array
+    {
+        $references = \range(self::REFERENCE, self::REFERENCE + 4);
+        foreach ($references as $reference) {
+            $this->insertOrder($reference, state: ['billing_name' => "Buyer {$reference}", 'billing_email' => "{$reference}@example.test"]);
+        }
+        $this->insertSync(['status' => 'pending'], $references[1]);
+        $this->insertSync(['status' => 'failed', 'last_error_code' => 'item_missing'], $references[2]);
+        $this->insertSync([...self::LAPSED, 'last_error_code' => 'item_missing'], $references[3]);
+        $this->insertSync(self::LAPSED, $references[4]);
+
+        return $references;
+    }
+
+    /**
+     * Each row of the release set was claimed, then returned to the state its stored reason gives it, with no error row.
+     *
+     * @param list<int> $references
+     */
+    private function assertReleased(array $references): void
+    {
+        $states = [['pending', 1], ['pending', 2], ['failed', 2], ['failed', 2], ['pending', 2]];
+        foreach ($references as $index => $reference) {
+            [$status, $attempts] = $states[$index];
+            $this->assertRow($reference, [
+                'status' => $status,
+                'attempts' => $attempts,
+                'last_error_code' => $status === 'failed' ? 'item_missing' : null,
+                'claim_token' => null,
+                'lease_expires_at' => null,
+            ]);
+        }
+        $ids = DB::table('quickbooks.order_syncs')->whereIn('reference', $references)->pluck('id');
+        self::assertSame(0, DB::table('quickbooks.order_sync_errors')->whereIn('order_sync_id', $ids)->count());
+    }
+
+    private function interceptRepository(): InterceptedOrderSyncRepository
+    {
+        $repository = new InterceptedOrderSyncRepository($this->app->make(OrderSyncRepositoryInterface::class));
+        $this->app->instance(OrderSyncRepositoryInterface::class, $repository);
+
+        return $repository;
+    }
+
     /**
      * @param array{code: string, retryable: bool}|null $reason
      *
@@ -801,62 +901,6 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
             'attempts' => 1,
             'last_attempted_at' => '2026-11-01 12:00:00+00',
             ...$state,
-        ]);
-    }
-
-    /**
-     * @param array<string, mixed> $state
-     */
-    private function insertOrder(int $reference, string $placedAt = '2026-11-01 10:00:00+00', array $state = [], string $sku = 'SKU-10'): void
-    {
-        $orderId = DB::table('shopwired.orders')->insertGetId([
-            'external_id' => $reference,
-            'reference' => $reference,
-            'total' => '29.990000',
-            'sub_total_net' => '25.000000',
-            'shipping_total_net' => '4.990000',
-            'shipping_vat_rate' => '20.0',
-            'shipping_method' => 'Next Day',
-            'status_name' => 'Processing',
-            'status_type' => 'processing',
-            'lifecycle_status' => 'processing',
-            'customer_id' => 1,
-            'customer_type' => 1,
-            'billing_name' => 'Test Buyer',
-            'billing_email' => 'buyer@example.test',
-            'billing_address_line1' => '1 Test Street',
-            'billing_city' => 'Testville',
-            'billing_postcode' => 'TE1 1ST',
-            'billing_country' => 'United Kingdom',
-            'delivery_name' => 'Test Buyer',
-            'delivery_email' => 'buyer@example.test',
-            'delivery_address_line1' => '1 Test Street',
-            'delivery_city' => 'Testville',
-            'delivery_postcode' => 'TE1 1ST',
-            'delivery_country' => 'United Kingdom',
-            'shipping_charge_net' => '4.990000',
-            'payment_method' => 'card',
-            'payment_method_raw' => 'Opayo Hosted',
-            'order_placed_at' => $placedAt,
-            'created_at' => $placedAt,
-            'updated_at' => $placedAt,
-            ...$state,
-        ]);
-        DB::table('shopwired.order_products')->insert([
-            'order_id' => $orderId,
-            'order_external_id' => $reference,
-            'external_id' => 10,
-            'title' => 'Line',
-            'sku' => $sku,
-            'price' => '12.5',
-            'price_vat' => '2.5',
-            'total' => '25.0',
-            'total_vat' => '5.0',
-            'original_price' => '12.5',
-            'quantity' => 2,
-            'vat_rate' => '20',
-            'created_at' => $placedAt,
-            'updated_at' => $placedAt,
         ]);
     }
 }

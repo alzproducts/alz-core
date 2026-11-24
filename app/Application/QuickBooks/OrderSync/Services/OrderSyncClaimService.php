@@ -19,9 +19,12 @@ use App\Application\QuickBooks\OrderSync\Results\OrderClaimResult;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
+use Throwable;
 
 /**
- * Claims the references of a chunk that the row-state rules allow, and settles the rest.
+ * Claims the references of a chunk that the row-state rules allow, and settles the rest. Claims nothing past the deadline.
  */
 final readonly class OrderSyncClaimService
 {
@@ -29,6 +32,7 @@ final readonly class OrderSyncClaimService
         private OrderSyncSourceQueryRepositoryInterface $sourceOrders,
         private OrderSyncQueryRepositoryInterface $orderSyncStates,
         private OrderSyncRepositoryInterface $orderSyncs,
+        private OrderSyncRecoveryService $recovery,
     ) {}
 
     /**
@@ -36,24 +40,39 @@ final readonly class OrderSyncClaimService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function claim(OrderSyncChunkDTO $chunk): OrderClaimResult
+    public function claim(OrderSyncChunkDTO $chunk, Deadline $deadline): OrderClaimResult
     {
         $rows = $this->sourceOrders->findByReferences($chunk->references);
         $states = $this->orderSyncStates->statesFor($chunk->realmId, $chunk->references);
 
-        $claimed = [];
-        $refused = [];
-        foreach ($chunk->references as $reference) {
-            $row = $rows[$reference] ?? null;
-            $order = self::refusal($reference, $states[$reference] ?? null, $row, $chunk->forceRetry) ?? $this->claimOne($chunk, $reference, $row);
-            if ($order instanceof ClaimedOrderDTO) {
-                $claimed[] = $order;
-            } else {
-                $refused[] = $order;
+        $orders = [];
+        try {
+            foreach ($chunk->references as $reference) {
+                $row = $rows[$reference] ?? null;
+                $orders[] = self::refusal($reference, $states[$reference] ?? null, $row, $chunk->forceRetry)
+                    ?? $this->claimInTime($chunk, $reference, $row, $deadline);
             }
+        } catch (Throwable $e) {
+            $this->recovery->recover(OrderClaimResult::of($orders)->claimed, $e);
+
+            throw $e;
         }
 
-        return new OrderClaimResult($claimed, $refused);
+        return OrderClaimResult::of($orders);
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    private function claimInTime(OrderSyncChunkDTO $chunk, int $reference, ?SourceOrderRowDTO $row, Deadline $deadline): ClaimedOrderDTO|OrderSyncResultDTO
+    {
+        if ($row !== null && $deadline->secondsLeft(new DateTimeImmutable()) <= 0) {
+            return OrderSyncResultDTO::refused($reference, SyncReasonCode::DeadlineExceeded);
+        }
+
+        return $this->claimOne($chunk, $reference, $row);
     }
 
     /**

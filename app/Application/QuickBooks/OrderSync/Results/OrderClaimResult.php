@@ -20,4 +20,22 @@ final readonly class OrderClaimResult
         public array $claimed,
         public array $refused,
     ) {}
+
+    /**
+     * @param list<ClaimedOrderDTO|OrderSyncResultDTO> $orders
+     */
+    public static function of(array $orders): self
+    {
+        $claimed = [];
+        $refused = [];
+        foreach ($orders as $order) {
+            if ($order instanceof ClaimedOrderDTO) {
+                $claimed[] = $order;
+            } else {
+                $refused[] = $order;
+            }
+        }
+
+        return new self($claimed, $refused);
+    }
 }

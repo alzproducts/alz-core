@@ -54,6 +54,9 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     public array $batchOutcomes = [];
 
     /** @var (Closure(): void)|null */
+    public ?Closure $duringLookup = null;
+
+    /** @var (Closure(): void)|null */
     public ?Closure $duringCreate = null;
 
     /**
@@ -81,6 +84,9 @@ final class FakeQuickBooksOrderPosting implements QuickBooksOrderPostingInterfac
     {
         $this->called('findDocuments', $deadline);
         $this->lookedUp = [...$this->lookedUp, ...$docNumbers];
+        if ($this->duringLookup !== null) {
+            ($this->duringLookup)();
+        }
 
         return new DocumentLookupResult($this->existing);
     }
