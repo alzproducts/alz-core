@@ -24,5 +24,5 @@ Each PHP service bind-mounts its own `<evidence>/logs/<service>/` over `storage/
 
 - `doctor` fails when `QUEUE_CONNECTION` or `CACHE_STORE` is not `redis`; `phpunit.xml` and CI keep `sync` and `array`.
 - `test` runs only in the sidecar and excludes `repo-static`, which needs `.git` and `*.md`. On a caller-supplied Supabase it exits 69.
-- App and worker run with `SKIP_DB_CHECK=true`: the entrypoint's `db:show` needs ext-intl, which the runtime image lacks, so the seed's exit 0 gates their start.
+- App and worker run the entrypoint's DB check: the stack owns `SKIP_DB_CHECK` and sets it to `false`. The seed's exit 0 still gates their start.
 - On a Linux Docker host, `up` must create each logs directory writable by uid 33 (`www-data`), because bind mounts keep numeric uids.
