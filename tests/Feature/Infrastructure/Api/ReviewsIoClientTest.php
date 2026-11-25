@@ -18,11 +18,15 @@ use App\Infrastructure\Support\TransientLogThrottle;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Tests\TestCase;
+use Throwable;
 
 /**
  * ReviewsIoClient Feature Tests
@@ -60,9 +64,10 @@ final class ReviewsIoClientTest extends TestCase
         int $timeout = 30,
         int $retryTimes = 3,
         int $retryDelay = 100,
+        string $apiKey = self::TEST_API_KEY,
     ): ReviewsIoClient {
         $config = new ReviewsIoConfig(
-            apiKey: self::TEST_API_KEY,
+            apiKey: $apiKey,
             storeId: self::TEST_STORE_ID,
             timeout: $timeout,
             retryTimes: $retryTimes,
@@ -457,6 +462,57 @@ final class ReviewsIoClientTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->client->getProductRatingBatch(['SKU-TIMEOUT']);
+    }
+
+    /**
+     * @param class-string<Throwable> $expectedPrevious
+     */
+    #[Test]
+    #[DataProvider('transportErrorProvider')]
+    public function it_keeps_credentials_out_of_transport_errors(
+        string $apiKey,
+        Throwable $error,
+        string $expectedPrevious,
+    ): void {
+        $log = Log::spy();
+        $this->app?->instance(LoggerInterface::class, $log);
+        $this->app?->forgetInstance(TransientLogThrottle::class);
+        Http::fake(static fn() => throw $error);
+
+        try {
+            $this->createClient(retryTimes: 1, apiKey: $apiKey)->getProductRatingBatch('SKU-1');
+            $this->fail('Expected ExternalServiceUnavailableException to be thrown');
+        } catch (ExternalServiceUnavailableException $e) {
+            $previous = $e->getPrevious();
+            $message = $e->getMessage();
+        }
+
+        $expected = 'Timed out for https://api.test/?apikey=[REDACTED]&store=1';
+
+        $this->assertInstanceOf($expectedPrevious, $previous);
+        $this->assertSame($expected, $previous->getMessage());
+        $this->assertNull($previous->getPrevious());
+        $this->assertStringNotContainsString($apiKey, $message);
+
+        $log->shouldHaveReceived('error')
+            ->withArgs(static fn(string $message, array $context): bool => $context['error'] === $expected)
+            ->once();
+    }
+
+    /**
+     * @return array<string, array{string, Throwable, class-string<Throwable>}>
+     */
+    public static function transportErrorProvider(): array
+    {
+        $message = static fn(string $key): string => "Timed out for https://api.test/?apikey={$key}&store=1";
+        $wrapped = new RuntimeException($message('plain-key-1'));
+
+        return [
+            'connection error' => ['plain-key-1', new ConnectionException($message('plain-key-1'), 0, $wrapped), ConnectionException::class],
+            'unexpected error' => ['plain-key-1', new RuntimeException($message('plain-key-1'), 0, $wrapped), RuntimeException::class],
+            'percent-encoded key' => ['a b/c', new ConnectionException($message('a%20b%2Fc')), ConnectionException::class],
+            'form-encoded key' => ['a b/c', new ConnectionException($message('a+b%2Fc')), ConnectionException::class],
+        ];
     }
 
     #[Test]
