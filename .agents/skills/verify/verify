@@ -71,7 +71,7 @@ http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one re
 exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
 db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
-test --evidence <dir> <paths>...   Pest in the test sidecar, always with --exclude-group=repo-static (exit 69 in caller-supabase mode)
+test --evidence <dir> [--all-groups] <paths>...   Pest in the test sidecar, excluding the groups CI excludes (integration, seed-command, list-parity) and repo-static; --all-groups excludes only repo-static; --group/--exclude-group exit 64; an excluded file beside selected ones is omitted silently (exit 69 in caller-supabase mode)
 note --evidence <dir> <text>   append a line to run-notes.md
 browser   not supported (exit 69)'
 
@@ -779,18 +779,35 @@ cmd_db() {
         sh "${ARGS[0]}" </dev/null || return 1
 }
 
+# CI's test-step exclusions (.github/workflows/ci.yml); tests/Unit/Static/VerifyTestExclusionsTest.php keeps them equal.
+TEST_DEFAULT_EXCLUDE_GROUPS='integration seed-command list-parity'
+
 cmd_test() {
-    [ "${#ARGS[@]}" -ge 1 ] || die 64 "test wants <paths>..."
+    local all_groups=0 arg group
+    local paths=() flags=()
+    for arg in "${ARGS[@]}"; do
+        case "$arg" in
+            --all-groups) all_groups=1 ;;
+            --group | --group=* | --exclude-group | --exclude-group=*) die 64 "test refuses $arg: groups are fixed (CI's exclusions, or --all-groups)" ;;
+            *) paths+=("$arg") ;;
+        esac
+    done
+    [ "${#paths[@]}" -ge 1 ] || die 64 "test wants <paths>..."
     set_evidence "$EVIDENCE_ARG" existing
     refuse_in_mode test
     require_run
+    if [ "$all_groups" -eq 0 ]; then
+        for group in $TEST_DEFAULT_EXCLUDE_GROUPS; do
+            flags+=("--exclude-group=$group")
+        done
+    fi
     local out rc=0
     out="$(unique_file "$EVIDENCE/test" pest.log)"
-    note "test vendor/bin/pest --exclude-group=repo-static --no-coverage ${ARGS[*]}"
+    note "test vendor/bin/pest --exclude-group=repo-static --no-coverage ${flags[*]-} ${paths[*]}"
     # Fresh keys per call (COR-320 D3); compose reads them from this process env.
     VERIFY_TEST_APP_KEY="base64:$(openssl rand -base64 32)" \
         VERIFY_TEST_API_KEY_ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
-        dc --profile test run --rm -T --no-deps test "${ARGS[@]}" </dev/null 2>&1 | tee "$out" || rc="${PIPESTATUS[0]}"
+        dc --profile test run --rm -T --no-deps test ${flags[@]+"${flags[@]}"} "${paths[@]}" </dev/null 2>&1 | tee "$out" || rc="${PIPESTATUS[0]}"
     note "test exit=$rc (test/$(basename "$out"))"
     return "$rc"
 }

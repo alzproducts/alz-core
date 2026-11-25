@@ -23,7 +23,8 @@ use Tests\TestCase;
  * Every products list shape must answer byte for byte as the `reference` capture taken before
  * the fingerprinted read path, both with no stored fragments and with every fragment stored.
  *
- * Opt-in (`--group=list-parity`): it needs the gitignored reference under tmp/cor-258/ and the
+ * Opt-in: `phpunit.xml` excludes `list-parity` by default, `--group=list-parity` opts in, and an opt-in run
+ * without the capture fails (it never skips). It needs the gitignored reference under tmp/cor-258/ and the
  * seed it was captured on. Runs inside a rolled-back transaction, so fragments it stores vanish.
  */
 #[CoversNothing]
