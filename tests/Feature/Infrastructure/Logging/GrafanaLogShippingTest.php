@@ -4,28 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Logging;
 
-use App\Infrastructure\Logging\GrafanaLogHandler;
+use App\Application\Contracts\ErrorReporterInterface;
+use App\Infrastructure\Logging\GrafanaLogChannel;
 use App\Infrastructure\Logging\GrafanaLogRedactor;
-use App\Infrastructure\Logging\Listeners\FlushGrafanaLogsListener;
+use App\Infrastructure\Logging\GrafanaLogSender;
 use Closure;
 use DateTimeImmutable;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
+use Illuminate\Log\LogManager;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use JsonSerializable;
-use Laravel\Horizon\Events\MasterSupervisorLooped;
-use Laravel\Horizon\Events\SupervisorLooped;
-use Laravel\Horizon\HorizonServiceProvider;
-use Laravel\Horizon\MasterSupervisor;
-use Laravel\Horizon\Supervisor;
 use Laravel\Octane\Events\RequestTerminated;
-use Mockery;
+use Monolog\Handler\BufferHandler;
 use Monolog\JsonSerializableDateTimeImmutable;
 use Monolog\Level;
 use Monolog\LogRecord;
@@ -36,17 +34,18 @@ use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
+use Throwable;
 
-#[CoversClass(GrafanaLogHandler::class)]
+#[CoversClass(GrafanaLogChannel::class)]
 #[CoversClass(GrafanaLogRedactor::class)]
-#[CoversClass(FlushGrafanaLogsListener::class)]
+#[CoversClass(GrafanaLogSender::class)]
 final class GrafanaLogShippingTest extends TestCase
 {
     private const string URL = 'https://logs.example.test/loki/api/v1/push';
 
     private const array CREDENTIALS = [
         'GRAFANA_LOGS_URL' => self::URL,
-        'GRAFANA_LOGS_USER' => '123',
+        'GRAFANA_LOGS_USER' => 'loki-user',
         'GRAFANA_LOGS_KEY' => 'write-key',
     ];
 
@@ -60,6 +59,14 @@ final class GrafanaLogShippingTest extends TestCase
 
     private string $stderrPath;
 
+    /** @var list<array{Throwable, array<string, mixed>}> */
+    private array $reports = [];
+
+    private Closure $endpoint;
+
+    /** @var list<ClientRequest> */
+    private array $requests = [];
+
     #[Override]
     protected function setUp(): void
     {
@@ -70,7 +77,15 @@ final class GrafanaLogShippingTest extends TestCase
         parent::setUp();
 
         $this->stderrPath = (string) \tempnam(\sys_get_temp_dir(), 'stderr');
-        Http::fake([self::URL => Http::response(status: 204)]);
+        $this->endpoint = static fn() => Http::response(status: 204);
+        Http::fake(function (ClientRequest $request) {
+            $this->requests[] = $request;
+
+            return ($this->endpoint)();
+        });
+        $this->reportTo(function (Throwable $exception, array $context): void {
+            $this->reports[] = [$exception, $context];
+        });
     }
 
     #[Override]
@@ -103,11 +118,11 @@ final class GrafanaLogShippingTest extends TestCase
         Log::channel('grafana')->info('Sync finished');
         $this->flush();
 
-        Http::assertSentCount(1);
+        self::assertCount(1, $this->requests);
         Http::assertSent(static fn(ClientRequest $request): bool => $request->method() === 'POST'
             && $request->url() === self::URL
             && $request->isJson()
-            && $request->header('Authorization') === ['Basic ' . \base64_encode('123:write-key')]
+            && $request->header('Authorization') === ['Basic ' . \base64_encode('loki-user:write-key')]
             && \array_keys($request->data()) === ['streams']
             && \array_keys($request->data()['streams'][0]) === ['stream', 'values']);
     }
@@ -117,7 +132,7 @@ final class GrafanaLogShippingTest extends TestCase
     {
         $this->configure();
 
-        $this->grafanaHandler()->handle(new LogRecord(
+        $this->bufferHandler()->handle(new LogRecord(
             datetime: new DateTimeImmutable('2026-01-02T03:04:05.678901+00:00'),
             channel: 'orders',
             level: Level::Warning,
@@ -171,23 +186,6 @@ final class GrafanaLogShippingTest extends TestCase
     }
 
     #[Test]
-    public function it_groups_a_batch_into_one_stream_per_level(): void
-    {
-        $this->configure();
-
-        Log::channel('grafana')->info('first');
-        Log::channel('grafana')->error('second');
-        Log::channel('grafana')->info('third');
-        $this->flush();
-
-        $streams = $this->sentStreams();
-
-        self::assertSame(['info', 'error'], \array_column(\array_column($streams, 'stream'), 'level'));
-        self::assertCount(2, $streams[0]['values']);
-        self::assertCount(1, $streams[1]['values']);
-    }
-
-    #[Test]
     public function it_leaves_out_the_service_label_without_a_railway_service_name(): void
     {
         $this->configure();
@@ -233,48 +231,182 @@ final class GrafanaLogShippingTest extends TestCase
         ];
     }
 
+    /**
+     * @param 'connection'|'timeout'|'4xx'|'5xx'|'redactor' $failure
+     * @param array<string, int|string> $details
+     */
     #[Test]
-    #[DataProvider('failingStatuses')]
-    public function a_rejected_batch_raises_nothing_and_is_not_sent_again(int $status): void
+    #[DataProvider('failures')]
+    public function a_failure_is_reported_once_without_record_content_or_credentials(string $failure, array $details): void
     {
-        $this->configure(['GRAFANA_LOGS_URL' => 'https://failing.example.test/push']);
-        Http::fake(['https://failing.example.test/*' => Http::sequence()->pushStatus($status)->pushStatus(204)]);
+        $this->configure();
 
-        Log::channel('grafana')->info('lost');
-        $this->flush();
-        Log::channel('grafana')->info('kept');
-        $this->flush();
+        $this->failWith($failure);
 
-        Http::assertSentCount(2);
-        self::assertSame(['kept'], $this->sentMessages(1));
+        $lines = $this->stderrLines();
+        self::assertCount(1, $lines);
+        self::assertSame('error', $lines[0]['level']);
+        self::assertSame($details, $lines[0]['context']);
+        self::assertCount(1, $this->reports);
+        [$exception, $context] = $this->reports[0];
+        self::assertNull($exception->getPrevious());
+
+        foreach (['lost', 'sensitive-context', ...\array_values(self::CREDENTIALS)] as $secret) {
+            self::assertStringNotContainsString($secret, \stripslashes((string) \file_get_contents($this->stderrPath)));
+            self::assertStringNotContainsString($secret, $exception->getMessage());
+            self::assertStringNotContainsString($secret, \json_encode($context, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        }
+
+        $this->travel(60)->seconds();
+        $this->failWith($failure);
+        $this->travel(60)->seconds();
+        $this->failWith($failure);
+
+        self::assertCount(1, $this->stderrLines());
+        self::assertCount(1, $this->reports);
     }
 
     /**
-     * @return array<string, array{int}>
+     * @param 'connection'|'timeout'|'4xx'|'5xx'|'redactor' $failure
      */
-    public static function failingStatuses(): array
+    #[Test]
+    #[DataProvider('failureKinds')]
+    public function a_failure_drops_batches_unsent_for_sixty_seconds(string $failure): void
     {
-        return ['4xx' => [429], '5xx' => [503]];
+        $this->freezeTime();
+        $this->configure();
+        $this->failWith($failure);
+        $requests = \count($this->requests);
+
+        $this->travel(59)->seconds();
+        Log::channel('grafana')->info('dropped');
+        $this->flush();
+        Log::channel('grafana')->info('kept');
+
+        self::assertCount($requests, $this->requests);
+
+        $this->travel(1)->seconds();
+        $this->flush();
+        Log::channel('grafana')->info('next');
+        $this->flush();
+
+        self::assertCount($requests + 2, $this->requests);
+        self::assertSame(['kept'], $this->sentMessages($requests));
+        self::assertSame(['next'], $this->sentMessages($requests + 1));
+    }
+
+    /**
+     * @param 'connection'|'timeout'|'4xx'|'5xx'|'redactor' $failure
+     */
+    #[Test]
+    #[DataProvider('failureKinds')]
+    public function recovery_is_logged_and_the_next_failure_is_reported_again(string $failure): void
+    {
+        $this->configure();
+
+        Log::channel('grafana')->info('sent');
+        $this->flush();
+        self::assertSame([], $this->stderrLines());
+
+        $this->failWith($failure);
+        $this->travel(60)->seconds();
+        Log::channel('grafana')->info('sent');
+        $this->flush();
+        Log::channel('grafana')->info('sent');
+        $this->flush();
+
+        self::assertSame(['error', 'info'], \array_column($this->stderrLines(), 'level'));
+        self::assertCount(1, $this->reports);
+
+        $this->failWith($failure);
+
+        self::assertSame(['error', 'info', 'error'], \array_column($this->stderrLines(), 'level'));
+        self::assertCount(2, $this->reports);
+    }
+
+    /**
+     * @return array<string, array{string, array<string, int|string>}>
+     */
+    public static function failures(): array
+    {
+        return [
+            'connection error' => ['connection', ['exception' => ConnectionException::class, 'dropped' => 2]],
+            'timeout' => ['timeout', ['exception' => ConnectionException::class, 'dropped' => 2]],
+            '4xx' => ['4xx', ['status' => 401, 'dropped' => 2]],
+            '5xx' => ['5xx', ['status' => 503, 'dropped' => 2]],
+            'redactor' => ['redactor', ['exception' => RuntimeException::class, 'dropped' => 2]],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function failureKinds(): array
+    {
+        return \array_map(static fn(array $failure): array => [$failure[0]], self::failures());
     }
 
     #[Test]
-    public function a_batch_whose_send_throws_is_not_sent_again(): void
+    public function a_redactor_failure_sends_no_record_of_its_batch(): void
     {
-        $this->configure(['GRAFANA_LOGS_URL' => 'https://throwing.example.test/push']);
-        $attempts = 0;
-        Http::fake(['https://throwing.example.test/*' => static function () use (&$attempts) {
-            $attempts++;
+        $this->configure();
 
-            return $attempts === 1 ? throw new RuntimeException('send failed') : Http::response(status: 204);
-        }]);
+        $this->failWith('redactor');
 
-        Log::channel('grafana')->info('lost');
-        $this->flush();
-        Log::channel('grafana')->info('kept');
-        $this->flush();
+        self::assertSame([], $this->requests);
+    }
 
-        self::assertSame(2, $attempts);
-        self::assertSame(['kept'], $this->sentMessages());
+    #[Test]
+    public function a_failure_in_one_application_clone_pauses_another(): void
+    {
+        $this->configure();
+        $this->app->make('log');
+        $clones = [clone $this->app, clone $this->app];
+        $this->endpoint = static fn() => Http::response(status: 503);
+
+        foreach ($clones as $clone) {
+            $logs = $clone->make('log');
+            self::assertInstanceOf(LogManager::class, $logs);
+            $logs->setApplication($clone);
+            $logs->channel('grafana')->info('lost');
+            $logs->channel('grafana')->reset();
+        }
+
+        self::assertCount(1, $this->requests);
+    }
+
+    #[Test]
+    public function failure_and_recovery_records_are_not_sent_to_grafana(): void
+    {
+        $this->configure();
+        \config(['logging.default' => 'stack', 'logging.channels.stack.channels' => ['stderr', 'grafana']]);
+
+        $this->failWith('5xx');
+
+        foreach (['first', 'second'] as $message) {
+            $this->travel(60)->seconds();
+            Log::info($message);
+            $this->flush();
+        }
+
+        self::assertSame(['first'], $this->sentMessages(1));
+        self::assertSame(['second'], $this->sentMessages(2));
+    }
+
+    #[Test]
+    public function a_failing_report_raises_nothing(): void
+    {
+        $this->configure();
+        \config(['logging.channels.stderr.handler_with.stream' => '/dev/null/unwritable']);
+        $this->reportTo(function (Throwable $exception, array $context): never {
+            $this->reports[] = [$exception, $context];
+
+            throw $exception;
+        });
+
+        $this->failWith('5xx');
+
+        self::assertCount(1, $this->reports);
     }
 
     #[Test]
@@ -285,18 +417,18 @@ final class GrafanaLogShippingTest extends TestCase
         $address = \stream_socket_get_name($server, false);
         \fclose($server);
 
-        $this->assertFlushReturnsWithin(3.0, "http://{$address}/push");
+        $this->assertFlushReturnsWithin(2.0, "http://{$address}/push");
     }
 
     #[Test]
-    public function a_send_that_is_never_answered_returns_within_three_seconds_and_raises_nothing(): void
+    public function a_send_that_is_never_answered_returns_within_two_seconds_and_raises_nothing(): void
     {
         $server = \stream_socket_server('tcp://127.0.0.1:0');
         self::assertIsResource($server);
 
-        $elapsed = $this->assertFlushReturnsWithin(3.0, 'http://' . \stream_socket_get_name($server, false) . '/push');
+        $elapsed = $this->assertFlushReturnsWithin(2.0, 'http://' . \stream_socket_get_name($server, false) . '/push');
 
-        self::assertGreaterThan(1.0, $elapsed);
+        self::assertGreaterThan(0.5, $elapsed);
         \fclose($server);
     }
 
@@ -308,7 +440,7 @@ final class GrafanaLogShippingTest extends TestCase
         $values = [$key => 'sensitive', 'outer' => ['inner' => [$key => 'sensitive']]];
         $expected = [$key => '[REDACTED]', 'outer' => ['inner' => [$key => '[REDACTED]']]];
 
-        $this->grafanaHandler()->handle($this->record('Redacted', context: $values, extra: $values));
+        $this->bufferHandler()->handle($this->record('Redacted', context: $values, extra: $values));
         $this->flush();
 
         $line = $this->sentLines()[0];
@@ -322,26 +454,25 @@ final class GrafanaLogShippingTest extends TestCase
     public static function redactedKeys(): iterable
     {
         $forms = [
-            'password' => ['user_password', 'userPassword'],
-            'secret' => ['client_secret', 'clientSecret'],
-            'token' => ['access_token', 'accessToken'],
-            'authorization' => ['proxy_authorization', 'proxyAuthorization', 'Authorization'],
-            'cookie' => ['session_cookie', 'sessionCookie'],
-            'api_key' => ['apiKey', 'vendor_api_key', 'vendorApiKey'],
-            'credential' => ['vendor_credential', 'vendorCredential'],
-            'signature' => ['webhook_signature', 'webhookSignature'],
-            'response' => ['vendor_response', 'vendorResponse'],
-            'raw_response' => ['rawResponse', 'vendor_raw_response', 'vendorRawResponse'],
-            'ip' => ['client_ip', 'clientIp'],
-            'ip_hash' => ['ipHash', 'client_ip_hash', 'clientIpHash'],
-            'ip_address' => ['ipAddress', 'client_ip_address', 'clientIpAddress'],
-            'email_hash' => ['emailHash', 'customer_email_hash', 'customerEmailHash'],
+            'password' => 'user_password',
+            'secret' => 'client_secret',
+            'token' => 'access_token',
+            'authorization' => 'proxy_authorization',
+            'cookie' => 'session_cookie',
+            'api_key' => 'vendor_api_key',
+            'credential' => 'vendor_credential',
+            'signature' => 'webhook_signature',
+            'response' => 'vendor_response',
+            'raw_response' => 'vendor_raw_response',
+            'ip' => 'client_ip',
+            'ip_hash' => 'client_ip_hash',
+            'ip_address' => 'client_ip_address',
+            'email_hash' => 'customer_email_hash',
         ];
 
-        foreach ($forms as $key => $variants) {
-            foreach ([$key, ...$variants] as $form) {
-                yield $form => [$form];
-            }
+        foreach ($forms as $key => $suffixed) {
+            yield $key => [$key];
+            yield $suffixed => [$suffixed];
         }
     }
 
@@ -368,33 +499,13 @@ final class GrafanaLogShippingTest extends TestCase
         $this->configure();
         $context = [
             'email' => 'staff@example.test', 'user_agent' => 'curl', 'user_id' => 1, 'customer_id' => 2,
-            'zip' => 'AB1', 'tokens' => 3, 'response_code' => 200, 0 => 'list',
+            'zip' => 'AB1', 'clientIp' => 'kept', 'tokens' => 3, 'response_code' => 200, 0 => 'list',
         ];
 
         Log::channel('grafana')->info('Kept', $context);
         $this->flush();
 
         self::assertSame($context, $this->sentLines()[0]['context']);
-    }
-
-    #[Test]
-    public function it_drops_only_the_record_the_redactor_throws_on(): void
-    {
-        $this->configure();
-        $unredactable = new class implements JsonSerializable {
-            public function jsonSerialize(): never
-            {
-                throw new RuntimeException('cannot serialise');
-            }
-        };
-
-        Log::channel('grafana')->info('before');
-        Log::channel('grafana')->info('dropped', ['value' => $unredactable]);
-        Log::channel('grafana')->info('after');
-        $this->flush();
-
-        Http::assertSentCount(1);
-        self::assertSame(['before', 'after'], $this->sentMessages());
     }
 
     #[Test]
@@ -459,39 +570,22 @@ final class GrafanaLogShippingTest extends TestCase
     }
 
     #[Test]
-    public function it_sends_the_first_hundred_records_when_one_more_arrives(): void
+    public function it_sends_the_first_five_hundred_records_when_one_more_arrives(): void
     {
         $this->configure();
 
-        foreach (\range(1, 100) as $number) {
+        foreach (\range(1, 500) as $number) {
             Log::channel('grafana')->info("record {$number}");
         }
-        Http::assertNothingSent();
+        self::assertSame([], $this->requests);
 
-        Log::channel('grafana')->info('record 101');
+        Log::channel('grafana')->info('record 501');
 
-        Http::assertSentCount(1);
+        self::assertCount(1, $this->requests);
         self::assertSame(
-            \array_map(static fn(int $number): string => "record {$number}", \range(1, 100)),
+            \array_map(static fn(int $number): string => "record {$number}", \range(1, 500)),
             $this->sentMessages(),
         );
-    }
-
-    #[Test]
-    public function it_sends_buffered_records_when_one_arrives_with_the_oldest_sixty_seconds_old(): void
-    {
-        $this->configure();
-        $handler = $this->grafanaHandler();
-        $start = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
-
-        $handler->handle($this->record('oldest', $start));
-        $handler->handle($this->record('newer', $start->modify('+59 seconds')));
-        Http::assertNothingSent();
-
-        $handler->handle($this->record('arriving', $start->modify('+60 seconds')));
-
-        Http::assertSentCount(1);
-        self::assertSame(['oldest', 'newer'], $this->sentMessages());
     }
 
     #[Test]
@@ -499,13 +593,12 @@ final class GrafanaLogShippingTest extends TestCase
     public function it_sends_buffered_records_on_process_lifecycle_events(Closure $event): void
     {
         $this->configure();
-        $this->silenceHorizonListeners();
         Log::channel('grafana')->info('buffered');
-        Http::assertNothingSent();
+        self::assertSame([], $this->requests);
 
         Event::dispatch($event($this->app));
 
-        Http::assertSentCount(1);
+        self::assertCount(1, $this->requests);
         self::assertSame(['buffered'], $this->sentMessages());
     }
 
@@ -523,8 +616,6 @@ final class GrafanaLogShippingTest extends TestCase
             )],
             'queue worker looping' => [static fn() => new Looping('redis', 'default')],
             'queue worker stopping' => [static fn() => new WorkerStopping()],
-            'Horizon supervisor looped' => [static fn() => new SupervisorLooped(Mockery::mock(Supervisor::class))],
-            'Horizon master supervisor looped' => [static fn() => new MasterSupervisorLooped(Mockery::mock(MasterSupervisor::class))],
         ];
     }
 
@@ -555,36 +646,54 @@ final class GrafanaLogShippingTest extends TestCase
         }
     }
 
-    private function silenceHorizonListeners(): void
+    /**
+     * @param 'connection'|'timeout'|'4xx'|'5xx'|'redactor' $failure
+     */
+    private function failWith(string $failure): void
     {
-        $events = [SupervisorLooped::class, MasterSupervisorLooped::class];
-        $listeners = \array_intersect_key(
-            (new class ($this->app) extends HorizonServiceProvider {
-                /** @return array<class-string, list<class-string>> */
-                public function eventMap(): array
-                {
-                    return $this->events;
-                }
-            })->eventMap(),
-            \array_flip($events),
-        );
+        $working = $this->endpoint;
+        $this->endpoint = static fn() => match ($failure) {
+            'connection' => throw new ConnectionException('cURL error 7: refused for ' . \implode(' ', self::CREDENTIALS)),
+            'timeout' => throw new ConnectionException('cURL error 28: timed out for ' . \implode(' ', self::CREDENTIALS)),
+            '4xx' => Http::response('rejected: lost', 401),
+            default => Http::response('rejected: lost', 503),
+        };
+        $unredactable = new class implements JsonSerializable {
+            public function jsonSerialize(): never
+            {
+                throw new RuntimeException('cannot serialise: lost');
+            }
+        };
 
-        foreach (\array_merge(...\array_values($listeners)) as $listener) {
-            $this->app->instance($listener, Mockery::spy($listener));
-        }
+        Log::channel('grafana')->info('lost one', ['order' => 'sensitive-context']);
+        Log::channel('grafana')->info('lost two', $failure === 'redactor' ? ['value' => $unredactable] : []);
+        $this->flush();
+        $this->endpoint = $working;
     }
 
-    private function grafanaHandler(): GrafanaLogHandler
+    private function reportTo(Closure $report): void
+    {
+        $this->app->instance(ErrorReporterInterface::class, new readonly class ($report) implements ErrorReporterInterface {
+            public function __construct(private Closure $report) {}
+
+            public function report(Throwable $exception, array $context = []): void
+            {
+                ($this->report)($exception, $context);
+            }
+        });
+    }
+
+    private function bufferHandler(): BufferHandler
     {
         $handler = Log::channel('grafana')->getLogger()->getHandlers()[0];
-        self::assertInstanceOf(GrafanaLogHandler::class, $handler);
+        self::assertInstanceOf(BufferHandler::class, $handler);
 
         return $handler;
     }
 
     private function flush(): void
     {
-        $this->grafanaHandler()->flush();
+        Log::channel('grafana')->reset();
     }
 
     private function assertFlushReturnsWithin(float $seconds, string $url): float
@@ -622,7 +731,7 @@ final class GrafanaLogShippingTest extends TestCase
      */
     private function sentStreams(int $request = 0): array
     {
-        return Http::recorded()[$request][0]->data()['streams'];
+        return $this->requests[$request]->data()['streams'];
     }
 
     /**

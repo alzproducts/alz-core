@@ -12,7 +12,6 @@ use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Infrastructure\Linnworks\Listeners\UpdateLinnworksSellingPriceEpsListener;
-use App\Infrastructure\Logging\Listeners\FlushGrafanaLogsListener;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
@@ -21,14 +20,15 @@ use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
+use Illuminate\Log\Logger;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Events\LongWaitDetected;
-use Laravel\Horizon\Events\MasterSupervisorLooped;
-use Laravel\Horizon\Events\SupervisorLooped;
 use Laravel\Octane\Events\RequestTerminated;
+use Monolog\ResettableInterface;
 
 /**
  * Centralised event → listener wiring.
@@ -65,12 +65,14 @@ final class EventServiceProvider extends ServiceProvider
 
     private function registerLogFlushListeners(): void
     {
-        Event::listen([
-            RequestTerminated::class,
-            Looping::class,
-            WorkerStopping::class,
-            SupervisorLooped::class,
-            MasterSupervisorLooped::class,
-        ], FlushGrafanaLogsListener::class);
+        // intentional: returns nothing; false from a Looping listener stops the worker taking jobs.
+        Event::listen([RequestTerminated::class, Looping::class, WorkerStopping::class], static function (): void {
+            $channel = Log::getChannels()['grafana'] ?? null;
+            $monolog = $channel instanceof Logger ? $channel->getLogger() : null;
+
+            if ($monolog instanceof ResettableInterface) {
+                $monolog->reset();
+            }
+        });
     }
 }

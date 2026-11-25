@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Infrastructure\Logging\GrafanaLogHandler;
+use App\Infrastructure\Logging\GrafanaLogChannel;
 use App\Infrastructure\Logging\RailwayJsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
@@ -111,16 +111,14 @@ return [
 
         // intentional: no processors here; a stack channel applies them to every member, stderr included.
         'grafana' => [
-            'driver' => 'monolog',
+            'driver' => 'custom',
+            'via' => GrafanaLogChannel::class,
             'level' => env('GRAFANA_LOGS_LEVEL', 'info'),
-            'handler' => GrafanaLogHandler::class,
-            'handler_with' => [
-                'url' => env('GRAFANA_LOGS_URL'),
-                'user' => env('GRAFANA_LOGS_USER'),
-                'key' => env('GRAFANA_LOGS_KEY'),
-                'env' => env('APP_ENV', 'production'),
-                'service' => env('RAILWAY_SERVICE_NAME'),
-            ],
+            'url' => env('GRAFANA_LOGS_URL'),
+            'user' => env('GRAFANA_LOGS_USER'),
+            'key' => env('GRAFANA_LOGS_KEY'),
+            'env' => env('APP_ENV', 'production'),
+            'service' => env('RAILWAY_SERVICE_NAME'),
         ],
 
         'syslog' => [

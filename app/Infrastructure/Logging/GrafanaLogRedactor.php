@@ -9,7 +9,7 @@ use Monolog\LogRecord;
 use RuntimeException;
 
 /**
- * Builds a record's Grafana payload with the values of listed keys replaced, by key name only.
+ * Builds a record's Grafana level and JSON line with the values of listed keys replaced, by key name only.
  */
 final readonly class GrafanaLogRedactor
 {
@@ -17,12 +17,12 @@ final readonly class GrafanaLogRedactor
 
     private const string REDACTED_KEYS = '/(?:^|_)(?:password|secret|token|authorization|cookie|api_key|credential|signature|response|raw_response|ip|ip_hash|ip_address|email_hash)$/';
 
-    private const string CAMEL_CASE_BOUNDARY = '/(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/';
+    private const int JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
 
     public function __construct(private RailwayJsonFormatter $formatter) {}
 
     /**
-     * @return array<array-key, mixed>
+     * @return array{level: string, line: string}
      *
      * @throws JsonException
      * @throws RuntimeException
@@ -30,16 +30,13 @@ final readonly class GrafanaLogRedactor
     public function redact(LogRecord $record): array
     {
         // intentional: redacts the decoded JSON because objects only expose their keys once encoded.
-        /** @var array<array-key, mixed> $payload */
+        /** @var array{level: string, context: array<array-key, mixed>, extra: array<array-key, mixed>} $payload */
         $payload = \json_decode($this->formatter->format($record), true, flags: JSON_THROW_ON_ERROR);
 
-        foreach (['context', 'extra'] as $section) {
-            if (\is_array($payload[$section] ?? null)) {
-                $payload[$section] = $this->redactValues($payload[$section]);
-            }
-        }
+        $payload['context'] = $this->redactValues($payload['context']);
+        $payload['extra'] = $this->redactValues($payload['extra']);
 
-        return $payload;
+        return ['level' => $payload['level'], 'line' => \json_encode($payload, self::JSON_FLAGS)];
     }
 
     /**
@@ -53,19 +50,12 @@ final readonly class GrafanaLogRedactor
 
         foreach ($values as $key => $value) {
             $redacted[$key] = match (true) {
-                $this->isRedactedKey((string) $key) => self::REDACTED,
+                \preg_match(self::REDACTED_KEYS, (string) $key) === 1 => self::REDACTED,
                 \is_array($value) => $this->redactValues($value),
                 default => $value,
             };
         }
 
         return $redacted;
-    }
-
-    private function isRedactedKey(string $key): bool
-    {
-        $snakeKey = \mb_strtolower((string) \preg_replace(self::CAMEL_CASE_BOUNDARY, '_', $key));
-
-        return \preg_match(self::REDACTED_KEYS, $snakeKey) === 1;
     }
 }
