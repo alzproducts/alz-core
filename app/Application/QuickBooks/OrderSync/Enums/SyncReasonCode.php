@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\OrderSync\Enums;
 
 /**
- * The reason codes of docs/api-contracts/quickbooks-order-sync.md, "Outcomes and reason codes".
+ * The reason codes of the order sync. `retryable` means attempting again may succeed; a stored `failed` row is
+ * still re-attempted only with `force_retry`, so `previously_failed` is retryable.
  */
 enum SyncReasonCode: string
 {

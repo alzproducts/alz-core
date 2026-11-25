@@ -40,6 +40,8 @@ final readonly class SyncQuickBooksOrdersController
     ) {}
 
     /**
+     * `run_id` is a log correlation id only: no endpoint takes it.
+     *
      * @throws AuthenticationExpiredException
      * @throws CorruptApiKeyException
      * @throws DatabaseOperationFailedException
