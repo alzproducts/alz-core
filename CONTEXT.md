@@ -232,6 +232,10 @@ _Avoid_: sync job, sync run (a run is one trigger that processes many order sync
 What one trigger did for one **reference**: `synced`, `already_synced`, `skipped`, `failed` or `not_attempted`.
 _Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_attempted` are outcomes only)
 
+**Retry mark**:
+A time-limited mark on a failed **order sync** that a forced retry is queued for, hiding it from the failed list until the retry ends or the mark expires.
+_Avoid_: retrying status (the row's status stays `failed`)
+
 **Changed after sync**:
 A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.
 
