@@ -25,6 +25,8 @@ x-app-env: &app-env
     # intentional: no Supabase in a verify run; X-Local-Bypass authenticates, so this URL only has to refuse.
     SUPABASE_URL: 'http://127.0.0.1:9'
     SHOPWIRED_SALE_CATEGORY_ID: '2000000001'
+    # intentional: the main .env may skip the entrypoint's DB check; a run always exercises it.
+    SKIP_DB_CHECK: 'false'
 
 x-env-files: &env-files
     - path: '${VERIFY_ENV_FILE:?}'

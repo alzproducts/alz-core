@@ -19,7 +19,8 @@ SEED_PATHS='database/seeders database/factories database/seed-profile app/Presen
 # Keys the stack owns (COR-320 D9, D11): set in compose environment: or filled per run, never overridable.
 STACK_KEYS='DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE DB_URL
 REDIS_HOST REDIS_PORT REDIS_PASSWORD REDIS_URL REDIS_USERNAME APP_URL SUPABASE_URL APP_ENV PORT
-APP_KEY API_KEY_ENCRYPTION_SECRET SUPABASE_LOCAL_BYPASS_SECRET SUPABASE_LOCAL_TEST_EMAIL SHOPWIRED_SALE_CATEGORY_ID'
+APP_KEY API_KEY_ENCRYPTION_SECRET SUPABASE_LOCAL_BYPASS_SECRET SUPABASE_LOCAL_TEST_EMAIL SHOPWIRED_SALE_CATEGORY_ID
+SKIP_DB_CHECK'
 
 # Credential keys without a credential-shaped name; the name pattern below covers the rest.
 CREDENTIAL_NAMES='APP_KEY APP_PREVIOUS_KEYS AWS_ACCESS_KEY_ID MAIL_URL HORIZON_USER'
@@ -288,6 +289,58 @@ env_file_sets() {
         }' "$1"
 }
 
+# bare_dollar_keys <file>: each key whose value Compose's env_file interpolation would change, one per line; never a value.
+# That is an unquoted or double-quoted value with a $ that starts no ${NAME} reference to a key set on an earlier line.
+bare_dollar_keys() {
+    LC_ALL=C awk '
+        function scan(text, at, name) {
+            while ((at = index(text, "$")) > 0) {
+                text = substr(text, at)
+                if (!match(text, /^[$][{][A-Za-z_][A-Za-z0-9_]*[}]/)) { report(); return }
+                name = substr(text, 3, RLENGTH - 3)
+                if (!(name in set)) { report(); return }
+                text = substr(text, RLENGTH + 1)
+            }
+        }
+        function report() {
+            if (!(key in bad)) print key
+            bad[key] = 1
+        }
+        # The quoted value up to its closing quote, which may sit on a later line; the rest of that line is ignored.
+        function quoted(text, i, c, escaped) {
+            escaped = 0
+            for (i = 1; i <= length(text); i++) {
+                c = substr(text, i, 1)
+                if (c == quote && !escaped) break
+                escaped = (c == "\\" && !escaped)
+            }
+            if (quote == "\"") scan(substr(text, 1, i - 1))
+            if (i <= length(text)) { set[key] = 1; quote = "" }
+        }
+        NR == 1 { sub(/^\357\273\277/, "") }
+        { sub(/\r$/, "") }
+        quote != "" { quoted($0); next }
+        {
+            line = $0
+            sub(/^[ \t]+/, "", line)
+            if (line ~ /^#/) next
+            sub(/^export[ \t]+/, "", line)
+            if (!match(line, /^[A-Za-z0-9_.-]+[ \t]*[=:]/)) next
+            key = substr(line, 1, RLENGTH - 1)
+            sub(/[ \t]+$/, "", key)
+            value = substr(line, RLENGTH + 1)
+            sub(/^[ \t]+/, "", value)
+            if (value ~ /^["\047]/) {
+                quote = substr(value, 1, 1)
+                quoted(substr(value, 2))
+                next
+            }
+            sub(/ #.*/, "", value)
+            scan(value)
+            set[key] = 1
+        }' "$1"
+}
+
 # ---- caller-supplied Supabase (COR-319) ----
 
 MODE=own-postgres
@@ -511,15 +564,21 @@ cmd_up() {
     command -v docker >/dev/null 2>&1 || die 75 "docker not found"
     docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
 
-    make_run_dirs
-    cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
-
-    local sha env_file env_missing=no
+    local sha env_file env_missing=no gap
     sha="$(git -C "$REPO" rev-parse HEAD)"
+    gap="$(boot_gap "$sha")"
+    [ -z "$gap" ] || die 75 "up: HEAD cannot boot: $gap ($sha)"
     env_file="$(main_env_file)"
     # intentional: a path nothing creates; the caller's Supabase never gets the main .env's integration keys (ADR-0020).
     [ "$MODE" = own-postgres ] || env_file="$STATE/no-main.env"
     [ -f "$env_file" ] || env_missing=yes
+    if [ "$env_missing" = no ]; then
+        gap="$(bare_dollar_keys "$env_file")" || die 75 "up: cannot read $env_file"
+        [ -z "$gap" ] || die 75 "up: single-quote these keys in $env_file, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
+    fi
+
+    make_run_dirs
+    cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
     {
         echo "mode=$MODE"
         [ "$MODE" = own-postgres ] || echo "db_hostport=$SB_DB_HOSTPORT"
@@ -544,14 +603,13 @@ cmd_up() {
     env_file_sets "$env_file" QUEUE_CONNECTION || echo "QUEUE_CONNECTION='redis'" >>"$run_env"
     env_file_sets "$env_file" CACHE_STORE || echo "CACHE_STORE='redis'" >>"$run_env"
     note "filled if blank: $(sed 's/=.*//' "$run_env" | tr '\n' ' ')"
-    # intentional: the entrypoint's db:show probe needs ext-intl, which the runtime image lacks; seed's exit 0 gates the start (COR-320 P24, ADR-0020).
-    echo "SKIP_DB_CHECK='true'" >>"$run_env"
     for kv in ${overrides[@]+"${overrides[@]}"}; do
         echo "$kv" >>"$run_env"
         note "env-override ${kv%%=*}"
     done
 
     # Build context: committed HEAD only (COR-317 D2); no bind mount of the worktree.
+    trap 'rm -rf "$STATE/src"' EXIT
     extract_source HEAD || die 1 "$SOURCE_ERROR"
     write_compose_env "$env_file"
 
@@ -612,6 +670,11 @@ cmd_down() {
     if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
         dc --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
             note "down: compose down failed (logs/compose-down.log); removing by label"
+    fi
+    # An `up` killed outright leaves its build source; another worktree's run may still be building from its own.
+    if [ -e "$STATE/src" ] && [ "$(state_get project)" = "$PROJECT" ] && ! rm -rf "$STATE/src"; then
+        echo "down FAIL $PROJECT build source residue: $STATE/src"
+        fail=1
     fi
     # Label sweep: catches a run whose evidence dir is gone or whose up failed part-way. Never touches another project.
     local project line projects="$PROJECT"
