@@ -12,6 +12,7 @@ use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
 use App\Infrastructure\Linnworks\Listeners\UpdateLinnworksSellingPriceEpsListener;
+use App\Infrastructure\Logging\Listeners\FlushGrafanaLogsListener;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormProcessedSlackListener;
@@ -20,9 +21,14 @@ use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
+use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Events\LongWaitDetected;
+use Laravel\Horizon\Events\MasterSupervisorLooped;
+use Laravel\Horizon\Events\SupervisorLooped;
+use Laravel\Octane\Events\RequestTerminated;
 
 /**
  * Centralised event → listener wiring.
@@ -37,6 +43,7 @@ final class EventServiceProvider extends ServiceProvider
     {
         $this->registerDomainEventListeners();
         $this->registerAlertListeners();
+        $this->registerLogFlushListeners();
     }
 
     private function registerDomainEventListeners(): void
@@ -54,5 +61,16 @@ final class EventServiceProvider extends ServiceProvider
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
         Event::listen(ManagerAlertEvent::class, ManagerAlertSlackListener::class);
         Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
+    }
+
+    private function registerLogFlushListeners(): void
+    {
+        Event::listen([
+            RequestTerminated::class,
+            Looping::class,
+            WorkerStopping::class,
+            SupervisorLooped::class,
+            MasterSupervisorLooped::class,
+        ], FlushGrafanaLogsListener::class);
     }
 }

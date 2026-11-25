@@ -401,9 +401,16 @@ OCTANE_WORKERS=4
 OCTANE_TASK_WORKERS=6
 OCTANE_MAX_REQUESTS=500
 
-# Logging
-LOG_CHANNEL=stderr
+# Logging (set on each app service: every Railway service built from this repo's Dockerfile)
+LOG_CHANNEL=stack
+LOG_STACK=stderr,grafana
 LOG_LEVEL=info
+
+# Grafana Cloud logs (set on each app service; off unless URL, user and key are all set)
+GRAFANA_LOGS_URL=YOUR_LOKI_PUSH_URL
+GRAFANA_LOGS_USER=YOUR_LOKI_USER
+GRAFANA_LOGS_KEY=YOUR_LOGS_WRITE_KEY
+GRAFANA_LOGS_LEVEL=info
 
 # Database (Supabase)
 DB_CONNECTION=pgsql

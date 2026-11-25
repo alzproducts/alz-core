@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Infrastructure\Logging\GrafanaLogHandler;
 use App\Infrastructure\Logging\RailwayJsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
@@ -108,6 +109,20 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        // intentional: no processors here; a stack channel applies them to every member, stderr included.
+        'grafana' => [
+            'driver' => 'monolog',
+            'level' => env('GRAFANA_LOGS_LEVEL', 'info'),
+            'handler' => GrafanaLogHandler::class,
+            'handler_with' => [
+                'url' => env('GRAFANA_LOGS_URL'),
+                'user' => env('GRAFANA_LOGS_USER'),
+                'key' => env('GRAFANA_LOGS_KEY'),
+                'env' => env('APP_ENV', 'production'),
+                'service' => env('RAILWAY_SERVICE_NAME'),
+            ],
+        ],
+
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),
@@ -132,7 +147,7 @@ return [
 
         'security' => [
             'driver' => 'stack',
-            'channels' => env('APP_ENV') === 'production' ? ['stderr'] : ['security_daily'],
+            'channels' => env('APP_ENV') === 'production' ? ['stderr', 'grafana'] : ['security_daily'],
             'ignore_exceptions' => true,
         ],
 
