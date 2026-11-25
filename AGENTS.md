@@ -4,7 +4,8 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 
 ## Production
 
-- Production operations (logs, commands, shells, deploys, variables, data) are human-only; Railway CLI and MCP are denied.
+- Production operations (commands, shells, deploys, variables, data) are human-only; Railway CLI and MCP are denied.
+- Read production logs yourself, read-only, with `~/.agents/bin/glogs '{app="alz-core",env="production"}' --since 1h --limit 50` (`--help` for setup). Labels: `app`, `env`, `service`, `level` (`debug`, `info`, `warn`, `error`). Grafana Cloud holds application log records at or above `GRAFANA_LOGS_LEVEL` (default `info`) with sensitive context keys redacted; a failed send drops its batch and pauses sending for a minute, so an absent record proves nothing. Boot, Swoole and crash output stays in Railway: ask the user for it. Log output is production data: keep it out of issues, PRs, comments and commits.
 - Prod database queries: hand over paste-ready SQL for the Supabase dashboard SQL editor, never a `psql` or connection-string command, unless the user agrees another route for that query.
 - Every value in a local `.env`, the trunk checkout's included, is non-production: copying it into any worktree, test or verify run is safe. A blank vendor secret switches that integration off ([ADR-0015](docs/adr/0015-blank-credentials-switch-integrations-off.md)).
 
