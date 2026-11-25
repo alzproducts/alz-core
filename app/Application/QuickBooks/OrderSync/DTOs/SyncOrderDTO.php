@@ -21,7 +21,6 @@ final readonly class SyncOrderDTO
     public function __construct(
         public string $reference,
         public DateTimeImmutable $createdAt,
-        public bool $cancelled,
         public RawPaymentMethod $paymentMethod,
         public OrderContactDTO $billing,
         public string $billingEmail,

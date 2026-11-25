@@ -1,11 +1,11 @@
 # QuickBooks Order Sync API — Admin Dashboard Contract
 
-API contract for the staff QuickBooks order sync page and its failed-items table. Three endpoints post ShopWired orders to the connected QuickBooks Online (QBO) company and list the ones that failed. Design: [`../architecture/quickbooks-order-sync.md`](../architecture/quickbooks-order-sync.md); decisions: [ADR-0017](../adr/0017-qbo-order-sync-unit-and-post-once.md), [ADR-0018](../adr/0018-qbo-mappings-hold-semantic-keys.md), [ADR-0019](../adr/0019-qbo-m1-duplicate-safety-and-batch-document-create.md).
+API contract for the staff QuickBooks order sync page and its failed-items table. Three endpoints queue ShopWired orders for posting to the connected QuickBooks Online (QBO) company and list the ones that failed. Design: [`../architecture/quickbooks-order-sync.md`](../architecture/quickbooks-order-sync.md); decisions: [ADR-0017](../adr/0017-qbo-order-sync-unit-and-post-once.md), [ADR-0018](../adr/0018-qbo-mappings-hold-semantic-keys.md), [ADR-0019](../adr/0019-qbo-m1-duplicate-safety-and-batch-document-create.md).
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/quickbooks/orders/sync-range` | Queue a run over every order placed in a date range |
-| `POST` | `/api/quickbooks/orders/sync` | Sync up to 10 order references now and return each one's outcome |
+| `POST` | `/api/quickbooks/orders/sync` | Queue a chunk job over up to 10 order references |
 | `GET` | `/api/quickbooks/orders/failed` | List the connected company's failed order syncs |
 
 - **Authentication**: staff JWT; every endpoint requires `RoleTier::Staff` (ADR-0014).
@@ -40,7 +40,7 @@ Message text is for display only and may change. ADM branches on the status code
 
 ## Preconditions
 
-Checked in the request, before any QBO call.
+Every row is answered by the request itself. No refused or failed request has posted or recorded an order: both POSTs only queue the work. A failure after the 202 is not an HTTP response; it ends as an order's `failed` row or a failed job.
 
 | Status | `type` | `errors` keys | Endpoints | When |
 |--------|--------|---------------|-----------|------|
@@ -50,13 +50,13 @@ Checked in the request, before any QBO call.
 | 412 | `precondition_failed` | `missing_mapping_keys` | both POSTs | QBO is connected but one or more seeded mapping keys have no mapping for the connected company (ADR-0018) |
 | 422 | `validation_error` | the invalid field(s) | all | Request body or query fails validation (per endpoint below) |
 | 429 | `error` | — | all | `throttle:api` per-minute limit reached; the response carries no `Retry-After` header |
-| 503 | `service_unavailable` | — | both POSTs | An access token cannot be obtained for a transient reason |
-| 502 | `upstream_error` | — | both POSTs | A permanent QBO API failure outside any one order's outcome |
-| 500 | `server_error` | — | all | Unexpected error |
+| 503 | `service_unavailable` | — | all | An access token cannot be obtained for a transient reason, or the database, the cache or a lock failed transiently |
+| 502 | `upstream_error` | — | all | A permanent failure of a QBO call the request makes itself, such as a token refresh |
+| 500 | `server_error` | — | all | Unexpected error, including a database failure that is not transient |
 
 - ADM tells the two 412s apart by whether `errors.missing_mapping_keys` is present: absent → show the reconnect prompt; present → list the missing keys.
 - A revoked or invalid grant returns the same body as "not connected", so ADM shows the reconnect prompt instead of an outage message.
-- A 503 is generic (an auth key fetch, a lock or a transient upstream failure share it); ADM must not infer its cause and should offer a retry.
+- A 503 is generic (an auth key fetch, a lock, or a transient database, cache or upstream failure share it); ADM must not infer its cause and should offer a retry.
 
 ```json
 {
@@ -108,7 +108,7 @@ Every limit returns 422 `validation_error`.
 | `from` before the floor date | 422 | `from` |
 
 - The floor date is a server-side config value a human sets at cutover. It is never sent to ADM except inside the `errors.from` message.
-- Until the floor date is set, every range request fails closed with 422 keyed under `from`.
+- Until the floor date is set, every range request whose `from` and `to` are `YYYY-MM-DD` dates fails closed with 422 keyed under `from`.
 
 ### Responses
 
@@ -138,7 +138,7 @@ Every limit returns 422 `validation_error`.
 
 ## `POST /api/quickbooks/orders/sync`
 
-Syncs the given references in the request and returns one outcome per reference.
+Queues one chunk job over the given references. Results are not returned here: a sync's failures reach ADM only as `failed` rows in `GET /api/quickbooks/orders/failed`.
 
 ### Request
 
@@ -156,77 +156,30 @@ Syncs the given references in the request and returns one outcome per reference.
 
 An empty array, more than 10 items, a duplicate or a non-integer item returns 422 `validation_error` keyed under `references` (or `references.<index>` for one item).
 
-A request with any reference whose order was placed before the floor date (see [Range limits](#range-limits)) returns 422 `validation_error` keyed under `references`, and nothing in it is synced. Until the floor date is set, every request fails closed the same way. A reference with no order passes this check and returns `skipped` (`order_not_found`).
+A request with any reference whose order was placed before the floor date (see [Range limits](#range-limits)) returns 422 `validation_error` keyed under `references`, and nothing in it is queued. Until the floor date is set, every request fails closed the same way. A reference with no order passes this check; the job skips it (`order_not_found`).
 
 ### Responses
 
 | Status | Body |
 |--------|------|
-| 200 | Per-reference results (below), whatever the outcomes |
+| 202 | Chunk job queued (below) |
 | 401, 403, 412, 422, 429, 500, 502, 503 | Error envelope (Preconditions) |
 
 ```json
 {
-  "total": 3,
-  "counts": {
-    "synced": 1,
-    "already_synced": 0,
-    "skipped": 1,
-    "failed": 1,
-    "not_attempted": 0
-  },
-  "results": [
-    {
-      "reference": 100245,
-      "outcome": "synced",
-      "doc_type": "invoice",
-      "qbo_doc_number": "<doc number>",
-      "qbo_txn_id": "<txn id>",
-      "warnings": [],
-      "reason": null
-    },
-    {
-      "reference": 100246,
-      "outcome": "skipped",
-      "doc_type": null,
-      "qbo_doc_number": null,
-      "qbo_txn_id": null,
-      "warnings": [],
-      "reason": {
-        "code": "cancelled",
-        "message": "The order is cancelled.",
-        "retryable": false
-      }
-    },
-    {
-      "reference": 100250,
-      "outcome": "failed",
-      "doc_type": "sales_receipt",
-      "qbo_doc_number": null,
-      "qbo_txn_id": null,
-      "warnings": [],
-      "reason": {
-        "code": "item_missing",
-        "message": "A line's SKU has no matching QuickBooks item.",
-        "retryable": true
-      }
-    }
-  ]
+  "message": "QuickBooks order sync queued.",
+  "run_id": "0f8b6d2e-3c1a-4e5b-9a7d-2b6c4e8f1a90"
 }
 ```
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `total` | integer | Number of references asked about |
-| `counts` | object | One integer per outcome; every outcome key is always present |
-| `results[]` | array | Exactly one item per reference asked about, unknown references included |
-| `results[].reference` | integer | |
-| `results[].outcome` | string | `synced`, `already_synced`, `skipped`, `failed` or `not_attempted` |
-| `results[].doc_type` | string \| null | `invoice`, `sales_receipt` or `null` |
-| `results[].qbo_doc_number` | string \| null | Set on `synced` and `already_synced` |
-| `results[].qbo_txn_id` | string \| null | Set on `synced` and `already_synced` |
-| `results[].warnings[]` | array | `{code, message, details}`; always empty in M1 (see Reserved) |
-| `results[].reason` | object \| null | `{code, message, retryable}`; set on `skipped`, `failed` and `not_attempted`, `null` otherwise |
+| `message` | string | Display text |
+| `run_id` | string (uuid) | A fresh id per request |
+
+- Every valid request queues its own chunk job, including one identical to an earlier request. Leases stop two jobs posting the same order at once (ADR-0017).
+- The job waits for the slot it shares with range runs, with no priority over them.
+- `run_id` is a log and support correlation id only: no endpoint takes it.
 
 ---
 
@@ -249,7 +202,7 @@ Lists the connected company's order syncs in the requested status, newest `last_
 | Status | Body |
 |--------|------|
 | 200 | Paginated rows (below) |
-| 401, 403, 412, 422, 429, 500 | Error envelope (Preconditions) |
+| 401, 403, 412, 422, 429, 500, 502, 503 | Error envelope (Preconditions) |
 
 ```json
 {
@@ -292,11 +245,11 @@ Lists the connected company's order syncs in the requested status, newest `last_
 |-------|------|-------|
 | `reference` | integer | |
 | `order_external_id` | integer | The ShopWired order id the attempt used |
-| `order_placed_at` | string | ISO 8601 |
+| `order_placed_at` | string \| null | ISO 8601; `null` once the order no longer exists |
 | `doc_type` | string \| null | `invoice`, `sales_receipt` or `null` when the failure came before the document type was known |
 | `status` | string | The stored row state: `failed` |
-| `attempts` | integer | Attempts made on this row |
-| `last_attempted_at` | string | ISO 8601 |
+| `attempts` | integer | Times the row was claimed, including claims released without an attempt |
+| `last_attempted_at` | string | ISO 8601; when the row was last claimed |
 | `reason` | object | `{code, message, retryable}` from the last attempt; one of the `failed` codes below |
 | `warnings[]` | array | Always empty in M1 |
 
@@ -306,28 +259,28 @@ Lists the connected company's order syncs in the requested status, newest `last_
 
 ## Outcomes and reason codes
 
-`retryable` means attempting again may succeed. A stored `failed` row is re-attempted only with `force_retry: true`, so `previously_failed` is retryable. ADM offers retry where `retryable` is `true`.
+The chunk jobs reach these outcomes; "Returned by" names the endpoint that returns one (— for none). `retryable` means attempting again may succeed. A stored `failed` row is re-attempted only with `force_retry: true`, so `previously_failed` is retryable. ADM offers retry where `retryable` is `true`.
 
 | Outcome | Code | `retryable` | Returned by | Meaning |
 |---------|------|-------------|-------------|---------|
-| `synced` | — | — (no reason) | `POST sync` | Posted now; `doc_type`, `qbo_doc_number` and `qbo_txn_id` set |
-| `already_synced` | — | — (no reason) | `POST sync` | Posted earlier; never re-created, whatever `force_retry` says |
-| `skipped` | `cancelled` | `false` | `POST sync` | The order is cancelled; no row is written |
-| `skipped` | `order_not_found` | `false` | `POST sync` | No order has this reference; no row is written |
-| `skipped` | `previously_failed` | `true` | `POST sync` | A stored `failed` row exists and `force_retry` was not set; the row stays `failed` |
-| `failed` | `mapping_missing` | `false` | `POST sync`, `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead), or the order's payment method was not stored |
-| `failed` | `item_missing` | `true` | `POST sync`, `GET failed` | A line's SKU has no matching QBO item; succeeds once the item exists |
-| `failed` | `zero_lines` | `false` | `POST sync`, `GET failed` | The order produced no document lines |
-| `failed` | `tax_rate_unsupported` | `false` | `POST sync`, `GET failed` | A VAT rate on the order is one the sync has no tax key for (only 20% and 0% are supported) |
-| `failed` | `closed_period` | `false` | `POST sync`, `GET failed` | QBO rejected the document because its date is in a closed books period |
-| `failed` | `qbo_validation` | `false` | `POST sync`, `GET failed` | QBO rejected the document as invalid |
-| `failed` | `qbo_unavailable` | `true` | `POST sync`, `GET failed` | QBO was unavailable or throttled the call, and nothing was posted |
-| `failed` | `outcome_unknown` | `true` | `POST sync`, `GET failed` | The post may have reached QBO but no result came back; re-attempting can post a duplicate document (ADR-0019) |
-| `not_attempted` | `in_progress` | `true` | `POST sync` | Another worker holds a live lease on this reference |
-| `not_attempted` | `deadline_exceeded` | `true` | `POST sync` | The request's server deadline passed before this reference was reached |
+| `synced` | — | — (no reason) | — | Posted now |
+| `already_synced` | — | — (no reason) | — | Posted earlier; never re-created, whatever `force_retry` says |
+| `skipped` | `cancelled` | `false` | — | The order is cancelled; no row is written |
+| `skipped` | `order_not_found` | `false` | — | No order has this reference; no row is written |
+| `skipped` | `previously_failed` | `true` | — | A stored `failed` row exists and `force_retry` was not set; the row stays `failed` |
+| `failed` | `mapping_missing` | `false` | `GET failed` | The order needs a mapping key the migration did not seed, so the 412 check could not catch it (a seeded key with no mapping is a 412 instead), or the order's payment method was not stored |
+| `failed` | `item_missing` | `true` | `GET failed` | A line has no SKU, or its SKU has no matching QBO item; succeeds once the line has a SKU and the item exists |
+| `failed` | `zero_lines` | `false` | `GET failed` | The order produced no document lines |
+| `failed` | `tax_rate_unsupported` | `false` | `GET failed` | A VAT rate on the order is one the sync has no tax key for (only 20% and 0% are supported), or is missing or negative |
+| `failed` | `closed_period` | `false` | `GET failed` | QBO rejected the document because its date is in a closed books period |
+| `failed` | `qbo_validation` | `false` | `GET failed` | QBO rejected the document or its customer as invalid, a line's quantity is below 1, or the QBO customer is inactive, has a name another QBO record uses, or has a currency that is not GBP or cannot be read |
+| `failed` | `qbo_unavailable` | `true` | `GET failed` | QBO was unavailable or throttled the call, and nothing was posted |
+| `failed` | `outcome_unknown` | `true` | `GET failed` | The post may have reached QBO but no result came back; re-attempting can post a duplicate document (ADR-0019). Kept when a re-attempt stops on an order defect, a build failure or an unavailable QBO before the batch create |
+| `not_attempted` | `in_progress` | `true` | — | Another worker holds a live lease on this reference |
+| `not_attempted` | `deadline_exceeded` | `true` | — | The order's QBO calls did not start in time; its row is released: `failed` if it already stored a reason, else `pending` |
 
 - Every raw ShopWired payment method routes to a document type, so no payment method is skipped. An order whose payment method was not stored fails with `mapping_missing`.
-- A range run produces the same outcomes, but only `failed` rows are visible to ADM afterwards, through `GET failed`.
+- A range run and a reference sync produce the same outcomes. Only `failed` rows are visible to ADM, through `GET failed`.
 
 ---
 
@@ -345,7 +298,7 @@ For each reference, first match wins:
 | 6 | Stored row is `processing` with an expired lease | attempted (as `pending`) | attempted (as `pending`) |
 | 7 | No row, or stored row is `pending` | attempted | attempted |
 
-- An attempted reference ends as `synced`, `failed`, or `not_attempted` (`deadline_exceeded`).
+- An attempted reference ends as `synced`, `already_synced` (QBO already holds its document), `failed`, or `not_attempted` (`deadline_exceeded`).
 - `skipped` reasons are computed on every run and never stored.
 - Rule 1 comes first so a posted order never reads as skipped; rules 2–3 come before rule 4 so a now-cancelled or deleted order reports its current state over a stale failure.
 
@@ -365,7 +318,7 @@ For each reference, first match wins:
 | Endpoint | Success | Body / query limits |
 |----------|---------|---------------------|
 | `POST /api/quickbooks/orders/sync-range` | 202 `{message, run_id, candidate_count}` | `from`, `to` `YYYY-MM-DD`; `to` ≥ `from`; `to` ≤ today; ≤ 31 days inclusive; `from` ≥ floor; `force_retry` optional |
-| `POST /api/quickbooks/orders/sync` | 200 `{total, counts, results}` | `references` 1–10 distinct integers; every order placed ≥ floor; `force_retry` optional |
+| `POST /api/quickbooks/orders/sync` | 202 `{message, run_id}` | `references` 1–10 distinct integers; every order placed ≥ floor; `force_retry` optional |
 | `GET /api/quickbooks/orders/failed` | 200 `{data, links, meta}` | `status` `failed` \| `changed_after_sync`; `page`; `per_page` ≤ 1000, default 50 |
 
 | Response | ADM action |

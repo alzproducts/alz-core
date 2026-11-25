@@ -7,7 +7,7 @@ namespace App\Application\QuickBooks\OrderSync\Results;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerResolutionDTO;
 
 /**
- * One resolution per distinct display name, matched ignoring case as QBO compares names.
+ * One resolution per distinct display name, matched ignoring case and edge spaces.
  */
 final readonly class CustomerResolutionResult
 {
@@ -38,6 +38,6 @@ final readonly class CustomerResolutionResult
 
     private static function fold(string $name): string
     {
-        return \mb_strtolower($name);
+        return \mb_strtolower(\mb_trim($name));
     }
 }

@@ -9,7 +9,6 @@ use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
 use App\Application\QuickBooks\OrderSync\Enums\BuildStatus;
 use App\Application\QuickBooks\OrderSync\Enums\FailReason;
-use App\Application\QuickBooks\OrderSync\Enums\SkipReason;
 use App\Application\QuickBooks\OrderSync\Transformers\DocumentDraftTransformer;
 use App\Domain\Catalog\Order\ValueObjects\RawPaymentMethod;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
@@ -115,15 +114,6 @@ final class DocumentDraftGoldenTest extends TestCase
         self::assertCount(2, $core->goodsLines);
         self::assertGoodsLine($core, 0, '8.3333333', 1, '8.33', TaxKey::Standard);
         self::assertGoodsLine($core, 1, '4.1583333', 3, '12.47', TaxKey::Standard);
-    }
-
-    #[Test]
-    public function cancelled_order_is_skipped(): void
-    {
-        $outcome = DocumentDraftTransformer::build(SyncOrderFixture::order(cancelled: true), DocumentRunLabelsDTO::none());
-
-        self::assertSame(SkipReason::Cancelled, $outcome->skipReason);
-        self::assertNull($outcome->draft);
     }
 
     #[Test]

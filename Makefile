@@ -2,6 +2,7 @@
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
+# intentional: macOS make 3.81 ignores .SHELLFLAGS (no -e, no pipefail), so join a step that must not run after a failure with &&, never ;
 .SHELLFLAGS := -eu -o pipefail -c
 .DELETE_ON_ERROR:
 MAKEFLAGS += --warn-undefined-variables

@@ -6,13 +6,17 @@ namespace App\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncRowStatus;
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
-use App\Infrastructure\Database\DatabaseGateway;
 use App\Infrastructure\Persistence\EloquentGateway;
+use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncErrorLogModel;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncModel;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Str;
 use Override;
@@ -38,11 +42,14 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
         WHERE s.status = 'pending'
            OR (s.status = 'processing' AND s.lease_expires_at <= now())
            OR (s.status = 'failed' AND ?::boolean)
+        RETURNING s.*
         SQL;
+
+    // intentional: the claim keeps the stored reason, so it tells a retried row from an untried one.
+    private const string RELEASED_STATUS_SQL = "CASE WHEN last_error_code IS NULL THEN 'pending' ELSE 'failed' END";
 
     public function __construct(
         private EloquentGateway $eloquentGateway,
-        private DatabaseGateway $databaseGateway,
     ) {}
 
     /**
@@ -55,20 +62,17 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     {
         $token = Str::uuid()->toString();
 
-        $claimed = $this->databaseGateway->runSql(
+        /** @var Collection<int, OrderSyncModel> $rows */
+        $rows = $this->eloquentGateway->query(static fn(): Collection => OrderSyncModel::query()->fromQuery(
             self::CLAIM_SQL,
             [$realmId, $reference, $orderExternalId, $token, $forceRetry ? 'true' : 'false'],
-        );
-        if ($claimed === 0) {
+        ));
+        $row = $rows->first();
+        if ($row?->lease_expires_at === null) {
             return null;
         }
 
-        $model = $this->eloquentGateway->firstWhereAll(
-            OrderSyncModel::class,
-            ['realm_id' => $realmId, 'reference' => $reference, 'claim_token' => $token],
-        );
-
-        return $model === null ? null : new OrderSyncClaimDTO($model->id, $token, $model->attempts);
+        return new OrderSyncClaimDTO($row->id, $token, $row->attempts, $row->lease_expires_at, SyncReasonCode::tryFrom($row->last_error_code ?? ''));
     }
 
     /**
@@ -80,8 +84,8 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     public function recordSynced(string $orderSyncId, string $claimToken, OrderSyncPostedDTO $posted): bool
     {
         return $this->updateClaimed($orderSyncId, $claimToken, [
-            'status' => 'synced',
-            'doc_type' => $posted->docType,
+            'status' => OrderSyncRowStatus::Synced->value,
+            'doc_type' => $posted->docType->value,
             'qbo_txn_id' => $posted->qboTxnId,
             'qbo_doc_number' => $posted->qboDocNumber,
             'payload_hash' => $posted->payloadHash,
@@ -95,13 +99,71 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
      * @throws ExternalServiceUnavailableException
      */
     #[Override]
-    public function recordFailed(string $orderSyncId, string $claimToken, string $errorCode, string $errorMessage): bool
+    public function recordFailed(string $orderSyncId, string $claimToken, OrderSyncFailureDTO $failure): bool
     {
-        return $this->updateClaimed($orderSyncId, $claimToken, [
-            'status' => 'failed',
-            'last_error_code' => $errorCode,
-            'last_error_message' => $errorMessage,
+        // intentional: the chained exceptions hold the bound message, which can be customer data, so both rethrows drop them.
+        try {
+            return $this->eloquentGateway->transact(static fn(): bool => self::writeFailure($orderSyncId, $claimToken, $failure));
+        } catch (DatabaseOperationFailedException $e) {
+            throw self::withoutChain($e);
+        } catch (ExternalServiceUnavailableException $e) {
+            throw self::unavailableWithoutChain($e);
+        }
+    }
+
+    /**
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function release(string $orderSyncId, string $claimToken): bool
+    {
+        return $this->updateClaimed($orderSyncId, $claimToken, ['status' => new Expression(self::RELEASED_STATUS_SQL)]);
+    }
+
+    private static function writeFailure(string $orderSyncId, string $claimToken, OrderSyncFailureDTO $failure): bool
+    {
+        // intentional: no gateway write here, as a deadlock in its nested transaction is logged with the bound message.
+        $recorded = OrderSyncModel::query()->where(self::claimed($orderSyncId, $claimToken))->update([
+            'status' => OrderSyncRowStatus::Failed->value,
+            'doc_type' => $failure->docType?->value,
+            'last_error_code' => $failure->code->value,
+            'last_error_message' => $failure->message,
+            'claim_token' => null,
+            'lease_expires_at' => null,
         ]);
+        if ($recorded === 0) {
+            return false;
+        }
+
+        return new OrderSyncErrorLogModel([
+            'order_sync_id' => $orderSyncId,
+            'trigger' => $failure->trigger->value,
+            'run_id' => $failure->runId,
+            'reason_code' => $failure->loggedCode->value,
+            'qbo_fault_code' => $failure->fault?->code,
+            'qbo_fault_element' => $failure->fault?->element,
+            'message' => $failure->message,
+        ])->save();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function claimed(string $orderSyncId, string $claimToken): array
+    {
+        return ['id' => $orderSyncId, 'status' => 'processing', 'claim_token' => $claimToken];
+    }
+
+    private static function withoutChain(DatabaseOperationFailedException $e): DatabaseOperationFailedException
+    {
+        return new DatabaseOperationFailedException($e->operation, 'Recording a failed order sync failed');
+    }
+
+    private static function unavailableWithoutChain(ExternalServiceUnavailableException $e): ExternalServiceUnavailableException
+    {
+        return new ExternalServiceUnavailableException($e->serviceName, $e->retryAfter);
     }
 
     /**
@@ -115,7 +177,7 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     {
         return $this->eloquentGateway->updateWhereAll(
             OrderSyncModel::class,
-            ['id' => $orderSyncId, 'status' => 'processing', 'claim_token' => $claimToken],
+            self::claimed($orderSyncId, $claimToken),
             [...$data, 'claim_token' => null, 'lease_expires_at' => null],
         ) > 0;
     }

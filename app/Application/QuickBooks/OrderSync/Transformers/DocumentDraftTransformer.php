@@ -9,8 +9,8 @@ use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderLineDTO;
 use App\Application\QuickBooks\OrderSync\Enums\FailReason;
-use App\Application\QuickBooks\OrderSync\Enums\SkipReason;
 use App\Application\QuickBooks\OrderSync\Resolvers\DocumentFieldTextResolver;
+use App\Application\QuickBooks\OrderSync\Resolvers\OrderSyncCalendarResolver;
 use App\Application\QuickBooks\OrderSync\Results\DocumentBuildResult;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\OrderSync\Exceptions\UnsupportedVatRateException;
@@ -22,14 +22,10 @@ use App\Domain\QuickBooks\OrderSync\Exceptions\UnsupportedVatRateException;
 final class DocumentDraftTransformer
 {
     /**
-     * Outcome precedence: cancelled, then zero lines, then an unsupported rate.
+     * Outcome precedence: zero lines, then an unsupported rate.
      */
     public static function build(SyncOrderDTO $order, DocumentRunLabelsDTO $labels): DocumentBuildResult
     {
-        if ($order->cancelled) {
-            return DocumentBuildResult::skipped(SkipReason::Cancelled);
-        }
-
         if ($order->lines === []) {
             return DocumentBuildResult::failed(FailReason::ZeroLines);
         }
@@ -65,7 +61,7 @@ final class DocumentDraftTransformer
     {
         return new DocumentCoreDTO(
             $labels->docNumberPrefix . DocumentFieldTextResolver::referenceNumber($order->reference),
-            $order->createdAt,
+            OrderSyncCalendarResolver::documentDate($order->createdAt),
             $order->billingEmail,
             CustomerDraftTransformer::build($order, $docType, $labels),
             LineDraftTransformer::goodsLines($order, $lines),

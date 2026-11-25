@@ -6,6 +6,9 @@ namespace Tests\Unit\Application\QuickBooks\OrderSync\DTOs;
 
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncOrderLineDTO;
+use App\Domain\Catalog\Product\ValueObjects\Sku;
+use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
+use App\Domain\ValueObjects\TaxRate;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,6 +34,22 @@ final class SyncOrderDTOTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         SyncOrderFixture::line(quantity: 0);
+    }
+
+    #[Test]
+    public function it_rejects_a_line_with_a_blank_sku(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Order line SKU must not be blank');
+
+        new SyncOrderLineDTO(
+            Sku::fromTrusted('  '),
+            'Line',
+            1,
+            DecimalMoney::fromString('1'),
+            DecimalMoney::fromString('0'),
+            TaxRate::fromPercentage(0.0),
+        );
     }
 
     #[Test]

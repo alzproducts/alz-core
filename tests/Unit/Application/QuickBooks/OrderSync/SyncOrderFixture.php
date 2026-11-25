@@ -21,7 +21,6 @@ final class SyncOrderFixture
     public static function order(
         ?array $lines = null,
         RawPaymentMethod $paymentMethod = RawPaymentMethod::AdminOrder,
-        bool $cancelled = false,
         ?OrderContactDTO $billing = null,
         ?OrderContactDTO $delivery = null,
         string $shippingTotalNet = '0.000000',
@@ -30,11 +29,11 @@ final class SyncOrderFixture
         string $comments = '',
         string $transactionId = '',
         string $reference = '10042',
+        string $createdAt = '2026-11-02 14:30:00',
     ): SyncOrderDTO {
         return new SyncOrderDTO(
             reference: $reference,
-            createdAt: new DateTimeImmutable('2026-11-02 14:30:00'),
-            cancelled: $cancelled,
+            createdAt: new DateTimeImmutable($createdAt),
             paymentMethod: $paymentMethod,
             billing: $billing ?? self::contact(),
             billingEmail: 'buyer@example.test',

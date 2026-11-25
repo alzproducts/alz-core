@@ -5,7 +5,7 @@ Files here are **path-scoped rules**. Each file auto-loads when the agent opens 
 ## Rules vs AGENTS.md
 
 - **Scoped rules prevent local mistakes** — wrong boilerplate, missing interface, inlining work the gateway already handles. Shape-of-this-file problems that only bite when the agent is editing that file type.
-- **AGENTS.md prevents global misunderstandings** — architecture, layer responsibilities, forbidden operations, safety-critical conventions (destructive commands, Octane safety, DB-facade bans) that must fire regardless of which file is open.
+- **AGENTS.md prevents global misunderstandings** — production access, local-environment safety, cross-cutting decisions (queue everything, Octane timestamps) that must fire regardless of which file is open.
 
 If the guidance is only actionable when editing a specific file type, it's a scoped rule. If it shapes the agent's mental model of the codebase or must fire on every action, it belongs in `AGENTS.md`.
 
