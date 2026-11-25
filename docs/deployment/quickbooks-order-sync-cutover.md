@@ -60,9 +60,9 @@ A human runs this step.
    git merge-base --is-ancestor 34a46f55 <deployed commit> && echo "ADM-101 ok"
    ```
 
-2. In the Vercel dashboard, confirm that `ENABLE_QUICKBOOKS_SYNC` is `true` for production, or set it and redeploy.
-3. Open `/orders/quickbooks-sync` in production alz-admin. The QuickBooks Sync page must open.
-4. Staff now see the page too. The user tells them not to use it before M2.
+2. With the flag of the next item on, staff see the page too. The user first tells them not to use it before M2.
+3. In the Vercel dashboard, confirm that `ENABLE_QUICKBOOKS_SYNC` is `true` for production, or set it and redeploy.
+4. Open `/orders/quickbooks-sync` in production alz-admin. The QuickBooks Sync page must open.
 
 ## 4. Confirm the connection
 
@@ -125,7 +125,7 @@ A human runs this step.
    - It was created on the day of this sync: More > Audit history. An earlier creation means the document is not from this sync, so choose another order.
    - Its number is `A` followed by the reference.
    - Its type, customer, date, lines, VAT and total are as the M1 behaviour column of the [Zap parity table](../architecture/quickbooks-order-sync.md) gives them.
-   - Its tax codes, deposit account, payment method, department, class, terms and custom fields are the ones the mappings name, where the document type carries them.
+   - Its tax codes, deposit account, payment method, department, class, terms and custom fields are the ones the mappings name, where the document type carries them. An invoice to a customer with their own sales term carries that term instead of the mapped one.
 
 Do not go on until every document is right. To see the mapped names, a human runs this in the Supabase SQL editor:
 
@@ -153,7 +153,7 @@ A human runs this step, once the runs have finished: in Horizon, the `low` queue
    - `QuickBooks order sync lease lost before its outcome was recorded`
    - `QuickBooks order sync outcome could not be recorded`
    - `QuickBooks order sync row could not be released`
-3. In the Supabase SQL editor, run the count per month, with the gap's two dates filled in. `orders` must equal `synced` plus `failed` in every month:
+3. In the Supabase SQL editor, run the count per month, with the gap's two dates filled in. `orders` must equal `synced` plus `failed` in every month. Where it does not, go on to items 4 and 5, then run this count again before step 11:
 
    ```sql
    WITH bounds AS (
@@ -219,17 +219,17 @@ A human runs this step, once the runs have finished: in Horizon, the `low` queue
 
 ## 11. Decide each failed order
 
-A human runs this step, on the QuickBooks Sync page. For every gap order in the Failed orders table, choose one of:
+A human runs this step, on the QuickBooks Sync page. For every gap order in the Failed orders table, first search the QuickBooks invoices and sales receipts for `A` followed by the reference, because the document may already be there. For `outcome_unknown`, search no sooner than 15 minutes after its last attempt: a post whose answer was lost takes about 2 minutes to show ([ADR-0019](../adr/0019-qbo-m1-duplicate-safety-and-batch-document-create.md)). Then choose one of:
 
-- **Retry it.** For `outcome_unknown`, first search QuickBooks for `A` followed by the reference, because the document may already be there. Select the order and click "Retry selected" once. Where the order cannot be selected, fix its cause and sync it under "Sync order references" with "Force retry" ticked.
-- **Handle it outside the sync**, by entering it in QuickBooks by hand.
+- **Retry it.** A document QuickBooks already shows is recorded as `synced` without a second post, unless the order still fails before the QuickBooks lookup. Select the order and click "Retry selected" once. Where the order cannot be selected, fix its cause and sync it under "Sync order references" with "Force retry" ticked.
+- **Handle it outside the sync**, by entering it in QuickBooks by hand, only where QuickBooks does not already hold it.
 - **Leave it.**
 
 Afterwards, comment on COR-314 that you have chosen for every one. Put no count, date or reference in the comment.
 
 ## 12. Keep up until the hourly catch-up
 
-A human runs this step: until COR-315 runs, the user queues a range sync on the QuickBooks Sync page for the days after the gap, as in step 9.
+A human runs this step: until COR-315 runs, the user queues a range sync on the QuickBooks Sync page for the days after the gap, as in step 9. Each range ends on a London day that is already over, and the next starts the day after it: a range misses orders placed after it runs.
 
 ## 13. Archive the Zap
 
