@@ -385,61 +385,7 @@ railway init
 
 **In Railway dashboard → Variables tab:**
 
-```env
-# Application
-APP_NAME="ALZ Core"
-APP_ENV=production
-APP_DEBUG=false
-APP_KEY=base64:YOUR_GENERATED_KEY_HERE
-APP_URL=https://your-app.up.railway.app
-
-# Railway auto-injects PORT (DO NOT SET)
-
-# Octane
-OCTANE_SERVER=swoole
-OCTANE_WORKERS=4
-OCTANE_TASK_WORKERS=6
-OCTANE_MAX_REQUESTS=500
-
-# Logging (set on each app service: every Railway service built from this repo's Dockerfile)
-LOG_CHANNEL=stack
-LOG_STACK=stderr,grafana
-LOG_LEVEL=info
-
-# Grafana Cloud logs (set on each app service; off unless URL, user and key are all set)
-GRAFANA_LOGS_URL=YOUR_LOKI_PUSH_URL
-GRAFANA_LOGS_USER=YOUR_LOKI_USER
-GRAFANA_LOGS_KEY=YOUR_LOGS_WRITE_KEY
-GRAFANA_LOGS_LEVEL=info
-
-# Database (Supabase)
-DB_CONNECTION=pgsql
-DB_HOST=db.PROJECT-REF.supabase.co
-DB_PORT=5432
-DB_DATABASE=postgres
-DB_USERNAME=postgres
-DB_PASSWORD=YOUR_SUPABASE_PASSWORD
-DB_SSLMODE=require
-
-# Redis (Railway auto-injects)
-# REDIS_HOST, REDIS_PASSWORD, REDIS_PORT automatically set
-
-# Cache & Queue
-CACHE_DRIVER=redis
-QUEUE_CONNECTION=redis
-SESSION_DRIVER=database
-
-# Horizon (set strong credentials)
-HORIZON_USER=YOUR_ADMIN_USERNAME
-HORIZON_PASSWORD=YOUR_STRONG_PASSWORD
-
-# Supabase project URL (access tokens are verified against its JWKS)
-SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-
-# Entrypoint controls
-AUTO_MIGRATE=false
-SKIP_DB_CHECK=false
-```
+Set the variables in [`.env.production.example`](../../.env.production.example) on each app service (every Railway service built from this repo's Dockerfile). Railway injects `PORT` and the `REDIS_*` variables.
 
 ### Step 4: Configure Health Check in Railway
 
