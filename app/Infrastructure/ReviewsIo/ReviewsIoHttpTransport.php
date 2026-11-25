@@ -201,11 +201,14 @@ final readonly class ReviewsIoHttpTransport
      */
     private function handleConnectionException(ConnectionException $e): ExternalServiceUnavailableException
     {
+        $error = $this->withoutApiKey($e->getMessage());
+
         $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API connection failed', [
-            'error' => $e->getMessage(),
+            'error' => $error,
         ]);
 
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+        // intentional: $e is not chained; it and its previous exceptions can hold the API key.
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: new ConnectionException($error));
     }
 
     /**
@@ -216,12 +219,24 @@ final readonly class ReviewsIoHttpTransport
      */
     private function handleUnexpectedException(Exception $e): ExternalServiceUnavailableException
     {
+        $error = $this->withoutApiKey($e->getMessage());
+
         $this->logThrottle->logTransient(self::SERVICE_KEY, self::SERVICE_NAME . ' API unexpected error', [
             'exception' => $e::class,
-            'error' => $e->getMessage(),
+            'error' => $error,
         ]);
 
-        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: $e);
+        // intentional: $e is not chained; it and its previous exceptions can hold the API key.
+        return new ExternalServiceUnavailableException(self::SERVICE_NAME, previous: new RuntimeException($error));
     }
 
+    /**
+     * Transport errors quote the request URL, whose query string holds the API key.
+     */
+    private function withoutApiKey(string $message): string
+    {
+        $apiKey = $this->config->apiKey;
+
+        return \str_replace([\rawurlencode($apiKey), \urlencode($apiKey), $apiKey], '[REDACTED]', $message);
+    }
 }
