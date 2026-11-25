@@ -55,10 +55,15 @@ final class OrderSliceRowsTest extends TestCase
     public function no_two_orders_share_a_reference_except_an_edited_order_and_its_superseded_version(): void
     {
         $rows = self::synthetic()->rows(OrderSliceTables::ORDERS);
-        $superseded = \count(\array_filter(EdgeCaseOrders::all(), static fn($order): bool => $order->superseded !== null));
-        $references = \array_column($rows, 'reference');
+        $editedReferences = \array_values(\array_map(
+            static fn($order): int => $order->order->reference,
+            \array_filter(EdgeCaseOrders::all(), static fn($order): bool => $order->superseded !== null),
+        ));
+        $counts = \array_count_values(\array_map('intval', \array_column($rows, 'reference')));
+        $shared = \array_keys(\array_filter($counts, static fn(int $count): bool => $count > 1));
 
-        $this->assertCount(\count($rows) - $superseded, \array_unique($references));
+        $this->assertSame($editedReferences, $shared);
+        $this->assertSame([2], \array_values(\array_unique(\array_intersect_key($counts, \array_flip($shared)))));
     }
 
     #[Test]
