@@ -13,7 +13,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 - The app, worker and seed load the main checkout's `.env`, found through `git rev-parse --git-common-dir`. A missing file gives a blank run, as does a caller-supplied Supabase (§Caller-supplied Supabase).
 - The stack sets its own DB, Redis and app keys, so the env file can never point the run at other services, and fills the keys a run needs when the env file leaves them blank ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md) lists both).
 - The network allows outbound calls, so any integration key the env file sets is live. Blank it with `--env-override KEY=` when a journey must not reach the vendor.
-- Single-quote an env-file value that holds `$`: Compose interpolates any other quoting, so `up` refuses it.
+- Single-quote an env-file value that holds `$`, or `up` refuses it (step 1).
 
 ## Verbs
 
@@ -49,7 +49,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
      - A credential key may only be blanked (`KEY=`), never set.
    - Exit 75: Docker is down, or this worktree already has a run up. Run `down` on that run; when its evidence dir is lost, `down --evidence <any new dir>` still removes it, because `down` finds the run's resources by the project label.
    - Exit 75, before any build:
-     - The env file the run loads has an unquoted or double-quoted value with a `$` that is not a `${NAME}` reference to a key an earlier line sets. The message lists every such key: single-quote each value. Only a human edits that file.
+     - The env file the run loads has an unquoted or double-quoted value with a `$` that is not a `${NAME}` reference to a key an earlier line sets. The message lists every such key. Only a human edits that file.
      - HEAD has no `Dockerfile.verify`, or no `db:ping` in its `docker-entrypoint.sh`: merge `develop` into the branch.
    - Exit 1: a build log under `build/` or `logs/compose-up.log` names the failure. Run `down` to clean up.
 
