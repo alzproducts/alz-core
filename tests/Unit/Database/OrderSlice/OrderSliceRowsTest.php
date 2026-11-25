@@ -42,6 +42,26 @@ final class OrderSliceRowsTest extends TestCase
     }
 
     #[Test]
+    public function every_order_reference_is_a_4_digit_integer(): void
+    {
+        foreach (self::synthetic()->rows(OrderSliceTables::ORDERS) as $order) {
+            $this->assertIsInt($order['reference']);
+            $this->assertGreaterThanOrEqual(1_000, $order['reference']);
+            $this->assertLessThanOrEqual(9_999, $order['reference']);
+        }
+    }
+
+    #[Test]
+    public function no_two_orders_share_a_reference_except_an_edited_order_and_its_superseded_version(): void
+    {
+        $rows = self::synthetic()->rows(OrderSliceTables::ORDERS);
+        $superseded = \count(\array_filter(EdgeCaseOrders::all(), static fn($order): bool => $order->superseded !== null));
+        $references = \array_column($rows, 'reference');
+
+        $this->assertCount(\count($rows) - $superseded, \array_unique($references));
+    }
+
+    #[Test]
     public function every_order_is_placed_in_october_2026_london_time(): void
     {
         foreach (self::synthetic()->rows(OrderSliceTables::ORDERS) as $order) {

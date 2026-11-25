@@ -148,8 +148,8 @@ final class QuickBooksSandboxJourneyTest extends TestCase
     private static function syntheticOrders(): array
     {
         $statuses = DB::table('shopwired.orders_deduplicated')
-            ->whereBetween('reference', [SeedIds::ORDER_REFERENCE_BASE, SeedIds::ORDER_LINE_BASE - 1])
-            ->whereBetween('external_id', [SeedIds::ORDER_BASE, SeedIds::ORDER_REFERENCE_BASE - 1])
+            ->whereBetween('reference', [SeedIds::ORDER_REFERENCE_BASE, SeedIds::ORDER_REFERENCE_MAX])
+            ->whereBetween('external_id', [SeedIds::ORDER_BASE, SeedIds::ORDER_LINE_BASE - 1])
             ->whereBetween('order_placed_at', [self::FROM . ' 00:00:00+00', self::TO . ' 23:59:59+00'])
             ->orderBy('reference')
             ->pluck('status_type', 'reference')
