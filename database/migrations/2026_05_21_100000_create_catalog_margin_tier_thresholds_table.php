@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Schema;
  *   margin >= standard_max_pct    → "3 - High margin"
  *   margin IS NULL                → "4 - Unknown margin"
  *
- * See ADR-0001 for why this is a single-row table rather than the
- * versioned-config shape used by neighbouring algorithm tables.
+ * intentional: single-row, not the versioned-config shape of neighbouring algorithm
+ * tables. Thresholds are two parameters, with no algorithm to version.
  */
 return new class extends Migration {
     public function up(): void

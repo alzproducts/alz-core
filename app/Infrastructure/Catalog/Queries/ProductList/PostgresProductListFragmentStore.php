@@ -41,7 +41,7 @@ final readonly class PostgresProductListFragmentStore implements ProductListFrag
         try {
             $this->gateway->runSql(self::upsertSql(\count($rows)), self::upsertBindings($rows));
         } catch (DatabaseOperationFailedException|DuplicateRecordException|ExternalServiceUnavailableException $e) {
-            // intentional: fail open like ResilientCache (ADR-0005); every read rechecks the fingerprint.
+            // intentional: fail open like ResilientCache; every read rechecks the fingerprint.
             $this->errorReporter->report($e, ['operation' => 'store_product_list_fragments', 'fragments' => \count($rows)]);
         }
     }
