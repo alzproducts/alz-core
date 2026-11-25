@@ -117,6 +117,10 @@ _Avoid_: "Supabase stack", which names the full Supabase CLI stack in local deve
 An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, or a Supabase role).
 _Avoid_: "stand-in", which names the integration class of ADR-0015.
 
+**Response parity**:
+A PR's head and its merge base answering the same GET requests identically, on the same seed, setup and persona, in every field the criterion does not name as ignored.
+_Avoid_: "matches the capture", which names a reference the PR's author made.
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
