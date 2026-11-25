@@ -9,6 +9,12 @@ umask 077
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SERVICES='app worker seed pgsql redis auth-migrate test'
+TRUNK=develop
+
+# The base run's boot limit in seconds, also the most `baseline --time-limit` accepts (COR-262 D8).
+BASE_LIMIT=900
+# What must be equal at both commits for two runs to seed the same data (COR-262 D10); the locked Faker version is checked too.
+SEED_PATHS='database/seeders database/factories database/seed-profile app/Presentation/Console/Commands/Dev/SeedFakeDataCommand.php'
 
 # Keys the stack owns (COR-320 D9, D11): set in compose environment: or filled per run, never overridable.
 STACK_KEYS='DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE DB_URL
@@ -65,13 +71,15 @@ die() {
 }
 
 HELP='up --evidence <abs dir> [--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]   build HEAD, boot, migrate and seed; prints run_id= and base_url=
-down --evidence <dir>   remove the run stack and images; keeps the evidence
-doctor --evidence <dir>   pass/FAIL report: SHA, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
+down --evidence <dir>   remove the run stack and images, its base run included; keeps the evidence
+doctor --evidence <dir>   pass/FAIL report: SHA, Compose project, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
 http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
 exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
 db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
 test --evidence <dir> [--all-groups] <paths>...   Pest in the test sidecar, excluding the groups CI excludes (integration, seed-command, list-parity) and repo-static; --all-groups excludes only repo-static; --group/--exclude-group exit 64; an excluded file beside selected ones is omitted silently (exit 69 in caller-supabase mode)
+baseline --evidence <dir> [--ref <SHA>] [--time-limit <seconds>]   boot one base run beside the head run, built from an ancestor commit (default: the merge base with origin/develop); prints baseline.sha=, baseline.evidence=, baseline.entry=, baseline.cwd= (exit 69 in caller-supabase mode)
+parity --evidence <dir> [--ignore <field path>]... [--expect <code>] GET <path> [GET <path>]...   send each GET to the head run and the base run and compare status and body (exit 69 in caller-supabase mode)
 note --evidence <dir> <text>   append a line to run-notes.md
 browser   not supported (exit 69)'
 
@@ -132,6 +140,8 @@ resolve_repo() {
     slug="$(basename "$REPO" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-\n' '-')"
     hash="$(printf '%s' "$REPO" | shasum -a 256 | cut -c1-8)"
     PROJECT="alz-verify-$slug-$hash"
+    HEAD_PROJECT="$PROJECT"
+    BASE_PROJECT="$PROJECT-base"
 }
 
 # set_evidence <dir> <create|existing>
@@ -149,6 +159,13 @@ set_evidence() {
     fi
     EVIDENCE="$(cd "$1" && pwd -P)"
     STATE="$EVIDENCE/.verify"
+    # A base run's evidence dir selects its project, so the ordinary verbs drive it from the head checkout.
+    # intentional: a removed base run has no state left, and its dir must still never select the head run.
+    if [ -f "$STATE/state.env" ]; then
+        [ "$(state_get project)" != "$BASE_PROJECT" ] || PROJECT="$BASE_PROJECT"
+    elif [ "${EVIDENCE##*/}" = baseline ] && grep -qx "project=$HEAD_PROJECT" "${EVIDENCE%/*}/.verify/state.env" 2>/dev/null; then
+        PROJECT="$BASE_PROJECT"
+    fi
 }
 
 state_get() { sed -n "s/^$1=//p" "$STATE/state.env" | tail -1; }
@@ -178,7 +195,30 @@ service_state() {
     [ -z "$id" ] || docker inspect -f "$2" "$id" 2>/dev/null || true
 }
 
-project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
+# project_containers [<project>]
+project_containers() { docker ps -aq --filter "label=com.docker.compose.project=${1:-$PROJECT}"; }
+
+# sweep_project <project>: removes everything labelled with that project, never another's.
+sweep_project() {
+    local ids label="label=com.docker.compose.project=$1"
+    ids="$(project_containers "$1")"
+    [ -z "$ids" ] || docker rm -f -v $ids >/dev/null 2>&1 || true
+    ids="$(docker network ls -q --filter "$label")"
+    [ -z "$ids" ] || docker network rm $ids >/dev/null 2>&1 || true
+    ids="$(docker volume ls -q --filter "$label")"
+    [ -z "$ids" ] || docker volume rm -f $ids >/dev/null 2>&1 || true
+    ids="$(docker image ls -q --filter "$label" | sort -u)"
+    [ -z "$ids" ] || docker image rm -f $ids >/dev/null 2>&1 || true
+}
+
+# project_residue <project>: one line per kind of resource still labelled with that project.
+project_residue() {
+    local kind ids
+    for kind in 'ps -a' 'volume ls' 'network ls' 'image ls'; do
+        ids="$(docker $kind -q --filter "label=com.docker.compose.project=$1")"
+        [ -z "$ids" ] || echo "$kind residue: $(printf '%s' "$ids" | tr '\n' ' ')"
+    done
+}
 
 # require_run: the evidence dir holds an up run of this worktree's project, and it is running.
 require_run() {
@@ -333,6 +373,85 @@ probe_supabase() {
         die 64 "up: --supabase-url issuer mismatch: want $SB_URL/auth/v1, Supabase reports $(printf '%s' "$issuer" | LC_ALL=C tr -cd 'A-Za-z0-9:/._~[]-' | cut -c1-200)"
 }
 
+# ---- boot steps shared by `up` and `baseline` ----
+
+make_run_dirs() {
+    local svc
+    mkdir -p "$STATE" "$EVIDENCE/build"
+    for svc in app worker seed test; do
+        mkdir -p "$EVIDENCE/logs/$svc"
+        # intentional: www-data (uid 33) writes storage/logs through this bind mount (COR-320 P12).
+        chmod 0777 "$EVIDENCE/logs/$svc"
+    done
+}
+
+SOURCE_ERROR=''
+PG_VERSION=''
+AUTH_VERSION=''
+# extract_source <commit>: that commit's files in $STATE/src, and its Supabase pins; 1 with SOURCE_ERROR set.
+extract_source() {
+    local src="$STATE/src"
+    mkdir -p "$src"
+    if ! (umask 022 && git -C "$REPO" archive --format=tar "$1" | tar -x -C "$src"); then
+        SOURCE_ERROR="git archive of $1 failed"
+        return 1
+    fi
+    PG_VERSION="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$src/database/baseline/versions.env")" || PG_VERSION=''
+    AUTH_VERSION="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")" || AUTH_VERSION=''
+    if [ -z "$PG_VERSION" ] || [ -z "$AUTH_VERSION" ]; then
+        SOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'
+        return 1
+    fi
+}
+
+# write_compose_env <env file>: the values compose.yaml interpolates, from the run's globals.
+write_compose_env() {
+    {
+        echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
+        echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
+        echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
+        if [ "$MODE" = own-postgres ]; then
+            echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
+        else
+            echo "VERIFY_RELAY_IMAGE=$PROJECT-relay:run"
+            echo "VERIFY_DB_PASSWORD=$SB_DB_PASSWORD"
+            echo "VERIFY_DB_PORT=$SB_DB_PORT"
+            echo "VERIFY_SUPABASE_URL=$SB_URL"
+            echo "VERIFY_SUPABASE_API_PORT=$SB_API_PORT"
+        fi
+        echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
+        echo "VERIFY_ENV_FILE=$1"
+        echo "VERIFY_RUN_ENV=$STATE/run.env"
+        echo "VERIFY_LOGS=$EVIDENCE/logs"
+        echo "SUPABASE_POSTGRES_VERSION=$PG_VERSION"
+        echo "SUPABASE_AUTH_VERSION=$AUTH_VERSION"
+    } >"$STATE/compose.env"
+}
+
+# build_image <service>:<log name>
+build_image() { dc --progress plain build "${1%%:*}" >"$EVIDENCE/build/${1#*:}.log" 2>&1; }
+
+start_stack() { dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1; }
+
+# log_failed_start <service>...: container states and those services' output, into compose-up.log.
+log_failed_start() {
+    {
+        echo '--- ps'
+        dc ps -a
+        echo '--- seed'
+        dc logs --no-color "$@"
+    } >>"$EVIDENCE/logs/compose-up.log" 2>&1 || true
+}
+
+# boot_gap <commit>: what that commit lacks for a verify boot, or nothing.
+boot_gap() {
+    if ! git -C "$REPO" cat-file -e "$1:Dockerfile.verify" 2>/dev/null; then
+        echo 'no Dockerfile.verify'
+    elif ! git -C "$REPO" grep -q 'db:ping' "$1" -- docker-entrypoint.sh; then
+        echo 'no db:ping in docker-entrypoint.sh'
+    fi
+}
+
 # ---- verbs ----
 
 cmd_up() {
@@ -383,7 +502,7 @@ cmd_up() {
         probe_supabase
     fi
 
-    if [ -n "$(project_containers)" ]; then
+    if [ -n "$(project_containers)" ] || [ -n "$(project_containers "$BASE_PROJECT")" ]; then
         die 75 "a run is already up for this worktree (project $PROJECT); run down first"
     fi
     set_evidence "$EVIDENCE_ARG" create
@@ -392,13 +511,7 @@ cmd_up() {
     command -v docker >/dev/null 2>&1 || die 75 "docker not found"
     docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
 
-    mkdir -p "$STATE" "$EVIDENCE/build"
-    local svc
-    for svc in app worker seed test; do
-        mkdir -p "$EVIDENCE/logs/$svc"
-        # intentional: www-data (uid 33) writes storage/logs through this bind mount (COR-320 P12).
-        chmod 0777 "$EVIDENCE/logs/$svc"
-    done
+    make_run_dirs
     cp "$SKILL_DIR/compose.yaml" "$SKILL_DIR/compose.caller-supabase.yaml" "$STATE/"
 
     local sha env_file env_missing=no
@@ -439,34 +552,8 @@ cmd_up() {
     done
 
     # Build context: committed HEAD only (COR-317 D2); no bind mount of the worktree.
-    local src="$STATE/src"
-    mkdir -p "$src"
-    (umask 022 && git -C "$REPO" archive --format=tar HEAD | tar -x -C "$src") || die 1 "git archive of HEAD failed"
-    local pg_version auth_version
-    pg_version="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$src/database/baseline/versions.env")"
-    auth_version="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")"
-    [ -n "$pg_version" ] && [ -n "$auth_version" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
-
-    {
-        echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
-        echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
-        echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
-        if [ "$MODE" = own-postgres ]; then
-            echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
-        else
-            echo "VERIFY_RELAY_IMAGE=$PROJECT-relay:run"
-            echo "VERIFY_DB_PASSWORD=$SB_DB_PASSWORD"
-            echo "VERIFY_DB_PORT=$SB_DB_PORT"
-            echo "VERIFY_SUPABASE_URL=$SB_URL"
-            echo "VERIFY_SUPABASE_API_PORT=$SB_API_PORT"
-        fi
-        echo "VERIFY_REDIS_PASSWORD=$(openssl rand -hex 24)"
-        echo "VERIFY_ENV_FILE=$env_file"
-        echo "VERIFY_RUN_ENV=$run_env"
-        echo "VERIFY_LOGS=$EVIDENCE/logs"
-        echo "SUPABASE_POSTGRES_VERSION=$pg_version"
-        echo "SUPABASE_AUTH_VERSION=$auth_version"
-    } >"$STATE/compose.env"
+    extract_source HEAD || die 1 "$SOURCE_ERROR"
+    write_compose_env "$env_file"
 
     # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
     local t0 pair pairs='app:runtime seed:test pgsql:pgsql' front=app
@@ -476,26 +563,21 @@ cmd_up() {
     fi
     for pair in $pairs; do
         t0="$(date +%s)"
-        dc --progress plain build "${pair%%:*}" >"$EVIDENCE/build/${pair#*:}.log" 2>&1 ||
+        build_image "$pair" ||
             { note "up FAIL ${pair#*:} build (build/${pair#*:}.log)"; die 1 "${pair#*:} image build failed: $EVIDENCE/build/${pair#*:}.log (run down to clean up)"; }
         note "built ${pair#*:} image in $(($(date +%s) - t0))s"
     done
-    rm -rf "$src"
+    rm -rf "$STATE/src"
 
     t0="$(date +%s)"
     local up_rc=0 seed_logs='seed auth-migrate'
-    dc up -d --wait --wait-timeout 900 app worker >"$EVIDENCE/logs/compose-up.log" 2>&1 || up_rc=1
+    start_stack || up_rc=1
     if [ "$MODE" != own-postgres ]; then
         seed_logs='seed relay'
         dc logs --no-color --no-log-prefix seed >"$EVIDENCE/logs/seed/seed.log" 2>&1 || true
     fi
     if [ "$up_rc" -ne 0 ]; then
-        {
-            echo '--- ps'
-            dc ps -a
-            echo '--- seed'
-            dc logs --no-color $seed_logs
-        } >>"$EVIDENCE/logs/compose-up.log" 2>&1 || true
+        log_failed_start $seed_logs
         if [ "$MODE" != own-postgres ]; then
             case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
                 'exited 0' | 'created '* | 'running '* | '') ;;
@@ -525,29 +607,24 @@ cmd_up() {
 cmd_down() {
     [ "${#ARGS[@]}" -eq 0 ] || die 64 "down takes no arguments"
     set_evidence "$EVIDENCE_ARG" create
-    local fail=0 ids
+    local fail=0
     note "down project=$PROJECT"
     if [ -f "$STATE/compose.env" ] && [ -f "$STATE/compose.yaml" ]; then
         dc --profile '*' down -v --remove-orphans --timeout 20 >>"$EVIDENCE/logs/compose-down.log" 2>&1 ||
             note "down: compose down failed (logs/compose-down.log); removing by label"
     fi
     # Label sweep: catches a run whose evidence dir is gone or whose up failed part-way. Never touches another project.
-    ids="$(project_containers)"
-    [ -z "$ids" ] || docker rm -f -v $ids >/dev/null 2>&1 || true
-    ids="$(docker network ls -q --filter "label=com.docker.compose.project=$PROJECT")"
-    [ -z "$ids" ] || docker network rm $ids >/dev/null 2>&1 || true
-    ids="$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT")"
-    [ -z "$ids" ] || docker volume rm -f $ids >/dev/null 2>&1 || true
-    ids="$(docker image ls -q --filter "label=com.docker.compose.project=$PROJECT" | sort -u)"
-    [ -z "$ids" ] || docker image rm -f $ids >/dev/null 2>&1 || true
-
-    local kind residue
-    for kind in 'ps -a' 'volume ls' 'network ls' 'image ls'; do
-        residue="$(docker $kind -q --filter "label=com.docker.compose.project=$PROJECT")"
-        if [ -n "$residue" ]; then
-            echo "down FAIL $kind residue: $(printf '%s' "$residue" | tr '\n' ' ')"
+    local project line projects="$PROJECT"
+    [ "$PROJECT" != "$HEAD_PROJECT" ] || projects="$BASE_PROJECT $HEAD_PROJECT"
+    for project in $projects; do
+        sweep_project "$project"
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            echo "down FAIL $project $line"
             fail=1
-        fi
+        done <<EOF
+$(project_residue "$project")
+EOF
     done
     if [ "$fail" -eq 0 ]; then
         note "down done, no residue"
@@ -583,6 +660,7 @@ cmd_doctor() {
     DOCTOR_OUT="$(unique_file "$EVIDENCE/doctor" report.txt)"
     local image_id app_image svc kind name value want out
     doctor_line info "git sha $(state_get sha)"
+    doctor_line info "compose project $PROJECT"
     image_id="$(docker image inspect -f '{{.Id}}' "$PROJECT-runtime:run" 2>/dev/null || true)"
     doctor_line info "runtime image $PROJECT-runtime:run digest $image_id"
     for svc in app worker; do
@@ -658,6 +736,35 @@ EOF
     return "$DOCTOR_FAIL"
 }
 
+# http_request <METHOD> <path> <has data 0|1>: one request in the run's app container, the data on stdin;
+# prints the response head, body and a VERIFY_STATUS line.
+http_request() {
+    # The bypass secret stays inside the container: curl reads it from the app's own env.
+    # shellcheck disable=SC2016
+    dc exec -T app sh -c '
+        has_data="$3"
+        set -- -sS -i --globoff -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
+            -w "\nVERIFY_STATUS=%{http_code}\n" "http://127.0.0.1:8000$2"
+        if [ "$has_data" = 1 ]; then exec curl -H "Content-Type: application/json" --data-binary @- "$@"; fi
+        exec curl "$@" </dev/null' sh "$1" "$2" "$3"
+}
+
+# write_http_capture <raw> <out> <METHOD> <path> <has data 0|1> <data>: the redacted capture; prints the status, 000 with none.
+write_http_capture() {
+    local status
+    status="$(sed -n 's/^VERIFY_STATUS=//p' "$1" | tail -1)"
+    [ -n "$status" ] || status=000
+    {
+        echo "> $3 http://127.0.0.1:8000$4 (inside the app container)"
+        echo '> Accept: application/json'
+        echo '> X-Local-Bypass: [redacted]'
+        if [ "$5" -eq 1 ]; then echo '> Content-Type: application/json'; echo '>'; echo "$6"; fi
+        echo "< status $status"
+        sed '/^VERIFY_STATUS=/d' "$1" | tr -d '\r'
+    } >"$2"
+    printf '%s' "$status"
+}
+
 cmd_http() {
     local method='' path='' data='' have_data=0 expect=''
     set -- ${ARGS[@]+"${ARGS[@]}"}
@@ -688,24 +795,8 @@ cmd_http() {
     lower="$(printf '%s' "$method" | tr '[:upper:]' '[:lower:]')"
     out="$(unique_file "$EVIDENCE/http" "$lower.txt")"
     raw="$out.raw"
-    # The bypass secret stays inside the container: curl reads it from the app's own env.
-    # shellcheck disable=SC2016
-    printf '%s' "$data" | dc exec -T app sh -c '
-        has_data="$3"
-        set -- -sS -i -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
-            -w "\nVERIFY_STATUS=%{http_code}\n" "http://127.0.0.1:8000$2"
-        if [ "$has_data" = 1 ]; then exec curl -H "Content-Type: application/json" --data-binary @- "$@"; fi
-        exec curl "$@" </dev/null' sh "$method" "$path" "$have_data" >"$raw" 2>&1 || true
-    status="$(sed -n 's/^VERIFY_STATUS=//p' "$raw" | tail -1)"
-    [ -n "$status" ] || status=000
-    {
-        echo "> $method http://127.0.0.1:8000$path (inside the app container)"
-        echo '> Accept: application/json'
-        echo '> X-Local-Bypass: [redacted]'
-        if [ "$have_data" -eq 1 ]; then echo '> Content-Type: application/json'; echo '>'; echo "$data"; fi
-        echo "< status $status"
-        sed '/^VERIFY_STATUS=/d' "$raw" | tr -d '\r'
-    } >"$out"
+    printf '%s' "$data" | http_request "$method" "$path" "$have_data" >"$raw" 2>&1 || true
+    status="$(write_http_capture "$raw" "$out" "$method" "$path" "$have_data" "$data")"
     rm -f "$raw"
     note "http $method $path -> $status (http/$(basename "$out"))"
     echo "status=$status"
@@ -812,6 +903,309 @@ cmd_test() {
     return "$rc"
 }
 
+# require_head <verb>: own-postgres head run, up; the base run's evidence dir is refused.
+require_head() {
+    [ "$PROJECT" = "$HEAD_PROJECT" ] || die 64 "$1 wants the head run's evidence dir, not the base run's: $EVIDENCE"
+    refuse_in_mode "$1"
+    require_run
+}
+
+# with_base <function> [args]: runs it in a subshell with the globals of this run's base run.
+with_base() (
+    PROJECT="$BASE_PROJECT"
+    EVIDENCE="$EVIDENCE/baseline"
+    STATE="$EVIDENCE/.verify"
+    "$@"
+)
+
+# base_sha: the SHA of the base run that is up, or nothing. base_url is written only once a boot has finished.
+base_sha() {
+    [ -f "$STATE/state.env" ] && [ -f "$STATE/compose.env" ] || return 0
+    [ "$(state_get project)" = "$PROJECT" ] && [ -n "$(state_get base_url)" ] || return 0
+    [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=app")" ] || return 0
+    state_get sha
+}
+
+# remove_base: the base run's resources and bookkeeping; its logs and captures stay. Repeats, because a cancelled
+# Docker call can still finish creating a resource. Prints any residue.
+remove_base() {
+    local try residue=''
+    for try in 1 2 3; do
+        sweep_project "$PROJECT"
+        residue="$(project_residue "$PROJECT")"
+        [ "$try" -gt 1 ] && [ -z "$residue" ] && break
+        sleep 2
+    done
+    rm -rf "$STATE"
+    printf '%s' "$residue"
+}
+
+# faker_version <commit>
+faker_version() {
+    git -C "$REPO" show "$1:composer.lock" 2>/dev/null |
+        jq -r '(.packages + ."packages-dev")[] | select(.name == "fakerphp/faker") | .version'
+}
+
+# seed_difference <base> <head>: the first seed input that differs between the commits, or nothing.
+seed_difference() {
+    local path rc base_faker head_faker
+    for path in $SEED_PATHS; do
+        rc=0
+        git -C "$REPO" diff --quiet --no-ext-diff "$1" "$2" -- "$path" || rc=$?
+        case "$rc" in
+            0) ;;
+            1) echo "$path"; return 0 ;;
+            *) return 1 ;;
+        esac
+    done
+    base_faker="$(faker_version "$1")" && head_faker="$(faker_version "$2")" || return 1
+    [ "$base_faker" = "$head_faker" ] ||
+        echo "the fakerphp/faker version in composer.lock (${base_faker:-none} at the base, ${head_faker:-none} at HEAD)"
+}
+
+# resolve_base <head sha> <ref>: the base commit's SHA; dies 64 on a ref that cannot be a base.
+resolve_base() {
+    local head="$1" ref="$2" sha
+    if [ -z "$ref" ]; then
+        GIT_TERMINAL_PROMPT=0 git -C "$REPO" fetch -q --no-tags origin "$TRUNK" >/dev/null 2>&1 ||
+            die 75 "baseline: cannot fetch origin $TRUNK; pass --ref <SHA>"
+        sha="$(git -C "$REPO" merge-base "$head" FETCH_HEAD)" ||
+            die 64 "baseline: HEAD and origin/$TRUNK share no commit; pass --ref <SHA>"
+        [ "$sha" != "$head" ] || die 64 "baseline: HEAD is on $TRUNK, so it is its own merge base; pass --ref <SHA>"
+    else
+        sha="$(git -C "$REPO" rev-parse --verify -q --end-of-options "$ref^{commit}")" ||
+            die 64 "baseline: --ref resolves to no commit: $ref"
+        [ "$sha" != "$head" ] || die 64 "baseline: --ref is HEAD itself, and a commit proves nothing against itself: $ref"
+        git -C "$REPO" merge-base --is-ancestor "$sha" "$head" || die 64 "baseline: --ref is not an ancestor of HEAD: $ref"
+    fi
+    printf '%s' "$sha"
+}
+
+# base_stage <stage> <log>: what a failure from here on is reported as.
+base_stage() { printf '%s\n%s\n' "$1" "$2" >"$STATE/stage"; }
+
+# boot_base <sha> <head state dir>: runs under with_base, in its own process group; non-zero leaves $STATE/stage naming the failure.
+boot_base() {
+    local sha="$1" head_state="$2" env_file pair seed_log="$EVIDENCE/logs/seed/seed.log" compose_log="$EVIDENCE/logs/compose-up.log"
+    env_file="$(sed -n 's/^env_file=//p' "$head_state/state.env" | tail -1)"
+    base_stage archive "$EVIDENCE/build/archive.log"
+    extract_source "$sha" >"$EVIDENCE/build/archive.log" 2>&1 || { echo "$SOURCE_ERROR" >>"$EVIDENCE/build/archive.log"; return 1; }
+    write_compose_env "$env_file"
+    for pair in app:runtime seed:test pgsql:pgsql; do
+        base_stage build "$EVIDENCE/build/${pair#*:}.log"
+        build_image "$pair" || return 1
+    done
+    rm -rf "$STATE/src"
+    base_stage boot "$compose_log"
+    start_stack && return 0
+    log_failed_start seed auth-migrate
+    dc logs --no-color --no-log-prefix seed >"$seed_log" 2>&1 || true
+    case "$(service_state auth-migrate '{{.State.Status}} {{.State.ExitCode}}')" in
+        'exited 0' | 'created '* | 'running '* | '') ;;
+        *) base_stage migrate "$compose_log"; return 1 ;;
+    esac
+    case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+        'exited 0' | 'created '* | 'running '* | '') return 1 ;;
+    esac
+    # dev:seed-fake migrates, then seeds: these lines appear only outside its migrate step.
+    if grep -Eq 'Seeding database|Seeding failed|Refusing to seed|faker seed must' "$seed_log"; then
+        base_stage seed "$seed_log"
+    else
+        base_stage migrate "$seed_log"
+    fi
+    return 1
+}
+
+BOOT_PID=''
+# stop_boot: ends the boot's process group. TERM first, so the docker CLI cancels its compose plugin.
+stop_boot() {
+    local n
+    [ -n "$BOOT_PID" ] || return 0
+    kill -TERM -- "-$BOOT_PID" 2>/dev/null || true
+    for n in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 -- "-$BOOT_PID" 2>/dev/null || break
+        sleep 1
+    done
+    kill -KILL -- "-$BOOT_PID" 2>/dev/null || true
+    wait "$BOOT_PID" 2>/dev/null || true
+    BOOT_PID=''
+}
+
+# fail_base <reason>: removes the base run and exits 75; the criterion is blocked, never failed (COR-262 D8).
+fail_base() {
+    local residue
+    residue="$(with_base remove_base)"
+    note "baseline FAIL $1; base run removed"
+    die 75 "baseline: $1${residue:+ (run down: $residue)}"
+}
+
+print_base() {
+    echo "baseline.sha=$(with_base state_get sha)"
+    echo "baseline.evidence=$EVIDENCE/baseline"
+    echo "baseline.entry=$SKILL_DIR/$(basename "${BASH_SOURCE[0]}")"
+    echo "baseline.cwd=$REPO"
+}
+
+# prepare_base <sha> <head state dir>: runs under with_base. The head's recorded env file and filled or overridden keys (COR-262 D7).
+prepare_base() {
+    rm -rf "$STATE"
+    make_run_dirs
+    cp "$2/compose.yaml" "$2/compose.caller-supabase.yaml" "$2/run.env" "$STATE/"
+    {
+        echo "mode=own-postgres"
+        echo "project=$PROJECT"
+        echo "top=$REPO"
+        echo "sha=$1"
+        grep -E '^env_(file|missing)=' "$2/state.env"
+    } >"$STATE/state.env"
+    note "baseline boot project=$PROJECT sha=$1"
+}
+
+# finish_base: runs under with_base. base_url marks the base run as up.
+finish_base() {
+    local hostport
+    hostport="$(dc port app 8000 | tail -1)" || return 1
+    [ -n "$hostport" ] || return 1
+    rm -f "$STATE/stage"
+    echo "base_url=http://$hostport" >>"$STATE/state.env"
+    note "baseline ready base_url=http://$hostport"
+}
+
+cmd_baseline() {
+    local ref='' limit="$BASE_LIMIT" head sha gap live t0 rc=0 stage
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --ref)
+                [ "$#" -ge 2 ] && [ -n "$2" ] || die 64 "--ref wants a commit"
+                ref="$2"
+                shift 2
+                ;;
+            --time-limit)
+                [ "$#" -ge 2 ] && [[ "$2" =~ ^[1-9][0-9]{0,2}$ ]] && [ "$2" -le "$BASE_LIMIT" ] ||
+                    die 64 "--time-limit wants 1 to $BASE_LIMIT seconds"
+                limit="$2"
+                shift 2
+                ;;
+            *) die 64 "baseline: unknown argument: $1" ;;
+        esac
+    done
+    set_evidence "$EVIDENCE_ARG" existing
+    require_head baseline
+    command -v jq >/dev/null 2>&1 || die 75 "baseline needs jq"
+
+    # intentional: HEAD is the commit `up` built, not the checkout's current one.
+    head="$(state_get sha)"
+    sha="$(resolve_base "$head" "$ref")"
+    gap="$(boot_gap "$sha")"
+    [ -z "$gap" ] || die 75 "baseline: the base commit cannot boot: $gap ($sha)"
+    gap="$(seed_difference "$sha" "$head")" || die 75 "baseline: cannot compare the seed code of $sha and $head"
+    [ -z "$gap" ] || die 75 "baseline: the two commits seed differently: $gap differs ($sha to $head)"
+
+    live="$(with_base base_sha)"
+    if [ "$live" = "$sha" ]; then
+        note "baseline already up sha=$sha"
+        print_base
+        return 0
+    fi
+    [ -z "$live" ] || die 75 "baseline: a base run is already up at $live; run down on its evidence dir first: $EVIDENCE/baseline"
+    docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
+    gap="$(with_base remove_base)"
+    [ -z "$gap" ] || die 75 "baseline: an earlier base run cannot be removed: $gap"
+
+    note "baseline sha=$sha limit=${limit}s"
+    with_base prepare_base "$sha" "$STATE"
+    trap 'stop_boot; fail_base interrupted' INT TERM HUP
+    t0="$(date +%s)"
+    set -m
+    with_base boot_base "$sha" "$STATE" </dev/null >/dev/null 2>>"$EVIDENCE/baseline/build/boot.log" &
+    BOOT_PID=$!
+    set +m
+    while kill -0 "$BOOT_PID" 2>/dev/null; do
+        if [ $(($(date +%s) - t0)) -ge "$limit" ]; then
+            stop_boot
+            fail_base "the base run did not boot within the ${limit}s limit"
+        fi
+        sleep 1
+    done
+    wait "$BOOT_PID" || rc=$?
+    BOOT_PID=''
+    if [ "$rc" -ne 0 ]; then
+        stage="$(with_base cat_stage)"
+        fail_base "the base run failed at ${stage%%$'\n'*}: ${stage#*$'\n'}"
+    fi
+    with_base finish_base || fail_base "the base run failed at boot: $EVIDENCE/baseline/logs/compose-up.log"
+    trap - INT TERM HUP
+    note "baseline ready in $(($(date +%s) - t0))s"
+    print_base
+}
+
+cat_stage() { cat "$STATE/stage" 2>/dev/null || printf 'archive\n%s\n' "$EVIDENCE/build/boot.log"; }
+
+# parity_fetch <path> <raw out>: one GET in this run, with its redacted http/ capture; a cut-off response leaves an empty raw.
+parity_fetch() {
+    local out status rc=0
+    out="$(unique_file "$EVIDENCE/http" get.txt)"
+    http_request GET "$1" 0 </dev/null >"$2" 2>"$out.err" || rc=$?
+    status="$(write_http_capture "$2" "$out" GET "$1" 0 '')"
+    cat "$out.err" >>"$out"
+    rm -f "$out.err"
+    note "parity GET $1 -> $status (http/$(basename "$out"))"
+    [ "$rc" -eq 0 ] || : >"$2"
+}
+
+cmd_parity() {
+    local expect=- ignored=() paths=() method path rc=0 raw out compare_rc
+    local field_re='^(\.[A-Za-z_][A-Za-z0-9_-]*|\.?\["[^"]+"\]|\.?\[[0-9]*\])+$'
+    set -- ${ARGS[@]+"${ARGS[@]}"}
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --ignore)
+                [ "$#" -ge 2 ] && [[ "$2" == .* ]] && [[ "$2" =~ $field_re ]] || die 64 "--ignore wants a field path like .data[].title"
+                ignored+=("$2")
+                shift 2
+                ;;
+            --expect)
+                [ "$#" -ge 2 ] && [[ "$2" =~ ^[1-5][0-9][0-9]$ ]] || die 64 "--expect wants a status code"
+                expect="$2"
+                shift 2
+                ;;
+            -*) die 64 "parity: unknown flag: $1" ;;
+            *)
+                method="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
+                [ "$method" = GET ] || die 64 "parity: only GET requests are compared: $1"
+                [ "$#" -ge 2 ] && [[ "$2" == /* ]] || die 64 "parity wants GET <path>, the path starting with /"
+                paths+=("$2")
+                shift 2
+                ;;
+        esac
+    done
+    [ "${#paths[@]}" -ge 1 ] || die 64 "parity wants GET <path> [GET <path>]..."
+    set_evidence "$EVIDENCE_ARG" existing
+    require_head parity
+    [ -n "$(with_base base_sha)" ] || die 75 "parity: no base run is up (run baseline first): $EVIDENCE"
+
+    raw="$(mktemp -d "$STATE/parity.XXXXXX")" || die 1 "cannot write under $STATE"
+    out="$(unique_file "$EVIDENCE/parity" verdict.txt)"
+    for path in "${paths[@]}"; do
+        parity_fetch "$path" "$raw/head"
+        with_base parity_fetch "$path" "$raw/base"
+        compare_rc=0
+        for method in head base; do
+            base64 <"$raw/$method" | tr -d '\n'
+            echo
+        done | dc exec -T app php -d memory_limit=1G -r "$(sed '1d' "$SKILL_DIR/parity.php")" -- \
+            "GET $path" "$expect" ${ignored[@]+"${ignored[@]}"} 2>&1 | tee -a "$out" || compare_rc="${PIPESTATUS[1]}"
+        if [ "$compare_rc" -gt 1 ]; then
+            echo "failure GET $path the comparison did not run" | tee -a "$out"
+        fi
+        [ "$compare_rc" -eq 0 ] || rc=1
+    done
+    rm -rf "$raw"
+    note "parity base=$(with_base state_get sha) ignored=${ignored[*]-} expect=$expect exit=$rc (parity/$(basename "$out"))"
+    return "$rc"
+}
+
 cmd_note() {
     [ "${#ARGS[@]}" -ge 1 ] || die 64 "note wants <text>"
     set_evidence "$EVIDENCE_ARG" existing
@@ -823,7 +1217,7 @@ verb="$1"
 shift
 case "$verb" in
     browser) echo "verify: browser is not supported" >&2; exit 69 ;;
-    up | down | doctor | http | exec | logs | db | test | note) ;;
+    up | down | doctor | http | exec | logs | db | test | baseline | parity | note) ;;
     -h | --help) usage ;;
     *) echo "verify: unknown verb: $verb" >&2; usage ;;
 esac
@@ -848,5 +1242,7 @@ case "$verb" in
     logs) cmd_logs ;;
     db) cmd_db ;;
     test) cmd_test ;;
+    baseline) cmd_baseline ;;
+    parity) cmd_parity ;;
     note) cmd_note ;;
 esac

@@ -5,7 +5,7 @@ description: Verify alz-core's HTTP API end to end in a private, throwaway Compo
 
 # Verify alz-core
 
-One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)), project `alz-verify-<slug>-<hash8>` (the worktree basename plus a hash of its path). It covers the HTTP API only; the dashboard and storefront live in alz-admin. Journeys live in the feature map, [`features/README.md`](features/README.md). Run every verb with cwd = the worktree under test; nothing here runs PHP, Octane or a queue worker on the host.
+One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)), project `alz-verify-<slug>-<hash8>` (the worktree basename plus a hash of its path). A run may hold one base run, built from an ancestor commit, with the same env file (§Base run). It covers the HTTP API only; the dashboard and storefront live in alz-admin. Journeys live in the feature map, [`features/README.md`](features/README.md). Run every verb with cwd = the worktree under test; nothing here runs PHP, Octane or a queue worker on the host.
 
 `up` builds the runtime image from `git archive HEAD`, so uncommitted changes are not in the run: commit first.
 
@@ -21,13 +21,15 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 | Verb | Args | Does |
 |---|---|---|
 | `up` | `[--env-override KEY=VALUE]... [--supabase-url <origin> --supabase-db-url <url>]` | Builds HEAD, boots, migrates and seeds; prints `run_id=`, `base_url=`, `evidence=` |
-| `down` | | Removes the run's containers, volumes, networks and images; checks residue |
+| `down` | | Removes the run's and its base run's containers, volumes, networks and images; checks residue |
 | `doctor` | | Pass/FAIL report under `doctor/` |
 | `http` | `<METHOD> <path> [--data <json>] [--expect <code>]` | One request from inside the app container, as the X-Local-Bypass test user |
 | `exec` | `[<service>] [--] <argv>...` | Runs argv in `app` (default), `worker`, `pgsql` or `redis`; stdin passes through |
 | `logs` | `[<service>]` | Container stdout, then the `<evidence>/logs/<service>/` files |
 | `db` | `<sql>` | Read-only psql as `postgres` in the run's Postgres |
 | `test` | `[--all-groups] <paths>...` | Pest in the test sidecar, excluding CI's groups (`integration`, `seed-command`, `list-parity`) and `repo-static`; `--all-groups` excludes only `repo-static`; `--group` and `--exclude-group` exit 64 |
+| `baseline` | `[--ref <SHA>] [--time-limit <seconds>]` | Boots the base run; prints `baseline.sha=`, `baseline.evidence=`, `baseline.entry=`, `baseline.cwd=` |
+| `parity` | `[--ignore <field path>]... [--expect <code>] GET <path> [GET <path>]...` | Sends each GET to both runs and compares status and body |
 | `note` | `<text>` | Appends a `run-notes.md` line |
 | `browser` | | Not supported: exits 69 |
 
@@ -81,6 +83,35 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 
    Done when: `down` exits 0. Exit 1 with `down FAIL` lines means residue remains: report it, never remove containers by name.
 
+## Base run
+
+`baseline` builds an ancestor commit with `git archive` from this checkout's objects and boots it on its own project, `<project>-base`, with its own Postgres and Redis, the env file the head run recorded and the keys filled or overridden for it. The journey and what a criterion must name: [`features/parity.md`](features/parity.md).
+
+**`baseline`:**
+- Needs `jq` on the host. A first build takes several minutes: run it in the background.
+- `--ref` defaults to HEAD's merge base with the fetched `origin/develop`. HEAD is the commit `up` built.
+- `--time-limit` is the boot's limit in seconds, 1 to 900, by default 900.
+- Its evidence dir is `<evidence>/baseline/`. Drive the base run's other verbs through the printed `baseline.entry`, with `baseline.cwd` as cwd and `baseline.evidence` as evidence.
+- One base run per head run: the live base run's SHA reprints its values.
+
+| Exit | When |
+|---|---|
+| 64 | The ref is HEAD, is not an ancestor of HEAD, or resolves to no commit; or the evidence dir is the base run's |
+| 69 | The run is on a caller-supplied Supabase |
+| 75 | No run is up, or `origin/develop` cannot be fetched |
+| 75 | The base commit has no `Dockerfile.verify`, or no `db:ping` in its `docker-entrypoint.sh` |
+| 75 | The seed code differs between the commits; the message names it |
+| 75 | A base run is up at another SHA, which is left up |
+| 75 | A boot stage (archive, build, boot, migrate, seed) failed, or the time limit expired. The message names the stage and its log, or the limit, and the base run is removed |
+
+**`parity`:**
+- Ignores only the fields the caller passes with `--ignore`; there is no built-in list. A path is like `.data[].title`, `.data[0]` or `.["odd key"]`.
+- Prints `match`, `difference` (with the field path) or `failure` lines. Any line but `match` makes it exit 1.
+- A status of 400 or above fails unless `--expect` names it, and so does any status other than the one `--expect` names.
+- Exits 64 for any method but `GET` and sends nothing, 69 on a caller-supplied Supabase, and 75 with no run or no base run up.
+
+`down` on the head run's evidence dir, or on a new one, removes both runs; on `baseline.evidence` it removes only the base run.
+
 ## Caller-supplied Supabase
 
 For a dependent that boots alz-core beside its own local Supabase, so both share one Postgres and one Auth ([ADR-0020](../../../docs/adr/0020-verify-runs-prod-image-with-test-sidecar.md)):
@@ -121,6 +152,7 @@ Both probes connect to `127.0.0.1` whichever spelling was passed. After the buil
 | `doctor` | Expects the database at `127.0.0.1:<caller db port>`; FAILs on an unhealthy relay |
 | `db` | Read-only `psql` in the relay, against the caller's Postgres |
 | `test` | Exits 69 |
+| `baseline`, `parity` | Exit 69 |
 | `exec`, `logs` | Exit 69 for `pgsql` and `auth-migrate`; accept `relay` |
 | `down` | Removes this run's own resources only; the caller's Supabase keeps running |
 
@@ -132,6 +164,7 @@ The evidence dir survives `down`.
 
 - `run-notes.md`: one `- <ISO-8601> <text>` line per verb call; add your own with `note`.
 - `http/`, `exec/`, `db/`, `test/`, `doctor/`: one `<stamp>-*.txt` capture per call (`test/`: `<stamp>-pest.log`). `http/` captures redact the bypass secret.
+- `parity/`: one `<stamp>-verdict.txt` per `parity` call. `baseline/`: the base run's evidence, laid out like this one.
 - `logs/<service>/`: each PHP service's `storage/logs`, e.g. `logs/app/laravel.log`, `logs/worker/laravel.log`. Also `logs/compose-up.log`, `logs/compose-down.log` and `logs/<stamp>-<service>.txt` from `logs`.
 - `logs/seed/seed.log`: the seed's output, on a caller-supplied Supabase only.
 - `build/` holds the image build logs; `.verify/` the run bookkeeping, where `compose.env` and `run.env` hold run secrets, so quote nothing from them.
