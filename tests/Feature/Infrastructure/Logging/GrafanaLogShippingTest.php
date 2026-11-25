@@ -11,7 +11,8 @@ use Closure;
 use DateTimeImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory;
-use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Http\Request;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
@@ -103,7 +104,7 @@ final class GrafanaLogShippingTest extends TestCase
         $this->flush();
 
         Http::assertSentCount(1);
-        Http::assertSent(static fn(Request $request): bool => $request->method() === 'POST'
+        Http::assertSent(static fn(ClientRequest $request): bool => $request->method() === 'POST'
             && $request->url() === self::URL
             && $request->isJson()
             && $request->header('Authorization') === ['Basic ' . \base64_encode('123:write-key')]
@@ -517,7 +518,7 @@ final class GrafanaLogShippingTest extends TestCase
             'Octane request terminated' => [static fn(Application $app) => new RequestTerminated(
                 $app,
                 $app,
-                \Illuminate\Http\Request::create('/up'),
+                Request::create('/up'),
                 new Response(),
             )],
             'queue worker looping' => [static fn() => new Looping('redis', 'default')],
