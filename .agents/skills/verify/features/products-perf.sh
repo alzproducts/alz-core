@@ -128,6 +128,12 @@ EOF
         echo "bench load FAIL a background writer errored"
         fail=1
     fi
+    local silent
+    silent="$(jq -r '[.writers | to_entries[] | select(.value.writes == 0) | .key] | join(" ")' "$summary")"
+    if [ -n "$silent" ]; then
+        echo "bench load FAIL writers that did not fire: $silent"
+        fail=1
+    fi
     if [ "$(jq '.client_transport_failures // 0' "$summary")" != 0 ]; then
         echo "bench load FAIL saturated: $(jq '.client_transport_failures' "$summary") requests timed out client-side; the server could not keep up with $rate req/s, so the percentiles are not a valid reading"
         fail=1

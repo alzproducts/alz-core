@@ -13,6 +13,7 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Static\Support\GitHooksInstalledCheck;
+use Tests\Unit\Static\Support\VerifyStubRun;
 
 /**
  * `verify up --supabase-url … --supabase-db-url …` refuses a bad caller before any Docker call and prints no credential.
@@ -171,6 +172,27 @@ final class VerifyCallerSupabaseFlagsTest extends TestCase
         $this->assertStringContainsString('docker daemon not reachable', $up->getErrorOutput());
         $this->assertFileExists("{$this->sandbox}/docker-calls");
         \fclose($db);
+    }
+
+    #[Test]
+    public function a_bare_dollar_in_the_main_env_file_does_not_stop_a_run_that_never_loads_it(): void
+    {
+        $run = new VerifyStubRun();
+        [$db, $dbPort] = self::listen('127.0.0.1');
+
+        try {
+            $run->commit();
+            $run->env("FAKE_SECRET=ab\$cd\$\n");
+            $run->knob('fail', 'build');
+            $port = $this->serveIssuer('http://127.0.0.1:%d/auth/v1');
+
+            $run->verify('up', ...self::flags("http://127.0.0.1:{$port}", $dbPort));
+
+            $this->assertStringContainsString(' build app', $run->calls());
+        } finally {
+            \fclose($db);
+            $run->remove();
+        }
     }
 
     private function assertNotReady(Process $up, string $message): void

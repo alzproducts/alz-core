@@ -55,7 +55,7 @@ final readonly class VerifyStubRun
         case "$verb" in
             build)
                 : >"$S/resources/image/${project}__$1"
-                [ "$(knob hang)" = build ] && exec sleep 120
+                [ "$(knob hang)" = build ] && echo $$ >"$S/hung-build" && exec sleep 120
                 [ "$(knob fail)" = build ] && exit 1
                 ;;
             up)
@@ -197,14 +197,50 @@ final readonly class VerifyStubRun
 
     public function verifyOn(string $evidence, string $verb, string ...$arguments): Process
     {
-        $process = new Process(
+        $process = $this->command($evidence, $verb, ...$arguments);
+        $process->run();
+
+        return $process;
+    }
+
+    public function command(string $evidence, string $verb, string ...$arguments): Process
+    {
+        return new Process(
             [\dirname(__DIR__, 4) . '/.agents/skills/verify/verify', $verb, '--evidence', $evidence, ...\array_values($arguments)],
             $this->repo,
             ['PATH' => "{$this->root}/bin:" . \getenv('PATH'), ...GitHooksInstalledCheck::cleanGitEnv()],
         );
-        $process->run();
+    }
 
-        return $process;
+    /**
+     * Starts verify, waits for a build the `hang` knob stopped, then kills the entry point outright and the build after it.
+     */
+    public function killDuringBuild(string $verb): void
+    {
+        $process = $this->command($this->evidence, $verb);
+        $process->start();
+
+        for ($attempt = 0; $attempt < 200 && !\is_file("{$this->root}/hung-build"); ++$attempt) {
+            \usleep(50_000);
+        }
+
+        if (!\is_file("{$this->root}/hung-build")) {
+            $process->stop(0);
+
+            throw new RuntimeException("No build started: {$process->getErrorOutput()}");
+        }
+
+        $process->signal(9);
+        $process->wait();
+        (new Process(['kill', \mb_trim((string) \file_get_contents("{$this->root}/hung-build"))]))->run();
+    }
+
+    /**
+     * Writes the fixture checkout's `.env`, the main env file of a run on it, left uncommitted.
+     */
+    public function env(string $contents): void
+    {
+        \file_put_contents("{$this->repo}/.env", $contents);
     }
 
     /**
