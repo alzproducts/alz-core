@@ -80,6 +80,12 @@
             <file>app/Application/ContactSubmission/Results/SubmitContactFormResult.php</file>
         </exclude>
     </source>
+    <!-- Opt-in: the list-parity group runs only when selected with Pest's group flag. A command-line exclude-group flag replaces this default, so a target passing its own must name list-parity too. -->
+    <groups>
+        <exclude>
+            <group>list-parity</group>
+        </exclude>
+    </groups>
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
