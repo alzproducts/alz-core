@@ -85,8 +85,9 @@ cmd_load() {
     schedule="$(v exec worker -- php "$BENCH" writers)" || die 1 "could not list the background writers"
     while IFS=' ' read -r kind interval delay; do
         [[ "$kind" =~ ^[a-z_]+$ ]] || continue
+        # intentional: exec passes stdin through, so without /dev/null a writer reads the rest of the schedule.
         v exec worker -- php "$BENCH" writer --kind "$kind" --stop-file "$worker_dir/stop" --deadline "$deadline" \
-            --once-offset "$((warmup / rate))" --result "$worker_dir/$kind.json" >"$worker_host/$kind.log" 2>&1 &
+            --once-offset "$((warmup / rate))" --result "$worker_dir/$kind.json" </dev/null >"$worker_host/$kind.log" 2>&1 &
         pids+=("$!")
         kinds+=("$kind")
         v note "bench writer $kind every=$interval first=${delay}s"
