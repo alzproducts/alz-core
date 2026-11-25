@@ -50,7 +50,7 @@ Purchase-order write endpoints (`/api/PurchaseOrder/*`, verified working; code d
 
 | Format | Endpoints |
 |--------|-----------|
-| Form params | `Create_PurchaseOrder_Initial`, `Add_PurchaseOrderItem`, `Change_PurchaseOrderStatus`, `Update_PurchaseOrderHeader`, `Add_PurchaseOrderNote`, `Delete_PurchaseOrder` |
+| Raw form params | `Create_PurchaseOrder_Initial`, `Add_PurchaseOrderItem`, `Change_PurchaseOrderStatus`, `Update_PurchaseOrderHeader`, `Add_PurchaseOrderNote`, `Delete_PurchaseOrder` |
 | JSON wrapper | `Add_PurchaseOrderExtendedProperty`, `Update_PurchaseOrderExtendedProperty`, `Delete_PurchaseOrderExtendedProperty`, `Modify_AdditionalCost` |
 
 **When 400 Bad Request**: Check legacy project for correct format.
