@@ -65,7 +65,10 @@ final readonly class VerifyStubRun
                 [ "$(knob fail)" = up ] && exit 1
                 ;;
             logs) knob seed-log ;;
-            port) echo 127.0.0.1:5000 ;;
+            port)
+                [ "$(knob fail)" = port ] && exit 1
+                echo 127.0.0.1:5000
+                ;;
             exec)
                 shift 2
                 if [ "$1" = php ]; then exec "$@"; fi

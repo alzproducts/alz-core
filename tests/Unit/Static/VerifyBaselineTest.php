@@ -177,6 +177,7 @@ final class VerifyBaselineTest extends TestCase
         yield 'archive' => ['archive', 'build/archive.log', [], ['database/baseline/versions.env' => null]];
         yield 'build' => ['build', 'build/runtime.log', ['fail' => 'build'], []];
         yield 'boot' => ['boot', 'logs/compose-up.log', ['fail' => 'up'], []];
+        yield 'boot, no published port' => ['boot', 'logs/compose-up.log', ['fail' => 'port'], []];
         yield 'migrate, Auth' => ['migrate', 'logs/compose-up.log', ['fail' => 'up', 'state-auth-migrate' => "exited 1\n"], []];
         yield 'migrate, alz-core' => ['migrate', 'logs/seed/seed.log', ['fail' => 'up', 'state-seed' => "exited 1\n", 'seed-log' => "Migrations failed; nothing was seeded.\n"], []];
         yield 'migrate, thrown' => ['migrate', 'logs/seed/seed.log', ['fail' => 'up', 'state-seed' => "exited 1\n", 'seed-log' => "QueryException\n"], []];

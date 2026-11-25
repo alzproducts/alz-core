@@ -743,7 +743,7 @@ http_request() {
     # shellcheck disable=SC2016
     dc exec -T app sh -c '
         has_data="$3"
-        set -- -sS -i -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
+        set -- -sS -i --globoff -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
             -w "\nVERIFY_STATUS=%{http_code}\n" "http://127.0.0.1:8000$2"
         if [ "$has_data" = 1 ]; then exec curl -H "Content-Type: application/json" --data-binary @- "$@"; fi
         exec curl "$@" </dev/null' sh "$1" "$2" "$3"
@@ -1064,7 +1064,8 @@ prepare_base() {
 # finish_base: runs under with_base. base_url marks the base run as up.
 finish_base() {
     local hostport
-    hostport="$(dc port app 8000 | tail -1)"
+    hostport="$(dc port app 8000 | tail -1)" || return 1
+    [ -n "$hostport" ] || return 1
     rm -f "$STATE/stage"
     echo "base_url=http://$hostport" >>"$STATE/state.env"
     note "baseline ready base_url=http://$hostport"
@@ -1184,8 +1185,7 @@ cmd_parity() {
     require_head parity
     [ -n "$(with_base base_sha)" ] || die 75 "parity: no base run is up (run baseline first): $EVIDENCE"
 
-    raw="$STATE/parity"
-    mkdir -p "$raw"
+    raw="$(mktemp -d "$STATE/parity.XXXXXX")" || die 1 "cannot write under $STATE"
     out="$(unique_file "$EVIDENCE/parity" verdict.txt)"
     for path in "${paths[@]}"; do
         parity_fetch "$path" "$raw/head"

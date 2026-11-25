@@ -96,6 +96,8 @@ final class VerifyParityTest extends TestCase
         $parity = $this->run->verify('parity', 'GET', '/x', 'GET', '/y');
 
         $this->assertSame("match GET /x status 200\nmatch GET /y status 200\n", $parity->getOutput());
+        $this->assertStringContainsString('--globoff', $this->run->calls());
+        $this->assertSame([], \glob("{$this->run->evidence}/.verify/parity*"));
         $this->assertCount(2, \glob("{$this->run->evidence}/http/*.txt") ?: []);
         $this->assertCount(2, \glob("{$this->run->evidence}/baseline/http/*.txt") ?: []);
     }
