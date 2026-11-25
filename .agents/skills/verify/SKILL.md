@@ -69,9 +69,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
    - **Tests:**
      - `test` runs in the `Dockerfile.verify` sidecar (runtime plus dev deps and `tests/`), with the stack's DB and Redis keys, a fresh `APP_KEY` and `API_KEY_ENCRYPTION_SECRET` per call, and no env file, so `phpunit.xml`'s defaults apply.
      - `repo-static` tests need `.git` and never run here, with or without `--all-groups`.
-     - By default `test` applies CI's exclusions (`integration`, `seed-command`, `list-parity`); `--all-groups` drops them, leaving only `repo-static` excluded. The `run-notes.md` `test` line shows the flags.
-     - An excluded file passed beside selected ones is omitted silently; when nothing is selected Pest exits 1.
-     - `--group` and `--exclude-group` are refused (exit 64); `--filter` still passes.
+     - The `run-notes.md` `test` line shows the exclusions applied. An excluded file passed beside selected ones is omitted silently; when nothing is selected Pest exits 1. `--filter` still passes.
      - Never use bare Pest or `make test` for verification: they hit the developer's services.
    - **Journeys:**
      - Take ids from a list response, never hard-code them.
