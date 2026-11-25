@@ -306,7 +306,7 @@ final readonly class EloquentContactSubmissionActionRepository implements Contac
                 $model = ContactSubmissionActionModel::query()
                     ->where('contact_submission_id', $submissionId)
                     ->where('action_type', $actionType)
-                    // ADR-0002 priority. `ELSE 5` keeps any future ActionStatus case
+                    // Priority per the interface. `ELSE 5` keeps any future ActionStatus case
                     // deterministically last instead of relying on NULL-ordering.
                     ->orderByRaw("CASE status
                         WHEN 'completed' THEN 1

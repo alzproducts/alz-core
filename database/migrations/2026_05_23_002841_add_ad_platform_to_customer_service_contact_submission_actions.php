@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Tags lead/quote action rows with the ad platform so a single submission can hold
- * one row per platform; the dashboard aggregates them per ADR-0002.
+ * one row per platform; the dashboard aggregates them into one status.
  *
  * Uniqueness uses two partial indexes — Postgres treats NULL as DISTINCT in a
  * regular UNIQUE index, which would let duplicate HelpScout (NULL) rows slip through.
