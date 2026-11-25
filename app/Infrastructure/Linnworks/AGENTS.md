@@ -46,6 +46,13 @@ Linnworks uses inconsistent formats across endpoints:
 | Raw form params | `postFormParams()` | `key=val&arr=["json"]` |
 | JSON body (GET-like reads) | `postJson()` | `Content-Type: application/json` |
 
+Purchase-order write endpoints (`/api/PurchaseOrder/*`, verified working; code deleted as unwired, last present at `a4290b31`):
+
+| Format | Endpoints |
+|--------|-----------|
+| Form params | `Create_PurchaseOrder_Initial`, `Add_PurchaseOrderItem`, `Change_PurchaseOrderStatus`, `Update_PurchaseOrderHeader`, `Add_PurchaseOrderNote`, `Delete_PurchaseOrder` |
+| JSON wrapper | `Add_PurchaseOrderExtendedProperty`, `Update_PurchaseOrderExtendedProperty`, `Delete_PurchaseOrderExtendedProperty`, `Modify_AdditionalCost` |
+
 **When 400 Bad Request**: Check legacy project for correct format.
 
 **Null values**: Linnworks write endpoints (Update/Create) reject `null` in payloads — filter them out with `array_filter`. See `UpdateStockSupplierStatRequest::toArray()` and legacy `AbstractStockItemSupplierStat::extract()`.

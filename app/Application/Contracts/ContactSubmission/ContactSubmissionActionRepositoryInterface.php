@@ -162,8 +162,10 @@ interface ContactSubmissionActionRepositoryInterface
     public function hasCompletedAction(string $submissionId, ActionType $actionType): bool;
 
     /**
-     * Aggregates per-platform rows into one status per ADR-0002 priority:
+     * Aggregates per-platform rows into one status:
      * `completed` > `failed` > `processing` > `pending` > `null` (no rows).
+     * intentional: one platform's success counts as completed, so another
+     * platform's failure never blocks staff.
      *
      * Distinguishes "no row" (`null`) from "exists but not completed" —
      * which {@see hasCompletedAction} cannot.

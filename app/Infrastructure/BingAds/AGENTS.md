@@ -9,7 +9,7 @@ Two SDK packages, two transport classes, one `SessionManager`:
 | Ad-spend reporting | `microsoft/bingads` | `BingAdsTransport` (SOAP) | SOAP |
 | Offline conversions | `microsoft/msads` | `BingAdsConversionTransport` (REST) | REST |
 
-Both transports bridge auth from `BingAdsSessionManager` (OAuth token refresh + Redis caching). See ADR-0003.
+Both transports bridge auth from `BingAdsSessionManager` (OAuth token refresh + Redis caching), because the REST SDK does not refresh tokens itself. Build new Bing calls on the REST SDK; SOAP is deprecated (EOL January 2027).
 
 ## Key Differences from Google Ads
 

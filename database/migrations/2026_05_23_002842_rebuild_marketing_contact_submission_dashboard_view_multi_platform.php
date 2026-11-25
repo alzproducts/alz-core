@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Replaces the lead/quote LEFT JOINs with LATERAL subqueries — multiple action rows
  * per submission (one per ad platform) would multiply dashboard rows on a naive join.
- * The LATERAL collapses them to one status per ADR-0002 priority. HelpScout actions
+ * The LATERAL collapses them to one status. intentional: one platform's success counts
+ * as completed, so another platform's failure never blocks staff. HelpScout actions
  * stay on a direct LEFT JOIN; they aren't platform-scoped.
  *
  * @depends 2026_05_23_002841_add_ad_platform_to_customer_service_contact_submission_actions
