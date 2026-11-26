@@ -252,7 +252,7 @@ A **mapping key** whose row holds a QBO ref for the connected company's realm; a
 _Avoid_: treating "mapped" and "resolved" as different states
 
 **Backfill floor date**:
-The earliest ShopWired order date the sync accepts, at both entry points: a date-range sync may not start before it, and a sync by **reference** rejects any reference whose order was placed before it.
+The earliest ShopWired order date the sync accepts, at both entry points and again when each chunk runs: a date-range sync may not start before it, a sync by **reference** rejects any reference whose order was placed before it, and a chunk records an order placed before it as a failed **order sync** instead of posting it.
 
 **Run labels**:
 The DocNumber prefix (`quickbooks.doc_number_prefix`) and customer-name suffix (`quickbooks.customer_name_suffix`) that keep one verify run's sandbox documents apart from another's; blank by default.
