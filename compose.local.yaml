@@ -1,0 +1,178 @@
+# One local dev stack per worktree, driven by bin/stack. Every ${...} comes from the stack's tmp/stack/compose.env.
+# intentional: the worktree is bind-mounted and its .env loaded, unlike the verify stack (ADR-0020 rejects both for verify only).
+# intentional: environment: holds every stack-owned key, so the stack's own Postgres, Redis and port win over the .env.
+
+x-stack-env: &stack-env
+    DB_CONNECTION: pgsql
+    DB_HOST: pgsql
+    DB_PORT: '5432'
+    DB_DATABASE: postgres
+    DB_USERNAME: postgres
+    DB_PASSWORD: '${STACK_DB_PASSWORD:?}'
+    DB_SSLMODE: disable
+    DB_URL: ''
+    REDIS_HOST: redis
+    REDIS_PORT: '6379'
+    REDIS_PASSWORD: '${STACK_REDIS_PASSWORD:?}'
+    REDIS_URL: ''
+    REDIS_USERNAME: ''
+    APP_ENV: local
+    APP_URL: 'http://127.0.0.1:8000'
+    PORT: '8000'
+    QUEUE_CONNECTION: redis
+    CACHE_STORE: redis
+    LOG_CHANNEL: stack
+    LOG_STACK: 'single,stderr'
+    OCTANE_STATE_FILE: /tmp/octane-server-state.json
+    # intentional: no Supabase in the default mode; X-Local-Bypass authenticates, so this URL only has to refuse.
+    SUPABASE_URL: 'http://127.0.0.1:9'
+    SHOPWIRED_SALE_CATEGORY_ID: '2000000001'
+    # intentional: under the image's /tmp, never the mounted bootstrap/cache, which host make test and make lint read.
+    APP_CONFIG_CACHE: /tmp/laravel-cache/config.php
+    APP_ROUTES_CACHE: /tmp/laravel-cache/routes-v7.php
+    APP_EVENTS_CACHE: /tmp/laravel-cache/events.php
+    APP_SERVICES_CACHE: /tmp/laravel-cache/services.php
+    APP_PACKAGES_CACHE: /tmp/laravel-cache/packages.php
+
+x-env-files: &env-files
+    - path: '${STACK_ENV_FILE:?}'
+      required: false
+    # Fill-if-blank keys bin/stack minted; listed last, so they win over a blank .env value.
+    - path: '${STACK_FILL_ENV:?}'
+      required: true
+
+x-php: &php
+    image: '${STACK_IMAGE:?}'
+    # intentional: skips the runtime entrypoint, whose config:cache and route:cache would hide edits.
+    entrypoint:
+        - /usr/bin/tini
+        - '--'
+    env_file: *env-files
+    environment: *stack-env
+    volumes:
+        - '${STACK_WORKTREE:?}:/var/www/html'
+
+services:
+    pgsql:
+        image: 'supabase/postgres:${SUPABASE_POSTGRES_VERSION:?}'
+        profiles:
+            - own-postgres
+        environment:
+            POSTGRES_PASSWORD: '${STACK_DB_PASSWORD:?}'
+        volumes:
+            - '${STACK_WORKTREE:?}/database/baseline/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro'
+        # intentional: overrides the image's ~20 s healthcheck, which marks a slow first boot unhealthy.
+        healthcheck:
+            test:
+                - CMD
+                - pg_isready
+                - '-U'
+                - postgres
+                - '-h'
+                - localhost
+            start_period: 120s
+            interval: 2s
+            timeout: 5s
+            retries: 30
+
+    auth-migrate:
+        image: 'supabase/auth:${SUPABASE_AUTH_VERSION:?}'
+        profiles:
+            - own-postgres
+        command:
+            - auth
+            - migrate
+        restart: 'no'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        environment:
+            GOTRUE_DB_DRIVER: postgres
+            GOTRUE_DB_DATABASE_URL: 'postgres://supabase_auth_admin:${STACK_DB_PASSWORD:?}@pgsql:5432/postgres'
+            # intentional: migrate signs nothing; Auth refuses to start without a secret.
+            GOTRUE_JWT_SECRET: local-migrate-placeholder-secret-not-used
+            API_EXTERNAL_URL: 'http://localhost:9999'
+            GOTRUE_SITE_URL: 'http://localhost:3000'
+
+    redis:
+        image: 'redis:alpine'
+        command:
+            - redis-server
+            - '--requirepass'
+            - '${STACK_REDIS_PASSWORD:?}'
+        environment:
+            STACK_REDIS_PASSWORD: '${STACK_REDIS_PASSWORD:?}'
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'redis-cli -a "$$STACK_REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG'
+            interval: 2s
+            timeout: 5s
+            retries: 30
+
+    # Migrates (dev:seed-fake runs migrate) and seeds once; app and worker start only after it exits 0.
+    # intentional: Postgres's network namespace, so the seed's loopback-only host guard holds.
+    seed:
+        <<: *php
+        profiles:
+            - own-postgres
+        network_mode: 'service:pgsql'
+        command:
+            - php
+            - artisan
+            - 'dev:seed-fake'
+            - '--no-interaction'
+        restart: 'no'
+        healthcheck:
+            disable: true
+        depends_on:
+            auth-migrate:
+                condition: service_completed_successfully
+            redis:
+                condition: service_healthy
+        environment:
+            <<: *stack-env
+            DB_HOST: 127.0.0.1
+
+    app:
+        <<: *php
+        command:
+            - bash
+            - '-c'
+            - 'exec php artisan octane:start --server=swoole --watch --host=0.0.0.0 --port=8000 > >(tee -a storage/logs/octane.log) 2>&1'
+        depends_on:
+            seed:
+                condition: service_completed_successfully
+            redis:
+                condition: service_healthy
+        ports:
+            - '127.0.0.1:${STACK_PORT:-}:8000'
+        # Keeps the image's own /up check; only the timing is shortened so up --wait returns promptly.
+        healthcheck:
+            interval: 3s
+            start_period: 180s
+            start_interval: 2s
+            retries: 60
+
+    worker:
+        <<: *php
+        command:
+            - php
+            - artisan
+            - 'horizon:listen'
+            - '--environment=local'
+        depends_on:
+            seed:
+                condition: service_completed_successfully
+            redis:
+                condition: service_healthy
+        healthcheck:
+            test:
+                - CMD
+                - php
+                - artisan
+                - 'horizon:status'
+            interval: 3s
+            start_period: 180s
+            start_interval: 2s
+            retries: 60

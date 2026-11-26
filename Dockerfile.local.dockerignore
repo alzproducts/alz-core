@@ -1,0 +1,2 @@
+# Allowlist for Dockerfile.local: nothing from the worktree enters the image; it is bind-mounted at run time.
+*

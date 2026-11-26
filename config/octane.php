@@ -244,6 +244,9 @@ return [
 
     'garbage' => 50,
 
+    // A local stack points this outside the mounted storage/logs, which a host octane:start shares.
+    'state_file' => env('OCTANE_STATE_FILE', storage_path('logs/octane-server-state.json')),
+
     /*
     |--------------------------------------------------------------------------
     | Maximum Execution Time

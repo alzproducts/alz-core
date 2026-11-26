@@ -1,0 +1,35 @@
+# ==============================================================================
+# Local dev layer: the runtime image plus Node, chokidar and live opcache
+# ==============================================================================
+# Built by bin/stack FROM the image it builds from the Dockerfile's runtime
+# stage, so local dev runs the PHP, Swoole and extensions Railway deploys.
+# The worktree is bind-mounted over /var/www/html at run time; nothing from it
+# enters this image (Dockerfile.local.dockerignore).
+# ==============================================================================
+
+ARG RUNTIME_IMAGE
+ARG NODE_IMAGE=node:22.23.5-trixie-slim
+
+FROM ${NODE_IMAGE} AS node
+
+ARG CHOKIDAR_VERSION
+RUN test -n "$CHOKIDAR_VERSION" \
+    && mkdir -p /out \
+    && npm install --prefix /out --no-audit --no-fund --no-save "chokidar@${CHOKIDAR_VERSION}"
+
+FROM ${RUNTIME_IMAGE}
+
+USER root
+
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+# intentional: above the mount, so Node's parent-directory lookup finds it from vendor/laravel/*/bin in a worktree
+# without node_modules; Horizon's explicit NODE_PATH would override an image NODE_PATH.
+COPY --from=node /out/node_modules /var/www/node_modules
+
+# Sorts after opcache-production.ini, so these win: edits reach Octane's reloaded workers and Horizon's restarts.
+RUN printf 'opcache.validate_timestamps=1\nopcache.revalidate_freq=0\n' > /usr/local/etc/php/conf.d/zz-opcache-local.ini \
+    && mkdir -p /tmp/laravel-cache \
+    && chown www-data:www-data /tmp/laravel-cache \
+    && node --version
+
+USER www-data
