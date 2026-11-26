@@ -8,7 +8,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\DryRunOrderDTO;
 use App\Application\QuickBooks\OrderSync\Results\DryRunTotalsResult;
 use App\Application\QuickBooks\OrderSync\UseCases\ReportDryRunTotalsUseCase;
 use App\Domain\Exceptions\DomainException;
-use DateTimeImmutable;
+use App\Presentation\Console\Traits\ParsesDateOptionTrait;
 use Illuminate\Console\Command;
 
 /**
@@ -16,6 +16,8 @@ use Illuminate\Console\Command;
  */
 final class QuickBooksDryRunTotalsCommand extends Command
 {
+    use ParsesDateOptionTrait;
+
     private const string HEADER = 'reference,order_date,expected_total,shopwired_total,difference,result';
 
     protected $signature = 'quickbooks:dry-run-totals
@@ -42,20 +44,6 @@ final class QuickBooksDryRunTotalsCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    private function date(string $option): ?DateTimeImmutable
-    {
-        $value = $this->option($option);
-        if (!\is_string($value) || \preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $parts) !== 1) {
-            return null;
-        }
-
-        [$year, $month, $day] = [(int) $parts[1], (int) $parts[2], (int) $parts[3]];
-
-        return \checkdate($month, $day, $year)
-            ? new DateTimeImmutable('@0')->setDate($year, $month, $day)
-            : null;
     }
 
     private function print(DryRunTotalsResult $report): void
