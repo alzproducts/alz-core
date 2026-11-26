@@ -329,7 +329,16 @@ final class StackScriptTest extends TestCase
         $process = new Process(
             [\dirname(__DIR__, 3) . '/bin/stack', 'up'],
             $this->run->root,
-            ['PATH' => "{$this->run->root}/bin:" . \getenv('PATH'), 'GIT_CEILING_DIRECTORIES' => \dirname($this->run->root)],
+            [
+                'PATH' => "{$this->run->root}/bin:" . \getenv('PATH'),
+                'GIT_CEILING_DIRECTORIES' => \dirname($this->run->root),
+                // intentional: git hooks export these, which would locate the real repo from any cwd.
+                'GIT_DIR' => false,
+                'GIT_WORK_TREE' => false,
+                'GIT_INDEX_FILE' => false,
+                'GIT_COMMON_DIR' => false,
+                'GIT_PREFIX' => false,
+            ],
         );
         $process->run();
 
