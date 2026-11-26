@@ -28,7 +28,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 | `exec` | `[<service>] [--] <argv>...` | Runs argv in `app` (default), `worker`, `pgsql` or `redis`; stdin passes through |
 | `logs` | `[<service>]` | Container stdout, then the `<evidence>/logs/<service>/` files |
 | `db` | `<sql>` | Read-only psql as `postgres` in the run's Postgres |
-| `test` | `[--all-groups] <paths>...` | Pest in the test sidecar, excluding CI's groups (`integration`, `seed-command`, `list-parity`) and `repo-static`; `--all-groups` excludes only `repo-static`; `--group` and `--exclude-group` exit 64 |
+| `test` | `[--all-groups] <paths>...` | Pest in the test sidecar, excluding CI's groups (`integration`, `seed-command`, `list-parity`, `docker`) and `repo-static`; `--all-groups` excludes only `repo-static`; `--group` and `--exclude-group` exit 64 |
 | `baseline` | `[--ref <SHA>] [--time-limit <seconds>]` | Boots the base run; prints `baseline.sha=`, `baseline.evidence=`, `baseline.entry=`, `baseline.cwd=` |
 | `parity` | `[--ignore <field path>]... [--expect <code>] GET <path> [GET <path>]...` | Sends each GET to both runs and compares status and body |
 | `note` | `<text>` | Appends a `run-notes.md` line |
