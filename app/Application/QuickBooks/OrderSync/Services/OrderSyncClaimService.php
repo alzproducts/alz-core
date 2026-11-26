@@ -90,7 +90,7 @@ final readonly class OrderSyncClaimService
 
         $claim = $this->orderSyncs->claim($chunk->realmId, $reference, $row->externalId, $run->claimRules());
         if ($claim !== null) {
-            return new ClaimedOrderDTO($row, $claim);
+            return new ClaimedOrderDTO($row, $claim, $run->isLastAttempt());
         }
 
         // Another worker changed the row between the read and the claim, or a re-attempt refused its unknown outcome.

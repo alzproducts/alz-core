@@ -10,6 +10,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\StructuredAddressDTO;
 use App\Application\QuickBooks\OrderSync\Enums\CustomerFailureKind;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
@@ -220,6 +221,21 @@ final class QuickBooksCustomerProvisionerTest extends TestCase
 
         $this->assertSame(CustomerFailureKind::NameClash, $resolution?->failure);
         $this->assertSame($fault->fault, $resolution?->fault);
+    }
+
+    #[Test]
+    public function a_create_that_failed_with_a_network_error_is_found_by_name_on_the_next_call_and_not_created_again(): void
+    {
+        $this->transport->shouldReceive('query')->twice()->andReturn([], [self::customer('Jo Bloggs', '42')]);
+        $this->transport->shouldReceive('add')->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
+
+        try {
+            $this->provision([self::draft('Jo Bloggs')]);
+            $this->fail('The create did not fail.');
+        } catch (ExternalServiceUnavailableException) {
+        }
+
+        $this->assertSame('42', $this->provision([self::draft('Jo Bloggs')])->forDisplayName('Jo Bloggs')?->match?->id);
     }
 
     #[Test]

@@ -13,6 +13,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\ReadyOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncFailureDTO;
+use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncPostingService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
@@ -88,11 +89,38 @@ final class OrderSyncPostingServiceTest extends TestCase
 
     #[Test]
     #[DataProvider('refusals')]
-    public function a_call_that_sent_nothing_is_not_an_unknown_outcome(Throwable $throw, string $code): void
+    public function a_call_that_sent_nothing_releases_its_orders(Throwable $throw, string $code): void
     {
         $this->posting->shouldReceive('createDocuments')->once()->andThrow($throw);
 
-        self::assertSame([$code, $code], self::summary($this->post([self::ready(1), self::ready(2)])));
+        $outcomes = $this->post([self::ready(1), self::ready(2)]);
+
+        self::assertSame([$code, $code], self::summary($outcomes));
+        self::assertSame([SyncOutcome::NotAttempted, SyncOutcome::NotAttempted], self::outcomeKinds($outcomes));
+    }
+
+    #[Test]
+    public function a_batch_still_rate_limited_releases_its_orders(): void
+    {
+        $this->posting->shouldReceive('createDocuments')->once()
+            ->andReturn([BatchItemOutcomeResult::rateLimited(30), BatchItemOutcomeResult::rateLimited(30)]);
+
+        $outcomes = $this->post([self::ready(1), self::ready(2)]);
+
+        self::assertSame(['qbo_unavailable', 'qbo_unavailable'], self::summary($outcomes));
+        self::assertSame([SyncOutcome::NotAttempted, SyncOutcome::NotAttempted], self::outcomeKinds($outcomes));
+    }
+
+    #[Test]
+    public function a_rate_limited_item_beside_a_created_one_fails(): void
+    {
+        $this->posting->shouldReceive('createDocuments')->once()
+            ->andReturn([BatchItemOutcomeResult::created('txn-1'), BatchItemOutcomeResult::rateLimited(30)]);
+
+        $outcomes = $this->post([self::ready(1), self::ready(2)]);
+
+        self::assertSame(['synced', 'qbo_unavailable'], self::summary($outcomes));
+        self::assertSame([SyncOutcome::Synced, SyncOutcome::Failed], self::outcomeKinds($outcomes));
     }
 
     #[Test]
@@ -168,6 +196,16 @@ final class OrderSyncPostingServiceTest extends TestCase
         );
     }
 
+    /**
+     * @param list<OrderSyncOutcomeDTO> $outcomes
+     *
+     * @return list<SyncOutcome>
+     */
+    private static function outcomeKinds(array $outcomes): array
+    {
+        return \array_map(static fn(OrderSyncOutcomeDTO $outcome): SyncOutcome => $outcome->outcome, $outcomes);
+    }
+
     private static function ready(int $reference): ReadyOrderDTO
     {
         return new ReadyOrderDTO(self::claimed($reference), new PostableDocumentDTO(DocumentDraftFixture::invoice(), DocumentDraftFixture::refs()));
@@ -194,6 +232,7 @@ final class OrderSyncPostingServiceTest extends TestCase
                 lines: [],
             ),
             new OrderSyncClaimDTO("sync-{$reference}", "token-{$reference}", 1, new DateTimeImmutable('2026-11-01 10:05:00+00'), null),
+            false,
         );
     }
 }

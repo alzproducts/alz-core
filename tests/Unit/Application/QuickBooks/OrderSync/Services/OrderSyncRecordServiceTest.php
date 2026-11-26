@@ -148,6 +148,7 @@ final class OrderSyncRecordServiceTest extends TestCase
                 lines: [],
             ),
             new OrderSyncClaimDTO("sync-{$reference}", "token-{$reference}", 1, new DateTimeImmutable('2026-11-01 10:05:00+00'), null),
+            false,
         );
     }
 }

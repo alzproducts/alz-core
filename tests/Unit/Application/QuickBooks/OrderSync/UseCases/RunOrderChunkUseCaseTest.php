@@ -99,6 +99,16 @@ final class RunOrderChunkUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function a_reference_recorded_failed_as_unavailable_is_not_re_attempted(): void
+    {
+        $this->syncReturns(self::results([2 => SyncReasonCode::QboUnavailable]));
+
+        $this->runChunk(self::chunkRun());
+
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
+    #[Test]
     public function references_in_progress_elsewhere_are_not_re_attempted(): void
     {
         $this->syncReturns(self::results([2 => SyncReasonCode::InProgress]));

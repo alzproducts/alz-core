@@ -7,6 +7,7 @@ namespace App\Application\QuickBooks\OrderSync\UseCases;
 use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
+use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
@@ -32,6 +33,8 @@ use Throwable;
  */
 final readonly class RunOrderChunkUseCase
 {
+    private const array REQUEUED = [SyncReasonCode::DeadlineExceeded, SyncReasonCode::QboUnavailable];
+
     public function __construct(
         private QuickBooksRealmInterface $realm,
         private QuickBooksTokenService $tokens,
@@ -62,17 +65,17 @@ final readonly class RunOrderChunkUseCase
         try {
             $accessToken = $this->accessToken();
         } catch (ExternalServiceUnavailableException|LockAcquisitionException $e) {
-            $this->reattempt($run, $run->chunk->references, $e);
+            $this->reattempt($run, $run->chunk->references, [$e::class], $e);
 
             return;
         }
 
         $unfinished = self::unfinished($this->syncChunk->execute($accessToken, $run, $deadline));
         if ($unfinished !== []) {
-            $this->reattempt($run, $unfinished);
+            $this->reattempt($run, \array_keys($unfinished), \array_values(\array_unique($unfinished)));
         }
 
-        $this->logger->info('Ran QuickBooks order chunk', ['run_id' => $run->chunk->runId, 'unfinished' => $unfinished]);
+        $this->logger->info('Ran QuickBooks order chunk', ['run_id' => $run->chunk->runId, 'unfinished' => \array_keys($unfinished)]);
     }
 
     /**
@@ -103,11 +106,14 @@ final readonly class RunOrderChunkUseCase
     }
 
     /**
+     * The last attempt records an unsent order failed itself, so only deadline and token failures are left to throw.
+     *
      * @param non-empty-list<int> $references
+     * @param non-empty-list<string> $causes the reason codes, or the token failure's class
      *
      * @throws OrderChunkUnfinishedException
      */
-    private function reattempt(OrderChunkRunDTO $run, array $references, ?Throwable $cause = null): void
+    private function reattempt(OrderChunkRunDTO $run, array $references, array $causes, ?Throwable $cause = null): void
     {
         if ($run->isLastAttempt()) {
             throw new OrderChunkUnfinishedException($references, $cause);
@@ -117,21 +123,21 @@ final readonly class RunOrderChunkUseCase
         $this->logger->info('Re-attempting QuickBooks order chunk', [
             'run_id' => $run->chunk->runId,
             'references' => $references,
-            'cause' => $cause === null ? SyncReasonCode::DeadlineExceeded->value : $cause::class,
+            'cause' => $causes,
         ]);
     }
 
     /**
      * intentional: an `in_progress` reference is left to the sync that holds its lease.
      *
-     * @return list<int>
+     * @return array<int, string> each released reference's reason code, by reference
      */
     private static function unfinished(OrderSyncResultsResult $results): array
     {
         $unfinished = [];
         foreach ($results->results as $result) {
-            if ($result->reason === SyncReasonCode::DeadlineExceeded) {
-                $unfinished[] = $result->reference;
+            if ($result->outcome === SyncOutcome::NotAttempted && \in_array($result->reason, self::REQUEUED, true)) {
+                $unfinished[$result->reference] = $result->reason->value;
             }
         }
 
