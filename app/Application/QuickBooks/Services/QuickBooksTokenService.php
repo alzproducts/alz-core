@@ -20,6 +20,8 @@ use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksTokenGrant;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 use SensitiveParameter;
 
@@ -32,6 +34,9 @@ final readonly class QuickBooksTokenService
     private const string SERVICE_NAME = 'QuickBooks';
 
     public const int LOCK_TIMEOUT_SECONDS = 20;
+
+    // intentional: mirrors QuickBooksOAuthHttpTransport's timeout, so a refresh started in time also ends in time.
+    private const int REFRESH_CALL_SECONDS = 15;
 
     public function __construct(
         private QuickBooksOAuthClientInterface $oauthClient,
@@ -70,6 +75,35 @@ final readonly class QuickBooksTokenService
     public function accessToken(): ApiKeyToken
     {
         return $this->accessTokens->get() ?? $this->refreshUnderLock(force: false);
+    }
+
+    /**
+     * As accessToken(), but a refresh waits on the lock only while the refresh call can still end before the deadline.
+     *
+     * @throws ExternalServiceUnavailableException when no refresh can end before the deadline
+     * @throws LockAcquisitionException
+     * @throws AuthenticationExpiredException     when there is no connection or Intuit rejects it
+     * @throws InvalidApiResponseException
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws CorruptApiKeyException
+     * @throws KeyEncryptionFailedException
+     */
+    public function accessTokenBy(Deadline $deadline): ApiKeyToken
+    {
+        $cached = $this->accessTokens->get();
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $lockSeconds = (int) \floor($deadline->secondsLeft(new DateTimeImmutable()) - self::REFRESH_CALL_SECONDS);
+        if ($lockSeconds < 1) {
+            $this->logger->error('QuickBooks token refresh cannot end before the deadline');
+
+            throw new ExternalServiceUnavailableException(self::SERVICE_NAME);
+        }
+
+        return $this->refreshUnderLock(force: false, lockSeconds: \min($lockSeconds, self::LOCK_TIMEOUT_SECONDS));
     }
 
     /**
@@ -131,11 +165,11 @@ final readonly class QuickBooksTokenService
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    private function refreshUnderLock(bool $force): ApiKeyToken
+    private function refreshUnderLock(bool $force, int $lockSeconds = self::LOCK_TIMEOUT_SECONDS): ApiKeyToken
     {
         return $this->lockManager->withLock(
             LockName::QuickBooksTokenRefresh->value,
-            self::LOCK_TIMEOUT_SECONDS,
+            $lockSeconds,
             function () use ($force): ApiKeyToken {
                 // intentional: a contender that waited on the lock uses the token the holder just cached.
                 $cached = $force ? null : $this->accessTokens->get();

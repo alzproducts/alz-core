@@ -77,7 +77,7 @@ final class MappingUseCasesTest extends TestCase
         $active = new MappingCandidateDTO('2', 'Web', true);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingKey::SalesClass->entity())
+            ->with(Mockery::type(ApiKeyToken::class), MappingKey::SalesClass->entity(), null)
             ->andReturn([new MappingCandidateDTO('1', 'Old', false), $active]);
 
         $useCase = new ListMappingCandidatesUseCase($this->candidates(), new NullLogger());

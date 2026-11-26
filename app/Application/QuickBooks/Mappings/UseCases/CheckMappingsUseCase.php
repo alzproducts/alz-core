@@ -23,6 +23,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -49,11 +50,11 @@ final readonly class CheckMappingsUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function execute(): MappingCheckResult
+    public function execute(?Deadline $deadline = null): MappingCheckResult
     {
         $this->logger->info('Checking QuickBooks mappings');
         $unresolved = $this->mappings->unresolvedKeys($this->realm->realmId());
-        $findings = $this->findings($unresolved, $this->rowsByKey());
+        $findings = $this->findings($unresolved, $this->rowsByKey(), $deadline);
         $this->logger->info('Checked QuickBooks mappings', ['findings' => \count($findings)]);
 
         return new MappingCheckResult($findings);
@@ -76,7 +77,7 @@ final readonly class CheckMappingsUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    private function findings(array $unresolved, array $rows): array
+    private function findings(array $unresolved, array $rows, ?Deadline $deadline): array
     {
         $findings = [];
         $candidates = [];
@@ -89,7 +90,7 @@ final readonly class CheckMappingsUseCase
             }
 
             $entity = $key->entity();
-            $candidates[$entity->value] ??= $this->candidates->candidates($entity);
+            $candidates[$entity->value] ??= $this->candidates->candidates($entity, $deadline);
             $findings = [...$findings, ...self::compare($row, $candidates[$entity->value])];
         }
 

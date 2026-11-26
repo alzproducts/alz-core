@@ -18,6 +18,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 
 final readonly class MappingCandidateService
 {
@@ -27,6 +28,8 @@ final readonly class MappingCandidateService
     ) {}
 
     /**
+     * @param Deadline|null $deadline bounds the token wait and every QuickBooks call; null keeps each call's own limit
+     *
      * @return list<MappingCandidateDTO> active and inactive
      *
      * @throws AuthenticationExpiredException
@@ -40,12 +43,12 @@ final readonly class MappingCandidateService
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function candidates(MappingEntity $entity): array
+    public function candidates(MappingEntity $entity, ?Deadline $deadline = null): array
     {
-        $accessToken = $this->tokens->accessToken();
+        $accessToken = $deadline === null ? $this->tokens->accessToken() : $this->tokens->accessTokenBy($deadline);
 
         try {
-            return $this->candidates->candidates($accessToken, $entity);
+            return $this->candidates->candidates($accessToken, $entity, $deadline);
         } catch (AuthenticationExpiredException $e) {
             $this->tokens->forgetAccessToken();
 

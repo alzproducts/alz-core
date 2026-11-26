@@ -151,7 +151,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->clearRow(MappingKey::SalesClass);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Department)
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Department, null)
             ->andReturn([new MappingCandidateDTO('9', 'Other', true)]);
 
         $this->resolve(['--key' => 'department'])
@@ -187,7 +187,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->clearRow(MappingKey::DepositAccountPayPal);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Account)
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Account, null)
             ->andReturn([
                 new MappingCandidateDTO('35', 'Cash:PayPal', true, 'Bank'),
                 new MappingCandidateDTO('36', 'Sales', true, 'Income'),

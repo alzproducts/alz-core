@@ -47,7 +47,7 @@ final class MappingCandidateServiceTest extends TestCase
         $candidate = new MappingCandidateDTO('1', 'Net 30', true);
         $this->tokens->shouldReceive('accessToken')->twice()->andReturn($this->accessToken);
         $this->tokens->shouldNotReceive('forgetAccessToken');
-        $this->adapter->shouldReceive('candidates')->twice()->with($this->accessToken, MappingEntity::Term)->andReturn([$candidate]);
+        $this->adapter->shouldReceive('candidates')->twice()->with($this->accessToken, MappingEntity::Term, null)->andReturn([$candidate]);
 
         $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));
         $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));

@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 use Throwable;
 
 /**
- * The 412 preconditions of the order-sync routes only: the same exceptions keep their
+ * The 412 preconditions of the order-sync and mapping routes only: the same exceptions keep their
  * InternalApiExceptionMapper status on every other route.
  *
  * Two 412s share a status and differ by `errors.missing_mapping_keys`: absent means QuickBooks is not connected
@@ -39,7 +39,7 @@ final class QuickBooksOrderSyncExceptionMapper
 
     public static function render(Throwable $e, Request $request): ?JsonResponse
     {
-        if (!$request->routeIs('quickbooks.orders.*')) {
+        if (!$request->routeIs('quickbooks.orders.*', 'quickbooks.mappings.*')) {
             return null;
         }
 
