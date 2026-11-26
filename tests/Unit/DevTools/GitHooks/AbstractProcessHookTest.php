@@ -12,6 +12,7 @@ use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 #[CoversClass(AbstractProcessHook::class)]
@@ -43,7 +44,8 @@ final class AbstractProcessHookTest extends TestCase
     {
         // Three levels, like make -> pest -> worker. The deepest one ignores SIGTERM.
         $worker = "trap '' TERM; echo \$\$ > {$this->pidFile}; exec sleep 30";
-        $hook = $this->hook(['sh', '-c', 'sh -c "sh -c \"$0\" & wait" & wait', $worker], timeout: 3, command: $this->command());
+        // intentional: single quotes pass $worker down unexpanded, so $$ is expanded only by the shell that runs it.
+        $hook = $this->hook(['sh', '-c', 'sh -c \'sh -c "$0" & wait\' "$0" & wait', $worker], timeout: 3, command: $this->command());
 
         try {
             $hook->handle(new Log(''), static fn(): null => null);
@@ -143,17 +145,33 @@ final class AbstractProcessHookTest extends TestCase
     }
 
     /**
-     * A killed process stays signallable until init reaps it, so allow a moment for that.
+     * A zombie still answers posix_kill($pid, 0), and in a container where the test runner is PID 1 nothing reaps it.
      */
     private function exits(int $pid): bool
     {
         for ($attempt = 0; $attempt < 100; ++$attempt) {
-            if (! \posix_kill($pid, 0)) {
+            $state = $this->stateOf($pid);
+            if ($state === null || \str_starts_with($state, 'Z')) {
                 return true;
             }
             \usleep(10_000);
         }
 
         return false;
+    }
+
+    private function stateOf(int $pid): ?string
+    {
+        $listing = new Process(['ps', '-A', '-o', 'pid=,stat=']);
+        $listing->mustRun();
+
+        \preg_match_all('/^\s*(\d+)\s+(\S+)/m', $listing->getOutput(), $rows, \PREG_SET_ORDER);
+        foreach ($rows as [, $listedPid, $state]) {
+            if ((int) $listedPid === $pid) {
+                return $state;
+            }
+        }
+
+        return null;
     }
 }
