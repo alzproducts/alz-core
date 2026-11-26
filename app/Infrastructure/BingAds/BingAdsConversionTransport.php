@@ -26,7 +26,7 @@ use Microsoft\MsAds\Rest\Model\CampaignManagementService\BatchError;
  * Transport layer for Bing Ads REST SDK (offline conversions).
  *
  * Wraps the REST SDK's CampaignManagementServiceApi and handles all exception
- * translation. Auth is bridged from {@see BingAdsSessionManager} per ADR-0003.
+ * translation. Auth is bridged from {@see BingAdsSessionManager}.
  */
 final readonly class BingAdsConversionTransport
 {

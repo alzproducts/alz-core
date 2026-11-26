@@ -20,9 +20,15 @@ use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
+use Illuminate\Log\Logger;
+use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Events\LongWaitDetected;
+use Laravel\Octane\Events\RequestTerminated;
+use Monolog\ResettableInterface;
 
 /**
  * Centralised event → listener wiring.
@@ -37,6 +43,7 @@ final class EventServiceProvider extends ServiceProvider
     {
         $this->registerDomainEventListeners();
         $this->registerAlertListeners();
+        $this->registerLogFlushListeners();
     }
 
     private function registerDomainEventListeners(): void
@@ -54,5 +61,18 @@ final class EventServiceProvider extends ServiceProvider
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
         Event::listen(ManagerAlertEvent::class, ManagerAlertSlackListener::class);
         Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
+    }
+
+    private function registerLogFlushListeners(): void
+    {
+        // intentional: returns nothing; false from a Looping listener stops the worker taking jobs.
+        Event::listen([RequestTerminated::class, Looping::class, WorkerStopping::class], static function (): void {
+            $channel = Log::getChannels()['grafana'] ?? null;
+            $monolog = $channel instanceof Logger ? $channel->getLogger() : null;
+
+            if ($monolog instanceof ResettableInterface) {
+                $monolog->reset();
+            }
+        });
     }
 }

@@ -23,3 +23,4 @@ Each feature file has an H1 title, one paragraph on the user-visible behaviour, 
 - [Categories](./categories.md): category list and category detail reads.
 - [Contact and lead](./contact-lead.md): contact submission and lead conversion against the integration stand-ins.
 - [Products performance](./products-perf.md): product-list p99 under write load, and writer timings against a baseline commit.
+- [Response parity](./parity.md): a change's responses match those of the commit it was built on.

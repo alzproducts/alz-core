@@ -94,6 +94,36 @@ final class SupabaseImagePinTest extends TestCase
         );
     }
 
+    /**
+     * @return iterable<string, array{string, string, list<string>}>
+     */
+    public static function verifyConsumers(): iterable
+    {
+        yield 'verify' => [
+            '.agents/skills/verify/verify',
+            "PG_VERSION=1\nAUTH_VERSION=1\nSOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'\n",
+            ['s/^SUPABASE_POSTGRES_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_AUTH_VERSION=//p\' "$src/database/baseline/versions.env'],
+        ];
+        yield 'compose.yaml' => [
+            '.agents/skills/verify/compose.yaml',
+            "FROM supabase/postgres:latest\nimage: supabase/auth:latest\n",
+            ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
+        ];
+    }
+
+    /**
+     * @param list<string> $needles
+     */
+    #[Test]
+    #[DataProvider('verifyConsumers')]
+    public function a_verify_file_that_stops_reading_the_pin_fails_the_check(string $path, string $contents, array $needles): void
+    {
+        $this->assertSame(
+            \array_map(static fn(string $needle): string => "{$path} does not read the pin: {$needle}", $needles),
+            self::check([$path => $contents]),
+        );
+    }
+
     #[Test]
     public function a_consumer_missing_from_the_listing_fails_the_check(): void
     {
@@ -143,6 +173,8 @@ final class SupabaseImagePinTest extends TestCase
             '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\n",
             'database/baseline/compose.yaml' => "image: supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
             'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\n",
+            '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
+            '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
         ];
     }
 }

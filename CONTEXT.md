@@ -117,6 +117,10 @@ _Avoid_: "Supabase stack", which names the full Supabase CLI stack in local deve
 An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, or a Supabase role).
 _Avoid_: "stand-in", which names the integration class of ADR-0015.
 
+**Response parity**:
+A PR's head and its merge base answering the same GET requests identically, on the same seed, setup and persona, in every field the criterion does not name as ignored.
+_Avoid_: "matches the capture", which names a reference the PR's author made.
+
 ## Relationships
 
 - A **drift query** computes a target **margin tier** per eligible product and returns only those whose current label differs from the target
@@ -231,6 +235,10 @@ _Avoid_: sync job, sync run (a run is one trigger that processes many order sync
 **Sync outcome**:
 What one trigger did for one **reference**: `synced`, `already_synced`, `skipped`, `failed` or `not_attempted`.
 _Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_attempted` are outcomes only)
+
+**Retry mark**:
+A time-limited mark on a failed **order sync** that a forced retry is queued for, hiding it from the failed list until the retry ends or the mark expires.
+_Avoid_: retrying status (the row's status stays `failed`)
 
 **Changed after sync**:
 A warning on a posted **order sync** whose reference now has a different live ShopWired `external_id`.

@@ -214,7 +214,7 @@ flowchart LR
     QUC -->|"DocNumber, item and customer queries, customer creates, batch create"| QBO["QuickBooks Online"]
 ```
 
-Staff post ShopWired orders to QuickBooks Online by date range or by order reference; each reference's recorded post is never repeated within a QuickBooks company (an unrecorded post is the known exception), and failures land in a failed list for retry. When a run stops before its batch create, the orders it had not settled are released. The flow, the claim-call-record steps, the failure path and the parity table against the replaced Zapier flow are in [QuickBooks Order Sync](architecture/quickbooks-order-sync.md).
+Staff post ShopWired orders to QuickBooks Online by date range or by order reference; each reference's recorded post is never repeated within a QuickBooks company (an unrecorded post is the known exception), and failures land in a failed list for retry. When a run stops before its batch create, the orders it had not settled are released. The flow, the claim-call-record steps and the failure path are in the code under `app/Application/QuickBooks/OrderSync/`; the parity table against the replaced Zapier flow is in [QuickBooks Order Sync](architecture/quickbooks-order-sync.md), deleted after the production cutover.
 
 ---
 

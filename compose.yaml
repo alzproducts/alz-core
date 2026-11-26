@@ -5,6 +5,7 @@ name: alz-core
 services:
     redis:
         image: 'redis:alpine'
+        restart: unless-stopped
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'
         volumes:

@@ -27,13 +27,13 @@ Preconditions:
   - Every writer in `products-perf.php writers` runs in the worker container on its production-shaped schedule; the once-a-day writers fire after warm-up.
   - Latency is server-side: nearest-rank percentiles of the `/api/products` lines the app container's stdout gained during the measured window.
   - Prints `p50_ms= p95_ms= p99_ms= max_ms=`, request and status counts, one `writer` line per writer, and `result=<evidence>/bench/load-<stamp>.json`.
-  - Exit 1 when a writer errored, the server logged a non-200, the server line count differs from `--requests`, or any request timed out client-side (`FAIL saturated`).
+  - Exit 1 when a writer errored or made no write (a run too short for its schedule), the server logged a non-200, the server line count differs from `--requests`, or any request timed out client-side (`FAIL saturated`).
 - **Reading a load run.** `FAIL saturated` means the commit cannot serve `--rate` on this machine: report it as that, never the percentiles printed beside it, which mix in backlog lines from earlier requests.
 - **Load run length.** About `(warmup + requests) / rate` seconds, ~18 min at the defaults: run it in the background.
 - **Writer timing.** `.agents/skills/verify/features/products-perf.sh writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
   - Prints `<writer> median_ms= runs_ms=` and `result=<evidence>/bench/writers-<stamp>.json`; with `--baseline`, also `<writer> ratio=<head/base> head_median_ms= base_median_ms=` against that dir's latest `bench/writers-*.json`.
-- **Baseline at an earlier commit.** The base commit must contain f20d5c74 (it adds `Dockerfile.verify`) and the repository methods `products-perf.php` calls; an older base fails `up` at the test-image build.
+- **Baseline at an earlier commit.** f1bfc5aa (it adds `db:ping` to `docker-entrypoint.sh`) is the earliest base commit a baseline run supports; `up` on an older one exits 75. The base must also have the repository methods `products-perf.php` calls.
   1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base).
   2. With cwd = that worktree, run this worktree's `verify` and `products-perf.sh` by absolute path: `up --evidence <base dir>`, `writers --evidence <base dir>`, `down --evidence <base dir>`.
   3. With cwd = the head worktree: `up --evidence <head dir>`, `writers --evidence <head dir> --baseline <base dir>`, `down --evidence <head dir>`.

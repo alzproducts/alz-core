@@ -26,6 +26,11 @@ final class SupabaseImagePinCheck
         '.github/workflows/ci.yml' => [self::PIN_FILE, 'SUPABASE_POSTGRES_VERSION', 'SUPABASE_AUTH_VERSION'],
         'database/baseline/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
         'Dockerfile.dev' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION}', 'supabase/auth:${SUPABASE_AUTH_VERSION}'],
+        '.agents/skills/verify/verify' => [
+            's/^SUPABASE_POSTGRES_VERSION=//p\' "$src/' . self::PIN_FILE,
+            's/^SUPABASE_AUTH_VERSION=//p\' "$src/' . self::PIN_FILE,
+        ],
+        '.agents/skills/verify/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
     ];
 
     /**

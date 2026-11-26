@@ -42,6 +42,31 @@ final class OrderSliceRowsTest extends TestCase
     }
 
     #[Test]
+    public function every_order_reference_is_a_4_digit_integer(): void
+    {
+        foreach (self::synthetic()->rows(OrderSliceTables::ORDERS) as $order) {
+            $this->assertIsInt($order['reference']);
+            $this->assertGreaterThanOrEqual(1_000, $order['reference']);
+            $this->assertLessThanOrEqual(9_999, $order['reference']);
+        }
+    }
+
+    #[Test]
+    public function no_two_orders_share_a_reference_except_an_edited_order_and_its_superseded_version(): void
+    {
+        $rows = self::synthetic()->rows(OrderSliceTables::ORDERS);
+        $editedReferences = \array_values(\array_map(
+            static fn($order): int => $order->order->reference,
+            \array_filter(EdgeCaseOrders::all(), static fn($order): bool => $order->superseded !== null),
+        ));
+        $counts = \array_count_values(\array_map('intval', \array_column($rows, 'reference')));
+        $shared = \array_keys(\array_filter($counts, static fn(int $count): bool => $count > 1));
+
+        $this->assertSame($editedReferences, $shared);
+        $this->assertSame([2], \array_values(\array_unique(\array_intersect_key($counts, \array_flip($shared)))));
+    }
+
+    #[Test]
     public function every_order_is_placed_in_october_2026_london_time(): void
     {
         foreach (self::synthetic()->rows(OrderSliceTables::ORDERS) as $order) {

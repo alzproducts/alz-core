@@ -18,7 +18,7 @@ Behind that sit 12 third-party integrations, 80+ queued jobs, and 60+ scheduled 
 
 - [`docs/guides/local-setup.md`](docs/guides/local-setup.md) for the first-time local set-up, from a fresh clone to a passing `make test`.
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) for system topology, deployment, and end-to-end data flows.
-- [`docs/adr/`](docs/adr/) for the eleven architectural decision records.
+- [`docs/adr/`](docs/adr/) for the architectural decision records.
 - [`tests/TestingStrategy.md`](tests/TestingStrategy.md) for what is tested at each layer, and what is deliberately not.
 
 ### Code
@@ -38,7 +38,7 @@ Centralises data from a dozen external platforms, each with its own data model, 
 
 - **Three tiers of sync.** ShopWired webhooks trigger a re-fetch of the full entity. Cursor-based incremental syncs run every one to five minutes for orders and stock. Hourly through monthly catch-up jobs use overlapping lookback windows.
 - **Freshness under finite rate limits.** 60+ scheduled tasks compete for the same API budgets. Per-service rate limiters tuned to each API, five priority queues across four Horizon supervisor tiers, and skip closures that hold quick syncs back during full-sync windows keep the fast paths fast.
-- **Self-healing by design.** A missed webhook is caught by the next incremental sync rather than the next scheduled sweep. Drift syncs compare SQL views against the catalog and correct any divergence ([ADR 0007](docs/adr/0007-drift-syncs-share-template-method-base.md)).
+- **Self-healing by design.** A missed webhook is caught by the next incremental sync rather than the next scheduled sweep. Drift syncs compare SQL views against the catalog and correct any divergence.
 - **Failure handling.** Transient API failures retry with backoff and honour Retry-After; permanent failures fail immediately. A per-service circuit breaker pauses that service's jobs after repeated transient failures. Three quarters of jobs are `ShouldBeUnique`.
 - **Scale.** A Linnworks backfill of 115k+ orders ran for 12+ hours. The bottleneck was database latency, not API limits.
 
@@ -143,7 +143,7 @@ Caching is used only where an external contract requires it:
 - **Alert throttling**, which suppresses repeat error notifications.
 - **ClickUp user identity lookups**, a small performance cache.
 
-See [ADR 0005](docs/adr/0005-two-tier-cache-abstractions.md) for the cache abstractions and [ADR 0011](docs/adr/0011-no-general-cache-in-front-of-synced-data.md) for why nothing sits in front of synced data.
+See `ResilientCacheInterface` and `LockableCacheInterface` for the cache abstractions and [ADR 0011](docs/adr/0011-no-general-cache-in-front-of-synced-data.md) for why nothing sits in front of synced data.
 
 Would revisit if read latency on synced tables became a measurable constraint.
 

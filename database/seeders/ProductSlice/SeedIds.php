@@ -38,7 +38,15 @@ final class SeedIds
 
     public const int ORDER_BASE = 2_080_000_000;
 
-    public const int ORDER_REFERENCE_BASE = 2_090_000_000;
+    /**
+     * Order references sit outside the reserved range, as 4-digit integers: the alz-admin QuickBooks sync page
+     * accepts at most 8 characters, so a 10-digit seeded reference could not be typed into it. A real reference
+     * starts with A and is longer than 4 digits, so a seeded one never matches a real one. A reference is the base
+     * plus the order's slot, so the bounds hold while the slots stay below ORDER_REFERENCE_MAX - ORDER_REFERENCE_BASE.
+     */
+    public const int ORDER_REFERENCE_BASE = 1_000;
+
+    public const int ORDER_REFERENCE_MAX = 9_999;
 
     public const int ORDER_LINE_BASE = 2_100_000_000;
 

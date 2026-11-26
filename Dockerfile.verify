@@ -24,3 +24,6 @@ RUN composer install \
         --prefer-dist \
     && rm -rf /tmp/composer \
     && rm -f bootstrap/cache/*.php
+
+# intentional: empty, so BypassFinals' stream wrapper can open it and no value reaches the sidecar.
+RUN touch .env

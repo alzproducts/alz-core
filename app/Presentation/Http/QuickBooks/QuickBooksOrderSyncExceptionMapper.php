@@ -17,6 +17,11 @@ use Throwable;
 /**
  * The 412 preconditions of the order-sync routes only: the same exceptions keep their
  * InternalApiExceptionMapper status on every other route.
+ *
+ * Two 412s share a status and differ by `errors.missing_mapping_keys`: absent means QuickBooks is not connected
+ * (no connection, blank credentials or a revoked grant), present means a seeded mapping key has no mapping.
+ * The generic 503 (transient failure or lock) does not reveal its cause, so a client must not infer one; a 502 is
+ * a permanent QuickBooks failure that a retry will not clear.
  */
 final class QuickBooksOrderSyncExceptionMapper
 {
