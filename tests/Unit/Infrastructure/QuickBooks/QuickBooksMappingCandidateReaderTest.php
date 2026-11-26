@@ -10,6 +10,8 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use Mockery;
@@ -195,6 +197,17 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
         $this->expectException(ExternalServiceUnavailableException::class);
 
         $this->candidates(MappingEntity::Account);
+    }
+
+    #[Test]
+    public function a_candidate_read_is_sent_as_a_mapping_candidates_call_with_a_15_second_curl_timeout(): void
+    {
+        $this->transport->shouldReceive('query')->once()
+            ->with(Mockery::any(), Mockery::any(), Mockery::on(static fn(QuickBooksCallSpec $spec): bool => $spec->call === QuickBooksCall::MappingCandidates))
+            ->andReturn([]);
+
+        $this->assertSame([], $this->candidates(MappingEntity::Term));
+        $this->assertSame(15, QuickBooksCall::MappingCandidates->timeoutSeconds());
     }
 
     /**

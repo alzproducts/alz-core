@@ -30,7 +30,8 @@ use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksInvoiceMapper;
 use App\Infrastructure\QuickBooks\Mappers\QuickBooksSalesReceiptMapper;
-use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
 use App\Infrastructure\QuickBooks\QuickBooksDocumentBatchCreator;
 use App\Infrastructure\QuickBooks\QuickBooksFaultMapper;
@@ -175,8 +176,8 @@ final class QuickBooksSandboxBatchTest extends TestCase
         self::assertArrayNotHasKey(BatchOutcomeKind::Faulted->value, $counts, 'OVERTURN: QBO caps a batch below its documented maximum');
 
         // intentional: a curl timeout leaves every item ambiguous, which says nothing about QBO's cap
-        if ($counts === [BatchOutcomeKind::Ambiguous->value => self::QBO_BATCH_MAXIMUM] && $seconds >= QuickBooksCurlHttpClient::TIMEOUT_SECONDS) {
-            self::markTestIncomplete(\sprintf('LATENCY, not an overturn: the %d-item batch took %.2f s, at or past the %d s curl timeout', self::QBO_BATCH_MAXIMUM, $seconds, QuickBooksCurlHttpClient::TIMEOUT_SECONDS));
+        if ($counts === [BatchOutcomeKind::Ambiguous->value => self::QBO_BATCH_MAXIMUM] && $seconds >= QuickBooksCall::BatchCreate->timeoutSeconds()) {
+            self::markTestIncomplete(\sprintf('LATENCY, not an overturn: the %d-item batch took %.2f s, at or past the %d s curl timeout', self::QBO_BATCH_MAXIMUM, $seconds, QuickBooksCall::BatchCreate->timeoutSeconds()));
         }
 
         self::assertSame([BatchOutcomeKind::Created->value => self::QBO_BATCH_MAXIMUM], $counts, 'QBO did not create every item of its documented batch maximum');
@@ -195,7 +196,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
         $started = \hrtime(true);
         for ($i = 0; $i < self::RATE_PROBE_CALLS; ++$i) {
             $entity->DocNumber = self::docNumber();
-            $session = $factory->create($this->accessToken);
+            $session = $factory->create($this->accessToken, QuickBooksCall::BatchCreate->timeoutSeconds());
             $batch = $session->dataService->CreateNewBatch();
             $batch->AddEntity($entity, '1', 'create');
             $batch->Execute();
@@ -260,7 +261,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
         $entity->sparse = 'true';
 
         // intentional: raw SDK, as the transport has no void
-        $dataService = $this->app->make(QuickBooksDataServiceFactory::class)->create($this->accessToken)->dataService;
+        $dataService = $this->app->make(QuickBooksDataServiceFactory::class)->create($this->accessToken, QuickBooksCall::Other->timeoutSeconds())->dataService;
         $dataService->Void($entity);
         self::assertNull(QuickBooksFaultMapper::faultOrNull($dataService->getLastError()), "QBO refused to void the {$name}");
 
@@ -340,8 +341,8 @@ final class QuickBooksSandboxBatchTest extends TestCase
         }
 
         $item = $this->first("SELECT * FROM Item WHERE Type IN ('Service', 'NonInventory') AND Active = true MAXRESULTS 1");
-        $taxCodes = $this->transport->query($this->accessToken, 'SELECT * FROM TaxCode WHERE Active = true MAXRESULTS 100', self::deadline());
-        $customFields = self::enabledCustomFieldIds($this->transport->query($this->accessToken, 'SELECT * FROM Preferences', self::deadline()));
+        $taxCodes = $this->transport->query($this->accessToken, 'SELECT * FROM TaxCode WHERE Active = true MAXRESULTS 100', self::call());
+        $customFields = self::enabledCustomFieldIds($this->transport->query($this->accessToken, 'SELECT * FROM Preferences', self::call()));
 
         $refs = [
             'customer' => self::id($this->first('SELECT * FROM Customer WHERE Active = true MAXRESULTS 1')),
@@ -382,7 +383,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
 
     private function first(string $query): ?object
     {
-        $rows = $this->transport->query($this->accessToken, $query, self::deadline());
+        $rows = $this->transport->query($this->accessToken, $query, self::call());
         $row = $rows[0] ?? null;
 
         return \is_object($row) ? $row : null;
@@ -521,5 +522,10 @@ final class QuickBooksSandboxBatchTest extends TestCase
     private static function deadline(): Deadline
     {
         return Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS);
+    }
+
+    private static function call(): QuickBooksCallSpec
+    {
+        return new QuickBooksCallSpec(QuickBooksCall::Other, self::deadline());
     }
 }

@@ -12,6 +12,8 @@ use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
@@ -35,6 +37,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
@@ -136,7 +139,7 @@ final class QuickBooksTransportTest extends TestCase
         $dataService->shouldReceive('getCompanyInfo')->once()->andThrow($thrown);
 
         try {
-            $this->transport([new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient())])->companyInfo(self::token());
+            $this->transport([new QuickBooksDataServiceSession($dataService, new QuickBooksCurlHttpClient(15))])->companyInfo(self::token());
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertNull($e->getPrevious());
@@ -173,14 +176,76 @@ final class QuickBooksTransportTest extends TestCase
         $this->assertStringNotContainsString(self::SENTINEL, \json_encode($logger->records, \JSON_THROW_ON_ERROR));
     }
 
+    /**
+     * @return iterable<string, array{QuickBooksCall, 'query'|'add'}>
+     */
+    public static function orderChunkCalls(): iterable
+    {
+        yield 'document lookup' => [QuickBooksCall::DocumentLookup, 'query'];
+        yield 'item lookup' => [QuickBooksCall::ItemLookup, 'query'];
+        yield 'customer lookup' => [QuickBooksCall::CustomerLookup, 'query'];
+        yield 'customer create' => [QuickBooksCall::CustomerCreate, 'add'];
+    }
+
+    /**
+     * @return iterable<string, array{QuickBooksCall, 'query'|'add'}>
+     */
+    public static function otherCalls(): iterable
+    {
+        foreach ([QuickBooksCall::MappingCandidates, QuickBooksCall::Other] as $call) {
+            yield "{$call->value} query" => [$call, 'query'];
+            yield "{$call->value} add" => [$call, 'add'];
+        }
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
     #[Test]
-    public function a_call_with_under_a_client_timeout_left_is_refused_before_the_limiter_and_the_sdk(): void
+    #[DataProvider('orderChunkCalls')]
+    public function an_order_chunk_call_is_sent_with_a_60_second_curl_timeout(QuickBooksCall $call, string $method): void
+    {
+        $this->assertSame(60, $call->timeoutSeconds());
+
+        $this->sendOne($call, $method, 600, 60);
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    #[Test]
+    #[DataProvider('otherCalls')]
+    public function any_other_call_with_20_seconds_left_is_sent_with_a_15_second_curl_timeout(QuickBooksCall $call, string $method): void
+    {
+        $this->assertSame(15, $call->timeoutSeconds());
+
+        $this->sendOne($call, $method, 20, 15);
+    }
+
+    #[Test]
+    public function a_company_info_read_is_sent_with_a_15_second_curl_timeout(): void
+    {
+        $companyInfo = new IPPCompanyInfo();
+
+        $this->assertSame($companyInfo, $this->transport([$this->session($companyInfo, false)], timeoutSeconds: 15)->companyInfo(self::token()));
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    #[Test]
+    #[DataProvider('orderChunkCalls')]
+    public function an_order_chunk_call_with_under_60_seconds_left_is_refused_before_the_limiter_and_the_sdk(QuickBooksCall $call, string $method): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
         $limiter->shouldNotReceive('acquire', 'acquireBy');
+        $transport = $this->transport([], $limiter);
 
         try {
-            $this->transport([], $limiter)->query(self::token(), self::QUERY, self::deadline(QuickBooksTransport::START_FLOOR_SECONDS - 1));
+            match ($method) {
+                'query' => $transport->query(self::token(), self::QUERY, self::spec(59, $call)),
+                'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec(59, $call)),
+            };
             $this->fail('Expected QuickBooksDeadlineExceededException');
         } catch (QuickBooksDeadlineExceededException $e) {
             $this->assertEqualsWithDelta(-1.0, $e->secondsLeft, 0.001);
@@ -188,15 +253,158 @@ final class QuickBooksTransportTest extends TestCase
     }
 
     #[Test]
-    public function the_limiter_may_start_the_call_no_later_than_one_client_timeout_before_the_deadline(): void
+    #[TestWith([QuickBooksCall::Other, 30, 15.0])]
+    #[TestWith([QuickBooksCall::DocumentLookup, 600, 540.0])]
+    public function the_limiter_may_start_the_call_no_later_than_one_curl_timeout_before_the_deadline(QuickBooksCall $call, int $seconds, float $startBy): void
     {
         $limiter = Mockery::mock(QuickBooksRateLimiter::class);
         $limiter->shouldReceive('acquireBy')->once()->withArgs(
-            static fn(bool $batchCall, Deadline $startBy): bool => !$batchCall
-                && $startBy->secondsLeft(CarbonImmutable::now()) === (float) (30 - QuickBooksTransport::START_FLOOR_SECONDS),
+            static fn(bool $batchCall, Deadline $latestStart): bool => !$batchCall && $latestStart->secondsLeft(CarbonImmutable::now()) === $startBy,
         );
 
-        $this->transport([$this->querySession([], false)], $limiter)->query(self::token(), self::QUERY, self::deadline());
+        $this->transport([$this->querySession([], false)], $limiter)->query(self::token(), self::QUERY, self::spec($seconds, $call));
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    #[Test]
+    #[DataProvider('orderChunkCalls')]
+    public function a_curl_error_on_an_order_chunk_call_is_logged_with_its_number_and_the_call_name(QuickBooksCall $call, string $method): void
+    {
+        $logger = new RecordingLogger();
+        $thrown = new SdkException('cURL error during making API call. cURL Error Number:[28] with error:[' . self::SENTINEL . ']');
+
+        try {
+            $this->throwOne($thrown, $call, $method, self::retryAfter(null, null, 28), $logger);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertNull($e->getPrevious());
+        }
+
+        $this->assertSame(
+            [['QuickBooks API request failed', ['status' => null, 'exception' => SdkException::class, 'call' => $call->value, 'intuit_tid' => null, 'curl_errno' => 28]]],
+            $logger->records,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{QuickBooksCall, 'query'|'add', int}>
+     */
+    public static function orderChunkCallFailures(): iterable
+    {
+        foreach (self::orderChunkCalls() as $case => [$call, $method]) {
+            yield "{$case} 503" => [$call, $method, 503];
+            yield "{$case} exhausted 429" => [$call, $method, 429];
+        }
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    #[Test]
+    #[DataProvider('orderChunkCallFailures')]
+    public function a_5xx_or_exhausted_429_on_an_order_chunk_call_is_logged_with_the_call_name(QuickBooksCall $call, string $method, int $status): void
+    {
+        $logger = new RecordingLogger();
+        $fault = self::fault($status, '');
+        // intentional: a 30 s Retry-After with 70 s left and a 60 s curl timeout leaves no time to retry
+        $httpClient = self::retryAfter(30, 'tid-1');
+        $session = $method === 'query' ? $this->querySession(null, $fault, $httpClient) : $this->addSession(null, $fault, httpClient: $httpClient);
+        $transport = $this->transport([$session], logger: $logger);
+
+        try {
+            match ($method) {
+                'query' => $transport->query(self::token(), self::QUERY, self::spec(70, $call)),
+                'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec(70, $call)),
+            };
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException) {
+        }
+
+        $this->assertSame(
+            [['QuickBooks API request failed', ['status' => $status, 'exception' => ExternalServiceUnavailableException::class, 'call' => $call->value, 'intuit_tid' => 'tid-1']]],
+            $logger->records,
+        );
+        $this->assertSame([], $this->slept);
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    #[Test]
+    #[TestWith(['query'])]
+    #[TestWith(['add'])]
+    public function a_failed_call_logs_neither_the_sdk_message_nor_the_query_text(string $method): void
+    {
+        $logger = new RecordingLogger();
+
+        try {
+            $this->throwOne(new SdkException('cURL error: ' . self::SENTINEL), QuickBooksCall::CustomerLookup, $method, self::retryAfter(null, null, 7), $logger);
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException $e) {
+            $this->assertStringNotContainsString(self::SENTINEL, $e->getMessage());
+        }
+
+        $this->assertCount(1, $logger->records);
+        $this->assertStringNotContainsString(self::SENTINEL, \json_encode($logger->records, \JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString('SELECT', \json_encode($logger->records, \JSON_THROW_ON_ERROR));
+    }
+
+    #[Test]
+    public function a_call_that_threw_after_its_handle_closed_is_logged_without_a_curl_error_number(): void
+    {
+        $logger = new RecordingLogger();
+        $httpClient = new QuickBooksCurlHttpClient(60, self::curl('<IntuitResponse/>'));
+        $dataService = Mockery::mock(DataService::class);
+        $dataService->shouldReceive('Query')->once()->andReturnUsing(static function () use ($httpClient): never {
+            $httpClient->makeAPICall('https://sandbox-quickbooks.api.intuit.com/v3/', 'GET', ['Accept' => 'application/xml'], null, null, true);
+
+            throw new Exception('parse failed');
+        });
+
+        try {
+            $this->transport([new QuickBooksDataServiceSession($dataService, $httpClient)], logger: $logger)
+                ->query(self::token(), self::QUERY, self::spec(600, QuickBooksCall::DocumentLookup));
+            $this->fail('Expected ExternalServiceUnavailableException');
+        } catch (ExternalServiceUnavailableException) {
+        }
+
+        $this->assertSame(
+            [['QuickBooks API request failed', ['status' => null, 'exception' => Exception::class, 'call' => 'document_lookup', 'intuit_tid' => 'tid-1']]],
+            $logger->records,
+        );
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    private function sendOne(QuickBooksCall $call, string $method, int $secondsLeft, int $timeoutSeconds): void
+    {
+        $created = new IPPCustomer();
+        $session = $method === 'query' ? $this->querySession([], false) : $this->addSession($created, false);
+        $transport = $this->transport([$session], timeoutSeconds: $timeoutSeconds);
+
+        match ($method) {
+            'query' => $this->assertSame([], $transport->query(self::token(), self::QUERY, self::spec($secondsLeft, $call))),
+            'add' => $this->assertSame($created, $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec($secondsLeft, $call))),
+        };
+    }
+
+    /**
+     * @param 'query'|'add' $method
+     */
+    private function throwOne(Throwable $thrown, QuickBooksCall $call, string $method, QuickBooksCurlHttpClient $httpClient, RecordingLogger $logger): void
+    {
+        $dataService = Mockery::mock(DataService::class);
+        $dataService->shouldReceive($method === 'query' ? 'Query' : 'Add')->once()->andThrow($thrown);
+        $dataService->shouldReceive('getLastError')->andReturn(false);
+        $transport = $this->transport([new QuickBooksDataServiceSession($dataService, $httpClient)], logger: $logger);
+
+        match ($method) {
+            'query' => $transport->query(self::token(), self::QUERY, self::spec(600, $call)),
+            'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec(600, $call)),
+        };
     }
 
     #[Test]
@@ -236,7 +444,7 @@ final class QuickBooksTransportTest extends TestCase
 
         $this->expectExceptionObject($refusal);
 
-        $this->transport([], $limiter)->query(self::token(), self::QUERY, self::deadline());
+        $this->transport([], $limiter)->query(self::token(), self::QUERY, self::spec());
     }
 
     /**
@@ -258,7 +466,7 @@ final class QuickBooksTransportTest extends TestCase
         $rows = [new IPPCustomer()];
 
         $result = $this->transport([$this->rateLimited(null), $this->querySession($rows, false)], $limiter)
-            ->query(self::token(), self::QUERY, self::deadline());
+            ->query(self::token(), self::QUERY, self::spec());
 
         $this->assertSame($rows, $result);
         $this->assertCount(1, $this->slept);
@@ -272,7 +480,7 @@ final class QuickBooksTransportTest extends TestCase
         $sessions = \array_map(fn(): QuickBooksDataServiceSession => $this->rateLimited(null), \range(1, 8));
         $sessions[] = $this->querySession([], false);
 
-        $this->transport($sessions)->query(self::token(), self::QUERY, self::deadline(1_000));
+        $this->transport($sessions)->query(self::token(), self::QUERY, self::spec(1_000));
 
         $steps = [2, 4, 8, 16, 32, 60, 60, 60];
         $this->assertCount(\count($steps), $this->slept);
@@ -288,7 +496,7 @@ final class QuickBooksTransportTest extends TestCase
     public function a_retry_after_longer_than_the_back_off_is_waited_in_full(): void
     {
         $this->transport([$this->rateLimited(45), $this->querySession([], false)])
-            ->query(self::token(), self::QUERY, self::deadline(120));
+            ->query(self::token(), self::QUERY, self::spec(120));
 
         $this->assertSame([45.0], $this->slept);
     }
@@ -297,7 +505,7 @@ final class QuickBooksTransportTest extends TestCase
     public function a_429_with_no_retry_time_left_is_unavailable_with_the_last_retry_after(): void
     {
         try {
-            $this->transport([$this->rateLimited(10)])->query(self::token(), self::QUERY, self::deadline(20));
+            $this->transport([$this->rateLimited(10)])->query(self::token(), self::QUERY, self::spec(20));
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame(10, $e->retryAfter);
@@ -309,7 +517,7 @@ final class QuickBooksTransportTest extends TestCase
     public function a_retry_runs_out_of_time_after_earlier_waits(): void
     {
         try {
-            $this->transport([$this->rateLimited(20), $this->rateLimited(26)])->query(self::token(), self::QUERY, self::deadline(60));
+            $this->transport([$this->rateLimited(20), $this->rateLimited(26)])->query(self::token(), self::QUERY, self::spec(60));
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertSame(26, $e->retryAfter);
@@ -329,7 +537,7 @@ final class QuickBooksTransportTest extends TestCase
         $limiter->shouldReceive('acquireBy')->once()->ordered()->andThrow($refusal);
 
         try {
-            $this->transport([$this->rateLimited(7)], $limiter)->query(self::token(), self::QUERY, self::deadline());
+            $this->transport([$this->rateLimited(7)], $limiter)->query(self::token(), self::QUERY, self::spec());
             $this->fail('Expected ExternalServiceUnavailableException');
         } catch (ExternalServiceUnavailableException $e) {
             $this->assertNotSame($refusal, $e);
@@ -353,7 +561,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $customer = new IPPCustomer();
 
-        $this->assertSame([$customer], $this->transport([$this->querySession([$customer], false)])->query(self::token(), self::QUERY, self::deadline()));
+        $this->assertSame([$customer], $this->transport([$this->querySession([$customer], false)])->query(self::token(), self::QUERY, self::spec()));
     }
 
     /**
@@ -373,7 +581,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $logger = new RecordingLogger();
 
-        $this->assertSame([], $this->transport([self::sdkSession(self::curl($body))], logger: $logger)->query(self::token(), self::QUERY, self::deadline()));
+        $this->assertSame([], $this->transport([self::sdkSession(self::curl($body))], logger: $logger)->query(self::token(), self::QUERY, self::spec()));
         $this->assertSame([], $logger->records);
     }
 
@@ -399,14 +607,14 @@ final class QuickBooksTransportTest extends TestCase
         $logger = new RecordingLogger();
 
         try {
-            $this->transport([self::sdkSession(self::curl($body, 200, $contentType))], logger: $logger)->query(self::token(), self::QUERY, self::deadline());
+            $this->transport([self::sdkSession(self::curl($body, 200, $contentType))], logger: $logger)->query(self::token(), self::QUERY, self::spec());
             $this->fail('Expected UnexpectedApiResultException');
         } catch (UnexpectedApiResultException $e) {
             $this->assertNull($e->getPrevious());
         }
 
         $this->assertSame(
-            [['QuickBooks API returned an unexpected query result', ['result_type' => 'null', 'intuit_tid' => 'tid-1']]],
+            [['QuickBooks API returned an unexpected query result', ['result_type' => 'null', 'call' => 'other', 'intuit_tid' => 'tid-1']]],
             $logger->records,
         );
     }
@@ -422,7 +630,7 @@ final class QuickBooksTransportTest extends TestCase
 
         self::withWarningsAsExceptions(function () use ($logger, &$thrown): void {
             try {
-                $this->transport([self::sdkSession(self::curl('', 200, 'text/html'))], logger: $logger)->query(self::token(), self::QUERY, self::deadline());
+                $this->transport([self::sdkSession(self::curl('', 200, 'text/html'))], logger: $logger)->query(self::token(), self::QUERY, self::spec());
             } catch (UnexpectedApiResultException|ExternalServiceUnavailableException $e) {
                 $thrown = $e;
             }
@@ -440,7 +648,7 @@ final class QuickBooksTransportTest extends TestCase
             $session = self::sdkSession(self::curl('<IntuitResponse><QueryResponse>', 200, $contentType));
 
             self::withWarningsAsExceptions(fn() => $this->assertLoggedOnce(
-                fn(RecordingLogger $logger): mixed => $this->transport([$session], logger: $logger)->query(self::token(), self::QUERY, self::deadline()),
+                fn(RecordingLogger $logger): mixed => $this->transport([$session], logger: $logger)->query(self::token(), self::QUERY, self::spec()),
                 null,
                 'tid-1',
                 ExternalServiceUnavailableException::class,
@@ -461,7 +669,7 @@ final class QuickBooksTransportTest extends TestCase
         }
 
         $this->assertSame(
-            [['QuickBooks API returned an unexpected company info result', ['result_type' => 'null', 'intuit_tid' => 'tid-1']]],
+            [['QuickBooks API returned an unexpected company info result', ['result_type' => 'null', 'call' => 'company_info', 'intuit_tid' => 'tid-1']]],
             $logger->records,
         );
     }
@@ -492,8 +700,8 @@ final class QuickBooksTransportTest extends TestCase
                 $transport = $this->transport([$session], logger: $logger);
 
                 return match ($call) {
-                    'query' => $transport->query(self::token(), self::QUERY, self::deadline()),
-                    'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+                    'query' => $transport->query(self::token(), self::QUERY, self::spec()),
+                    'add' => $transport->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec()),
                     default => $transport->companyInfo(self::token()),
                 };
             },
@@ -511,7 +719,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $this->expectException(QuickBooksFaultException::class);
 
-        $this->transport([$this->querySession(null, self::fault(400, self::faultXml('4001', '')))])->query(self::token(), self::QUERY, self::deadline());
+        $this->transport([$this->querySession(null, self::fault(400, self::faultXml('4001', '')))])->query(self::token(), self::QUERY, self::spec());
     }
 
     #[Test]
@@ -520,7 +728,7 @@ final class QuickBooksTransportTest extends TestCase
         $logger = new RecordingLogger();
 
         try {
-            $this->transport([$this->querySession(new IPPCustomer(), false)], logger: $logger)->query(self::token(), self::QUERY, self::deadline());
+            $this->transport([$this->querySession(new IPPCustomer(), false)], logger: $logger)->query(self::token(), self::QUERY, self::spec());
             $this->fail('Expected UnexpectedApiResultException');
         } catch (UnexpectedApiResultException) {
             $this->assertStringNotContainsString(self::SENTINEL, \serialize($logger->records));
@@ -533,7 +741,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $created = new IPPCustomer();
 
-        $this->assertSame($created, $this->transport([$this->addSession($created, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()));
+        $this->assertSame($created, $this->transport([$this->addSession($created, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec()));
     }
 
     /**
@@ -555,7 +763,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $this->expectException(UnexpectedApiResultException::class);
 
-        $this->transport([$this->addSession($result, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+        $this->transport([$this->addSession($result, false)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec());
     }
 
     /**
@@ -580,13 +788,13 @@ final class QuickBooksTransportTest extends TestCase
         $session = self::sdkSession(new SpyCurl("HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\n{$header}\r\n", self::faultXml('6240', 'Name'), 200));
 
         try {
-            $this->transport([$session], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+            $this->transport([$session], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec());
             $this->fail('Expected UnexpectedApiResultException');
         } catch (UnexpectedApiResultException) {
         }
 
         $this->assertSame(
-            [['QuickBooks API returned an unexpected create result', ['result_type' => 'null', 'intuit_tid' => $intuitTid]]],
+            [['QuickBooks API returned an unexpected create result', ['result_type' => 'null', 'call' => 'other', 'intuit_tid' => $intuitTid]]],
             $logger->records,
         );
     }
@@ -600,7 +808,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $this->expectException($expected);
 
-        $this->transport([$this->addSession(null, self::fault($status, $body))])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+        $this->transport([$this->addSession(null, self::fault($status, $body))])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec());
     }
 
     #[Test]
@@ -608,7 +816,7 @@ final class QuickBooksTransportTest extends TestCase
     {
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->transport([$this->addSession(new SdkException('curl failed'), false, throws: true)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline());
+        $this->transport([$this->addSession(new SdkException('curl failed'), false, throws: true)])->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec());
     }
 
     /**
@@ -633,8 +841,8 @@ final class QuickBooksTransportTest extends TestCase
 
         foreach ([
             fn(RecordingLogger $logger): mixed => $this->transport([$this->session(null, $fault, $httpClient)], logger: $logger)->companyInfo(self::token()),
-            fn(RecordingLogger $logger): mixed => $this->transport([$this->querySession(null, $fault, $httpClient)], logger: $logger)->query(self::token(), self::QUERY, self::deadline()),
-            fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession(null, $fault, httpClient: $httpClient)], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+            fn(RecordingLogger $logger): mixed => $this->transport([$this->querySession(null, $fault, $httpClient)], logger: $logger)->query(self::token(), self::QUERY, self::spec()),
+            fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession(null, $fault, httpClient: $httpClient)], logger: $logger)->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec()),
         ] as $call) {
             $this->assertLoggedOnce($call, $status, $intuitTid);
         }
@@ -648,7 +856,7 @@ final class QuickBooksTransportTest extends TestCase
             foreach ([new SdkException('failed'), new Exception('failed')] as $thrown) {
                 $this->assertLoggedOnce(
                     fn(RecordingLogger $logger): mixed => $this->transport([$this->addSession($thrown, false, true, $httpClient)], logger: $logger)
-                        ->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::deadline()),
+                        ->add(self::token(), new IPPCustomer(), IPPCustomer::class, self::spec()),
                     null,
                     $intuitTid,
                 );
@@ -689,9 +897,9 @@ final class QuickBooksTransportTest extends TestCase
         return new ApiKeyToken('access');
     }
 
-    private static function deadline(int $seconds = 30): Deadline
+    private static function spec(int $seconds = 30, QuickBooksCall $call = QuickBooksCall::Other): QuickBooksCallSpec
     {
-        return Deadline::after(CarbonImmutable::now(), $seconds);
+        return new QuickBooksCallSpec($call, Deadline::after(CarbonImmutable::now(), $seconds));
     }
 
     /**
@@ -755,8 +963,8 @@ final class QuickBooksTransportTest extends TestCase
             redirectUri: 'http://localhost/quickbooks/callback',
             realmId: '9130000000000001',
         );
-        $dataService = new QuickBooksDataServiceFactory($config)->create(self::token())->dataService;
-        $httpClient = new QuickBooksCurlHttpClient($curl);
+        $dataService = new QuickBooksDataServiceFactory($config)->create(self::token(), 15)->dataService;
+        $httpClient = new QuickBooksCurlHttpClient(15, $curl);
         QuickBooksRestHandlerSeam::install($dataService, $httpClient);
         $dataService->disableLog();
 
@@ -769,7 +977,7 @@ final class QuickBooksTransportTest extends TestCase
         $dataService->shouldReceive('Query')->once()->with(self::QUERY)->andReturn($result);
         $dataService->shouldReceive('getLastError')->andReturn($lastError);
 
-        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient());
+        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient(15));
     }
 
     /**
@@ -786,7 +994,7 @@ final class QuickBooksTransportTest extends TestCase
         }
         $dataService->shouldReceive('getLastError')->andReturn($lastError);
 
-        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient());
+        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient(15));
     }
 
     private function session(mixed $result, FaultHandler|false $lastError, ?QuickBooksCurlHttpClient $httpClient = null): QuickBooksDataServiceSession
@@ -795,7 +1003,7 @@ final class QuickBooksTransportTest extends TestCase
         $dataService->shouldReceive('getCompanyInfo')->once()->andReturn($result);
         $dataService->shouldReceive('getLastError')->andReturn($lastError);
 
-        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient());
+        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient(15));
     }
 
     private function rateLimited(?int $retryAfter): QuickBooksDataServiceSession
@@ -803,12 +1011,13 @@ final class QuickBooksTransportTest extends TestCase
         return $this->querySession(null, self::fault(429, ''), self::retryAfter($retryAfter));
     }
 
-    private static function retryAfter(?int $seconds, ?string $intuitTid = null): QuickBooksCurlHttpClient
+    private static function retryAfter(?int $seconds, ?string $intuitTid = null, int $curlErrno = 0): QuickBooksCurlHttpClient
     {
         $httpClient = Mockery::mock(QuickBooksCurlHttpClient::class);
         $httpClient->shouldReceive('retryAfterSeconds')->andReturn($seconds);
         $httpClient->shouldReceive('intuitTid')->andReturn($intuitTid);
         $httpClient->shouldReceive('responseBody')->andReturn(null);
+        $httpClient->shouldReceive('curlErrno')->andReturn($curlErrno);
 
         return $httpClient;
     }
@@ -820,12 +1029,16 @@ final class QuickBooksTransportTest extends TestCase
         array $sessions,
         (QuickBooksRateLimiter&MockInterface)|null $limiter = null,
         ?AbstractLogger $logger = null,
+        ?int $timeoutSeconds = null,
     ): QuickBooksTransport {
         $factory = Mockery::mock(QuickBooksDataServiceFactory::class);
         if ($sessions === []) {
             $factory->shouldNotReceive('create');
         } else {
-            $factory->shouldReceive('create')->times(\count($sessions))->andReturn(...$sessions);
+            $expectation = $factory->shouldReceive('create')->times(\count($sessions))->andReturn(...$sessions);
+            if ($timeoutSeconds !== null) {
+                $expectation->with(Mockery::type(ApiKeyToken::class), $timeoutSeconds);
+            }
         }
 
         if ($limiter === null) {

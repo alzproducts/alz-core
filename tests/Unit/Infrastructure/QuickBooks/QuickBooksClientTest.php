@@ -24,6 +24,8 @@ use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksBatchExecution;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksClient;
 use App\Infrastructure\QuickBooks\QuickBooksCustomerProvisioner;
 use App\Infrastructure\QuickBooks\QuickBooksDocumentBatchCreator;
@@ -312,6 +314,26 @@ final class QuickBooksClientTest extends TestCase
         $outcomes = self::client($transport)->createDocuments(new ApiKeyToken('access'), $documents, self::deadline());
 
         $this->assertSame([BatchOutcomeKind::Ambiguous], \array_map(static fn(BatchItemOutcomeResult $outcome): BatchOutcomeKind => $outcome->kind, $outcomes));
+    }
+
+    #[Test]
+    public function item_and_document_lookups_are_sent_as_their_own_calls_under_the_chunk_deadline(): void
+    {
+        $deadline = self::deadline();
+        $sent = [];
+        $transport = Mockery::mock(QuickBooksTransport::class);
+        $transport->shouldReceive('query')->times(3)->andReturnUsing(static function (ApiKeyToken $token, string $query, QuickBooksCallSpec $spec) use (&$sent, $deadline): array {
+            self::assertSame($deadline, $spec->deadline);
+            $sent[] = $spec->call;
+
+            return [];
+        });
+        $client = self::client($transport);
+
+        $client->findItems(new ApiKeyToken('access'), [Sku::fromString('ABC-1')], $deadline);
+        $client->findDocuments(new ApiKeyToken('access'), ['A1'], $deadline);
+
+        $this->assertSame([QuickBooksCall::ItemLookup, QuickBooksCall::DocumentLookup, QuickBooksCall::DocumentLookup], $sent);
     }
 
     private static function client(QuickBooksTransport $transport, ?QuickBooksCustomerProvisioner $provisioner = null): QuickBooksClient

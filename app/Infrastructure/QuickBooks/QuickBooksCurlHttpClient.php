@@ -6,8 +6,10 @@ namespace App\Infrastructure\QuickBooks;
 
 use App\Infrastructure\Support\RetryAfterParser;
 use Override;
+use QuickBooksOnline\API\Core\HttpClients\BaseCurl;
 use QuickBooksOnline\API\Core\HttpClients\CurlHttpClient;
 use QuickBooksOnline\API\Core\HttpClients\IntuitResponse;
+use QuickBooksOnline\API\Exception\SdkException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -17,9 +19,18 @@ use Webmozart\Assert\Assert;
  */
 final class QuickBooksCurlHttpClient extends CurlHttpClient
 {
-    public const int TIMEOUT_SECONDS = 15;
-
     private const string RETRY_AFTER = 'retry-after';
+
+    // intentional: kept here too, because the parent's handle is private and the curl error number lives only on it
+    private readonly BaseCurl $curl;
+
+    public function __construct(
+        private readonly int $timeoutSeconds,
+        ?BaseCurl $curl = null,
+    ) {
+        $this->curl = $curl ?? new BaseCurl();
+        parent::__construct($this->curl);
+    }
 
     /**
      * intentional: variadic, because the parent's six parameters break the excessive-parameter rule.
@@ -41,7 +52,7 @@ final class QuickBooksCurlHttpClient extends CurlHttpClient
         Assert::isArray($headers);
         Assert::string($body);
 
-        return parent::makeAPICall($url, $method, $headers, $body, self::TIMEOUT_SECONDS, true);
+        return parent::makeAPICall($url, $method, $headers, $body, $this->timeoutSeconds, true);
     }
 
     /**
@@ -71,6 +82,19 @@ final class QuickBooksCurlHttpClient extends CurlHttpClient
         }
 
         return null;
+    }
+
+    /**
+     * The last call's curl error number, 0 without one. The SDK closes the handle after every call that got a response,
+     * and `BaseCurl::errno()` throws on a closed handle, so a closed handle answers 0.
+     */
+    public function curlErrno(): int
+    {
+        try {
+            return $this->curl->errno();
+        } catch (SdkException) { // @ignoreException - a closed handle holds no curl error
+            return 0;
+        }
     }
 
     /**

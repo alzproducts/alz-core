@@ -8,6 +8,8 @@ use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksQueryEscaper;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
@@ -99,7 +101,7 @@ final class QuickBooksSandboxTest extends TestCase
         $rows = $this->transport->query(
             $this->accessToken,
             'SELECT * FROM Item WHERE Name IN ' . QuickBooksQueryEscaper::inList([self::missingName()]),
-            self::deadline(),
+            self::call(),
         );
 
         self::assertSame([], $rows);
@@ -113,7 +115,7 @@ final class QuickBooksSandboxTest extends TestCase
         $this->transport->query(
             $this->accessToken,
             'SELECT * FROM Item WHERE NoSuchField IN ' . QuickBooksQueryEscaper::inList([self::missingName()]),
-            self::deadline(),
+            self::call(),
         );
     }
 
@@ -133,7 +135,7 @@ final class QuickBooksSandboxTest extends TestCase
     private function customerNames(string $query): array
     {
         $names = [];
-        foreach ($this->transport->query($this->accessToken, $query, self::deadline()) as $row) {
+        foreach ($this->transport->query($this->accessToken, $query, self::call()) as $row) {
             self::assertInstanceOf(IPPCustomer::class, $row);
             $names[] = (string) $row->DisplayName;
         }
@@ -147,7 +149,7 @@ final class QuickBooksSandboxTest extends TestCase
     private function itemNames(string $query): array
     {
         $names = [];
-        foreach ($this->transport->query($this->accessToken, $query, self::deadline()) as $row) {
+        foreach ($this->transport->query($this->accessToken, $query, self::call()) as $row) {
             self::assertInstanceOf(IPPItem::class, $row);
             $names[] = (string) $row->Name;
         }
@@ -163,8 +165,8 @@ final class QuickBooksSandboxTest extends TestCase
         return "zz-no-such-name O'Brien\\" . Str::random(8);
     }
 
-    private static function deadline(): Deadline
+    private static function call(): QuickBooksCallSpec
     {
-        return Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS);
+        return new QuickBooksCallSpec(QuickBooksCall::Other, Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS));
     }
 }

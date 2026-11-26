@@ -6,28 +6,36 @@ namespace Tests\Unit\Infrastructure\QuickBooks;
 
 use Override;
 use QuickBooksOnline\API\Core\HttpClients\BaseCurl;
+use QuickBooksOnline\API\Exception\SdkException;
 
 /**
- * Records curl options and replays a canned response instead of opening a connection.
+ * Records curl options and replays a canned response instead of opening a connection. Like `BaseCurl`, it reads the
+ * error number only while the handle is open, and `close()` closes it.
  */
 final class SpyCurl extends BaseCurl
 {
     /** @var array<int, mixed> */
     public array $options = [];
 
+    private bool $open = false;
+
     public function __construct(
         private readonly string $rawHeaders,
         private readonly string $body,
         private readonly int $status,
+        private readonly int $errno = 0,
     ) {}
 
     #[Override]
-    public function init(): void {}
+    public function init(): void
+    {
+        $this->open = true;
+    }
 
     #[Override]
     public function isCurlSet(): bool
     {
-        return true;
+        return $this->open;
     }
 
     /**
@@ -48,13 +56,17 @@ final class SpyCurl extends BaseCurl
     #[Override]
     public function errno(): int
     {
-        return 0;
+        if (!$this->open) {
+            throw new SdkException('cURL instance is not set when trying to get errno code from the execution.');
+        }
+
+        return $this->errno;
     }
 
     #[Override]
     public function error(): string
     {
-        return '';
+        return $this->errno === 0 ? '' : 'Operation timed out';
     }
 
     #[Override]
@@ -64,5 +76,8 @@ final class SpyCurl extends BaseCurl
     }
 
     #[Override]
-    public function close(): void {}
+    public function close(): void
+    {
+        $this->open = false;
+    }
 }

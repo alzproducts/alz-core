@@ -16,6 +16,8 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
 use QuickBooksOnline\API\Data\IPPIntuitEntity;
@@ -103,7 +105,7 @@ final readonly class QuickBooksSandboxMappingFactory
                 $this->tokens->accessToken(),
                 QuickBooksSandboxMapper::mappingEntity($key->entity(), $name),
                 IPPIntuitEntity::class,
-                Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS),
+                new QuickBooksCallSpec(QuickBooksCall::Other, Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS)),
             );
         } catch (QuickBooksFaultException $e) {
             return 'QuickBooks refused the create: ' . QuickBooksSandboxMapper::faultText($e->fault);

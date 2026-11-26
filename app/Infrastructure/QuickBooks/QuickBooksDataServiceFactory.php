@@ -25,9 +25,9 @@ final readonly class QuickBooksDataServiceFactory
     /**
      * @throws InvalidConfigurationException when the SDK settings or the client seam fail
      */
-    public function create(#[SensitiveParameter] ApiKeyToken $accessToken): QuickBooksDataServiceSession
+    public function create(#[SensitiveParameter] ApiKeyToken $accessToken, int $timeoutSeconds): QuickBooksDataServiceSession
     {
-        $httpClient = new QuickBooksCurlHttpClient();
+        $httpClient = new QuickBooksCurlHttpClient($timeoutSeconds);
         $dataService = $this->configure($accessToken);
         $dataService->setClientName(CoreConstants::CLIENT_CURL);
         // intentional: off, so a Fault comes back through FaultHandler instead of a ServiceException holding the whole body.
