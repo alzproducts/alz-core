@@ -257,9 +257,14 @@ The earliest ShopWired order date the sync accepts, at both entry points and aga
 **Run labels**:
 The DocNumber prefix (`quickbooks.doc_number_prefix`) and customer-name suffix (`quickbooks.customer_name_suffix`) that keep one verify run's sandbox documents apart from another's; blank by default.
 
+**Catch-up run**:
+The hourly sync run, with trigger `schedule`, over every live order since its own start date (never earlier than the **backfill floor date**) that was placed more than an hour ago and has no `synced` or `failed` **order sync**, bar a recent `item_missing` failure.
+_Avoid_: nightly sync, auto-retry (the only failed **order sync** a catch-up run retries is a recent `item_missing` one)
+
 ## Relationships (QuickBooks order sync)
 
 - A ShopWired order **reference** has at most one **order sync** per QBO company
+- A **catch-up run** waits out an unfinished earlier **catch-up run**, but runs alongside staff runs
 - An **order sync** records at most one posted document (an unrecorded post can repeat: ADR-0019)
 - One trigger yields exactly one **sync outcome** per **reference** it was asked about (an unknown reference has no **order sync** but still gets one)
 
