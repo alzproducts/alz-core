@@ -13,6 +13,7 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Tag\TaggedValue;
 use Symfony\Component\Yaml\Yaml;
 use Tests\TestCase;
+use Tests\Unit\Static\Support\GitHooksInstalledCheck;
 use Tests\Unit\Static\Support\StackStubRun;
 
 /**
@@ -184,6 +185,35 @@ final class StackScriptTest extends TestCase
     }
 
     #[Test]
+    public function up_on_a_stack_whose_seed_failed_refuses_to_recreate_app_and_worker(): void
+    {
+        $this->run->knob('fail', 'up');
+        $this->run->knob('state-seed', 'exited 1 ');
+        $this->assertSame(1, $this->run->stack([], 'up')->getExitCode());
+        $this->run->clearCalls();
+
+        $again = $this->run->stack([], 'up');
+
+        $this->assertSame(75, $again->getExitCode());
+        $this->assertStringContainsString('did not complete; run bin/stack down, then bin/stack up', $again->getErrorOutput());
+        $this->assertStringNotContainsString('--force-recreate', $this->run->calls());
+    }
+
+    #[Test]
+    public function up_on_a_running_stack_still_refuses_env_keys_compose_would_interpolate(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+        $this->run->write('.env', "FAKE_SECRET=ab\$cd\n");
+        $this->run->clearCalls();
+
+        $again = $this->run->stack([], 'up');
+
+        $this->assertSame(75, $again->getExitCode());
+        $this->assertStringContainsString('single-quote these keys in .env', $again->getErrorOutput());
+        $this->assertStringNotContainsString('--force-recreate', $this->run->calls());
+    }
+
+    #[Test]
     public function up_names_the_first_service_that_did_not_start(): void
     {
         $this->run->knob('fail', 'up');
@@ -282,7 +312,7 @@ final class StackScriptTest extends TestCase
         $process = new Process(
             [\dirname(__DIR__, 3) . '/bin/stack', 'curl', 'POST', '/api/thing'],
             $this->run->repo,
-            ['PATH' => "{$this->run->root}/bin:" . \getenv('PATH'), 'ALZ_STACK_PORT' => false],
+            ['PATH' => "{$this->run->root}/bin:" . \getenv('PATH'), 'ALZ_STACK_PORT' => false, ...GitHooksInstalledCheck::cleanGitEnv()],
             '{"a":1}',
         );
         $process->run();
@@ -332,12 +362,7 @@ final class StackScriptTest extends TestCase
             [
                 'PATH' => "{$this->run->root}/bin:" . \getenv('PATH'),
                 'GIT_CEILING_DIRECTORIES' => \dirname($this->run->root),
-                // intentional: git hooks export these, which would locate the real repo from any cwd.
-                'GIT_DIR' => false,
-                'GIT_WORK_TREE' => false,
-                'GIT_INDEX_FILE' => false,
-                'GIT_COMMON_DIR' => false,
-                'GIT_PREFIX' => false,
+                ...GitHooksInstalledCheck::cleanGitEnv(),
             ],
         );
         $process->run();

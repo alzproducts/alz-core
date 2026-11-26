@@ -50,6 +50,7 @@ final readonly class StackStubRun
             "inspect "*)
                 svc="${4##*__}"
                 knob "state-$svc" && exit 0
+                [ "$svc" = seed ] && [ "$3" = '{{.State.Status}} {{.State.ExitCode}}' ] && echo 'exited 0' && exit 0
                 [ "$3" = '{{.State.Status}}' ] && echo running || echo 'running 0 healthy'
                 exit 0
                 ;;

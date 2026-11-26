@@ -297,13 +297,26 @@ cmd_up() {
     docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
     [ -f "$REPO/vendor/autoload.php" ] || die 75 "no vendor/autoload.php in this worktree; run make install first"
 
+    if [ -f "$ENV_FILE" ]; then
+        local gap
+        gap="$(bare_dollar_keys "$ENV_FILE")" || die 75 "cannot read $ENV_FILE"
+        [ -z "$gap" ] || die 75 "single-quote these keys in .env, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
+    fi
+
     if [ -n "$(project_containers)" ]; then
         local running
         running="$(running_mode)"
         [ "$running" = "$MODE" ] ||
             die 75 "project $PROJECT is up in $(mode_label "$running") mode; run bin/stack down before an up in $(mode_label "$MODE") mode"
         [ -f "$COMPOSE_ENV" ] || die 75 "project $PROJECT has containers but no tmp/stack/compose.env; run bin/stack down first"
-        [ "$MODE" = default ] || check_shared_supabase
+        if [ "$MODE" = default ]; then
+            case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+                'exited 0') ;;
+                *) die 75 "the seed of project $PROJECT did not complete; run bin/stack down, then bin/stack up" ;;
+            esac
+        else
+            check_shared_supabase
+        fi
         # Recreates only app and worker: keeps the seeded database, Redis and generated env, and re-reads the .env.
         dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker || report_failed_start
         ping_shared_db
@@ -311,11 +324,6 @@ cmd_up() {
         return
     fi
 
-    if [ -f "$ENV_FILE" ]; then
-        local gap
-        gap="$(bare_dollar_keys "$ENV_FILE")" || die 75 "cannot read $ENV_FILE"
-        [ -z "$gap" ] || die 75 "single-quote these keys in .env, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
-    fi
     check_fixed_port
     [ "$MODE" = default ] || check_shared_supabase
 
