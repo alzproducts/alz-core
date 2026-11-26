@@ -6,7 +6,7 @@
 # shellcheck disable=SC2016,SC2086
 set -euo pipefail
 
-SERVICES='app worker seed pgsql redis auth-migrate'
+SERVICES='app worker seed pgsql redis auth-migrate relay'
 
 die() {
     local code="$1"
@@ -18,7 +18,8 @@ die() {
 usage() {
     cat >&2 <<'EOF'
 Usage: bin/stack <command>
-  up                     build the images, bring the stack up and print the app's host port
+  up [--shared-supabase] build the images, bring the stack up and print the app's host port;
+                         --shared-supabase runs against the shared local Supabase (never migrated or seeded)
   down                   remove the stack's containers, volumes, network, images and generated env
   port                   print the app's host port (exit 1 when the stack is not up)
   logs [<service>]       follow a service's container log (default app)
@@ -35,13 +36,33 @@ STATE="$REPO/tmp/stack"
 COMPOSE_ENV="$STATE/compose.env"
 FILL_ENV="$STATE/fill.env"
 ENV_FILE="$REPO/.env"
+# default: the stack's own seeded Postgres; shared: the shared local Supabase through the relay (COR-375 removes it).
+MODE=default
+SHARED_DB_PORT=''
+SHARED_API_PORT=''
 
 dc() {
-    docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" --profile own-postgres \
-        --env-file "$COMPOSE_ENV" "$@"
+    if [ "$MODE" = shared ]; then
+        docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" \
+            -f "$REPO/compose.local.shared-supabase.yaml" --env-file "$COMPOSE_ENV" "$@"
+    else
+        docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" --profile own-postgres \
+            --env-file "$COMPOSE_ENV" "$@"
+    fi
 }
 
 project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
+
+# running_mode: shared when the project has a relay container, else default; read from Docker, never a state file.
+running_mode() {
+    if [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=relay" 2>/dev/null)" ]; then
+        echo shared
+    else
+        echo default
+    fi
+}
+
+mode_label() { if [ "$1" = shared ]; then echo 'shared-Supabase'; else echo 'own-Postgres'; fi; }
 
 # service_state <service> <go template>: one field of a stack container, running or not; blank when there is none.
 service_state() {
@@ -56,7 +77,11 @@ require_up() {
 }
 
 # env_file_sets <file> <key>: 0 when the file's last assignment of key is non-blank. Never prints the value.
-env_file_sets() {
+env_file_sets() { env_file_value "$1" "$2" >/dev/null; }
+
+# env_file_value <file> <key>: prints the last assignment's value, unquoted; 1 when it is blank or absent.
+# Only for non-secret keys: callers that only need to know a key is set use env_file_sets.
+env_file_value() {
     [ -f "$1" ] || return 1
     awk -v k="$2" '
         {
@@ -76,7 +101,8 @@ env_file_sets() {
             if (val ~ /^#/) val = ""
             gsub(/^["\047]|["\047]$/, "", val)
             gsub(/^[ \t]+|[ \t]+$/, "", val)
-            exit (val == "" ? 1 : 0)
+            if (val == "") exit 1
+            print val
         }' "$1"
 }
 
@@ -142,7 +168,27 @@ check_fixed_port() {
     fi
 }
 
-host_port() { dc port app 8000 2>/dev/null | tail -1 | sed 's/.*://'; }
+# check_shared_supabase: the .env's shared Postgres port and loopback SUPABASE_URL, both answering on host loopback.
+check_shared_supabase() {
+    local url
+    SHARED_DB_PORT="$(env_file_value "$ENV_FILE" DB_PORT)" || die 64 "--shared-supabase needs DB_PORT in .env"
+    url="$(env_file_value "$ENV_FILE" SUPABASE_URL)" || die 64 "--shared-supabase needs SUPABASE_URL in .env"
+    [[ "$SHARED_DB_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || die 64 "DB_PORT in .env is not a port number: $SHARED_DB_PORT"
+    [[ "$url" =~ ^http://(127\.0\.0\.1|localhost):([1-9][0-9]{0,4})/?$ ]] ||
+        die 64 "--shared-supabase needs SUPABASE_URL in .env to be http://127.0.0.1:<port>; got $url"
+    SHARED_API_PORT="${BASH_REMATCH[2]}"
+    local port
+    for port in "$SHARED_DB_PORT" "$SHARED_API_PORT"; do
+        (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null ||
+            die 75 "the shared Supabase is not answering on 127.0.0.1:$port; start it without a reset (make supabase-start runs db-reset-full and wipes it)"
+    done
+}
+
+host_port() {
+    local svc=app
+    [ "$MODE" = default ] || svc=relay
+    dc port "$svc" 8000 2>/dev/null | tail -1 | sed 's/.*://'
+}
 
 # write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
 write_env() {
@@ -154,7 +200,11 @@ write_env() {
     (
         umask 077
         {
+            echo "STACK_PROJECT=$PROJECT"
             echo "STACK_IMAGE=alz-dev-local:$PROJECT"
+            echo "STACK_RELAY_IMAGE=alz-dev-relay:$PROJECT"
+            echo "STACK_SHARED_DB_PORT=$SHARED_DB_PORT"
+            echo "STACK_SHARED_API_PORT=$SHARED_API_PORT"
             echo "STACK_WORKTREE=$REPO"
             echo "STACK_ENV_FILE=$ENV_FILE"
             echo "STACK_FILL_ENV=$FILL_ENV"
@@ -228,16 +278,35 @@ prepare_mount() {
     done
 }
 
+# ping_shared_db: the app reaches the shared database with the .env's credentials, through the relay.
+ping_shared_db() {
+    [ "$MODE" = shared ] || return 0
+    dc exec -T app php artisan db:ping >&2 ||
+        die 1 "the app cannot reach the shared database; check DB_DATABASE, DB_USERNAME and DB_PASSWORD in .env (run bin/stack down to clean up)"
+}
+
 cmd_up() {
-    [ "$#" -eq 0 ] || die 64 "up: unknown argument: $1"
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --shared-supabase) MODE=shared ;;
+            *) die 64 "up: unknown argument: $1" ;;
+        esac
+        shift
+    done
     command -v docker >/dev/null 2>&1 || die 75 "docker not found"
     docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
     [ -f "$REPO/vendor/autoload.php" ] || die 75 "no vendor/autoload.php in this worktree; run make install first"
 
     if [ -n "$(project_containers)" ]; then
+        local running
+        running="$(running_mode)"
+        [ "$running" = "$MODE" ] ||
+            die 75 "project $PROJECT is up in $(mode_label "$running") mode; run bin/stack down before an up in $(mode_label "$MODE") mode"
         [ -f "$COMPOSE_ENV" ] || die 75 "project $PROJECT has containers but no tmp/stack/compose.env; run bin/stack down first"
+        [ "$MODE" = default ] || check_shared_supabase
         # Recreates only app and worker: keeps the seeded database, Redis and generated env, and re-reads the .env.
         dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker || report_failed_start
+        ping_shared_db
         print_port
         return
     fi
@@ -248,12 +317,14 @@ cmd_up() {
         [ -z "$gap" ] || die 75 "single-quote these keys in .env, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
     fi
     check_fixed_port
+    [ "$MODE" = default ] || check_shared_supabase
 
     write_env
     prepare_mount
     build_images
-    echo "bin/stack: starting $PROJECT" >&2
+    echo "bin/stack: starting $PROJECT ($(mode_label "$MODE") mode)" >&2
     dc up -d --wait --wait-timeout 900 app worker || report_failed_start
+    ping_shared_db
     print_port
 }
 
@@ -300,8 +371,7 @@ cmd_logs() {
     local svc="${1:-app}"
     case " $SERVICES " in *" $svc "*) ;; *) die 64 "unknown service: $svc (one of: $SERVICES)" ;; esac
     [ -f "$COMPOSE_ENV" ] || die 1 "the stack is not up (project $PROJECT); run bin/stack up"
-    exec docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" --profile own-postgres \
-        --env-file "$COMPOSE_ENV" logs -f "$svc"
+    dc logs -f "$svc"
 }
 
 cmd_curl() {
@@ -324,6 +394,9 @@ cmd_curl() {
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
+case "$verb" in
+    down | port | logs | curl) MODE="$(running_mode)" ;;
+esac
 case "$verb" in
     up) cmd_up "$@" ;;
     down) cmd_down "$@" ;;

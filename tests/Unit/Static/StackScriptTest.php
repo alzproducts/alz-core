@@ -6,9 +6,12 @@ namespace Tests\Unit\Static;
 
 use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Tag\TaggedValue;
+use Symfony\Component\Yaml\Yaml;
 use Tests\TestCase;
 use Tests\Unit\Static\Support\StackStubRun;
 
@@ -21,6 +24,9 @@ final class StackScriptTest extends TestCase
 {
     private StackStubRun $run;
 
+    /** @var array<int, resource> */
+    private array $listeners = [];
+
     #[Override]
     protected function setUp(): void
     {
@@ -32,6 +38,10 @@ final class StackScriptTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
+        foreach ($this->listeners as $listener) {
+            \fclose($listener);
+        }
+
         $this->run->remove();
 
         parent::tearDown();
@@ -417,6 +427,177 @@ final class StackScriptTest extends TestCase
 
         $this->assertMatchesRegularExpression('/^FROM \$\{RUNTIME_IMAGE\}$/m', $dockerfile);
         $this->assertMatchesRegularExpression('/^FROM [^\n]+ AS runtime$/m', (string) \file_get_contents("{$root}/Dockerfile"));
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_layers_the_override_without_the_own_postgres_profile(): void
+    {
+        [$db, $api] = $this->sharedSupabase();
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertSame("project={$this->run->project}\nurl=http://127.0.0.1:5000\nport=5000\n", $up->getOutput());
+        $calls = $this->run->calls();
+        $this->assertMatchesRegularExpression('/^compose -p \S+ .*-f \S+\/compose\.local\.yaml -f \S+\/compose\.local\.shared-supabase\.yaml .*up -d --wait --wait-timeout 900 app worker$/m', $calls);
+        $this->assertStringNotContainsString('--profile own-postgres', $calls);
+        $this->assertStringContainsString('exec -T app php artisan db:ping', $calls);
+        $this->assertStringContainsString('port relay 8000', $calls);
+        $this->assertContains("container/{$this->run->project}__relay", $this->run->resources($this->run->project));
+        $this->assertNotContains("container/{$this->run->project}__seed", $this->run->resources($this->run->project));
+
+        $env = $this->run->read('tmp/stack/compose.env');
+        $this->assertStringContainsString("STACK_SHARED_DB_PORT={$db}\nSTACK_SHARED_API_PORT={$api}\n", $env);
+        $this->assertStringContainsString("STACK_RELAY_IMAGE=alz-dev-relay:{$this->run->project}\n", $env);
+        $this->assertStringContainsString("STACK_PROJECT={$this->run->project}\n", $env);
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_on_a_running_shared_stack_recreates_only_app_and_worker(): void
+    {
+        $this->sharedSupabase();
+        $this->assertSame(0, $this->run->stack([], 'up', '--shared-supabase')->getExitCode());
+        $this->run->clearCalls();
+
+        $again = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertSame(0, $again->getExitCode(), $again->getErrorOutput());
+        $this->assertMatchesRegularExpression('/^compose .*shared-supabase\.yaml .*up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker$/m', $this->run->calls());
+        $this->assertStringContainsString('exec -T app php artisan db:ping', $this->run->calls());
+    }
+
+    #[Test]
+    public function up_refuses_a_mode_other_than_the_running_one_and_names_down(): void
+    {
+        $this->sharedSupabase();
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+
+        $this->assertRefusal($this->run->stack([], 'up', '--shared-supabase'), 75, 'is up in own-Postgres mode; run bin/stack down before an up in shared-Supabase mode');
+
+        $this->assertSame(0, $this->run->stack([], 'down')->getExitCode());
+        $this->assertSame(0, $this->run->stack([], 'up', '--shared-supabase')->getExitCode());
+
+        $this->assertRefusal($this->run->stack([], 'up'), 75, 'is up in shared-Supabase mode; run bin/stack down before an up in own-Postgres mode');
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_refuses_a_shared_supabase_that_does_not_answer(): void
+    {
+        $closed = $this->freePort();
+        $this->run->write('.env', "DB_PORT={$closed}\nSUPABASE_URL=http://127.0.0.1:{$closed}\n");
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertRefusedBeforeBuild($up, 75, "the shared Supabase is not answering on 127.0.0.1:{$closed}");
+        $this->assertStringContainsString('make supabase-start runs db-reset-full', $up->getErrorOutput());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function sharedEnvRefusals(): iterable
+    {
+        yield 'no DB_PORT' => ["SUPABASE_URL=http://127.0.0.1:54321\n", '--shared-supabase needs DB_PORT in .env'];
+        yield 'no SUPABASE_URL' => ["DB_PORT=54322\n", '--shared-supabase needs SUPABASE_URL in .env'];
+        yield 'DB_PORT not a port' => ["DB_PORT=pg\nSUPABASE_URL=http://127.0.0.1:54321\n", 'DB_PORT in .env is not a port number: pg'];
+        yield 'remote SUPABASE_URL' => ["DB_PORT=54322\nSUPABASE_URL=https://example.supabase.co\n", 'to be http://127.0.0.1:<port>; got https://example.supabase.co'];
+    }
+
+    #[Test]
+    #[DataProvider('sharedEnvRefusals')]
+    public function up_with_shared_supabase_refuses_an_env_without_a_loopback_shared_supabase(string $env, string $message): void
+    {
+        $this->run->write('.env', $env);
+
+        $this->assertRefusedBeforeBuild($this->run->stack([], 'up', '--shared-supabase'), 64, $message);
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_fails_when_the_app_cannot_reach_the_shared_database(): void
+    {
+        $this->sharedSupabase();
+        $this->run->knob('fail', 'exec');
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertRefusal($up, 1, 'the app cannot reach the shared database; check DB_DATABASE, DB_USERNAME and DB_PASSWORD in .env');
+    }
+
+    #[Test]
+    public function port_logs_curl_and_down_take_the_shared_mode_from_the_relay_container(): void
+    {
+        $this->sharedSupabase();
+        $this->assertSame(0, $this->run->stack([], 'up', '--shared-supabase')->getExitCode());
+        $this->run->clearCalls();
+
+        $this->assertSame("5000\n", $this->run->stack([], 'port')->getOutput());
+        $this->assertSame("stub log of -f relay\n", $this->run->stack([], 'logs', 'relay')->getOutput());
+        $this->assertSame(0, $this->run->stack([], 'curl', 'GET', '/up')->getExitCode());
+        $this->assertSame(0, $this->run->stack([], 'down')->getExitCode());
+
+        $composeCalls = \array_values(\array_filter(\explode("\n", $this->run->calls()), static fn(string $call): bool => \str_starts_with($call, 'compose ')));
+        $this->assertCount(4, $composeCalls);
+
+        foreach ($composeCalls as $call) {
+            $this->assertStringContainsString('compose.local.shared-supabase.yaml', $call);
+            $this->assertStringNotContainsString('--profile own-postgres', $call);
+        }
+
+        $this->assertStringContainsString('port relay 8000', $composeCalls[0]);
+        $this->assertSame([], $this->run->resources($this->run->project));
+    }
+
+    #[Test]
+    public function the_shared_override_replaces_the_dependencies_and_takes_the_shared_database_from_the_env(): void
+    {
+        $root = \dirname(__DIR__, 3);
+        $base = Yaml::parseFile("{$root}/compose.local.yaml", Yaml::PARSE_CUSTOM_TAGS);
+        $shared = Yaml::parseFile("{$root}/compose.local.shared-supabase.yaml", Yaml::PARSE_CUSTOM_TAGS);
+        $this->assertIsArray($base);
+        $this->assertIsArray($shared);
+        $fromEnv = ['DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'DB_PORT', 'SUPABASE_URL', 'SHOPWIRED_SALE_CATEGORY_ID'];
+        $expected = \array_diff_key($base['x-stack-env'], \array_flip($fromEnv));
+        $expected['DB_HOST'] = '127.0.0.1';
+
+        foreach (['app', 'worker'] as $service) {
+            $definition = $shared['services'][$service];
+            $this->assertSame('service:relay', $definition['network_mode']);
+            $this->assertInstanceOf(TaggedValue::class, $definition['depends_on']);
+            $this->assertSame('override', $definition['depends_on']->getTag());
+            $this->assertSame(['relay', 'redis'], \array_keys($definition['depends_on']->getValue()));
+            $this->assertInstanceOf(TaggedValue::class, $definition['environment']);
+            $this->assertSame('override', $definition['environment']->getTag());
+            $environment = $definition['environment']->getValue();
+            \ksort($environment);
+            \ksort($expected);
+            $this->assertSame($expected, $environment);
+        }
+
+        foreach (['seed', 'pgsql', 'auth-migrate'] as $service) {
+            $this->assertArrayNotHasKey($service, $shared['services']);
+            $this->assertSame(['own-postgres'], $base['services'][$service]['profiles']);
+        }
+    }
+
+    /**
+     * Two loopback listeners standing in for the shared Postgres and Auth API, and a .env pointing at them.
+     *
+     * @return array{int, int}
+     */
+    private function sharedSupabase(): array
+    {
+        $ports = [];
+
+        foreach ([0, 1] as $i) {
+            $server = \stream_socket_server('tcp://127.0.0.1:0');
+            $this->assertIsResource($server);
+            $this->listeners[$i] = $server;
+            $ports[$i] = (int) \mb_substr((string) \stream_socket_get_name($server, false), \mb_strlen('127.0.0.1:'));
+        }
+
+        $this->run->write('.env', "DB_PORT={$ports[0]}\nSUPABASE_URL=http://127.0.0.1:{$ports[1]}\n");
+
+        return [$ports[0], $ports[1]];
     }
 
     private function freePort(): int

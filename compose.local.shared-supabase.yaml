@@ -1,0 +1,90 @@
+# Layered over compose.local.yaml by bin/stack up --shared-supabase: app and worker run against the shared local
+# Supabase, through a relay whose network namespace they share, so the .env's loopback URLs work in them unchanged.
+# intentional: no seed, pgsql or auth-migrate (bin/stack drops the own-postgres profile); the shared database is never
+# migrated or seeded (COR-318/D12). COR-375 removes this file.
+# intentional: environment is !override, so DB_DATABASE, DB_USERNAME, DB_PASSWORD, DB_PORT, SUPABASE_URL and
+# SHOPWIRED_SALE_CATEGORY_ID come from the worktree's .env; every other key matches compose.local.yaml's x-stack-env.
+
+x-shared-env: &shared-env
+    DB_CONNECTION: pgsql
+    DB_HOST: 127.0.0.1
+    DB_SSLMODE: disable
+    DB_URL: ''
+    REDIS_HOST: redis
+    REDIS_PORT: '6379'
+    REDIS_PASSWORD: '${STACK_REDIS_PASSWORD:?}'
+    REDIS_URL: ''
+    REDIS_USERNAME: ''
+    APP_ENV: local
+    APP_URL: 'http://127.0.0.1:8000'
+    PORT: '8000'
+    QUEUE_CONNECTION: redis
+    CACHE_STORE: redis
+    LOG_CHANNEL: stack
+    LOG_STACK: 'single,stderr'
+    OCTANE_STATE_FILE: /tmp/octane-server-state.json
+    APP_CONFIG_CACHE: /tmp/laravel-cache/config.php
+    APP_ROUTES_CACHE: /tmp/laravel-cache/routes-v7.php
+    APP_EVENTS_CACHE: /tmp/laravel-cache/events.php
+    APP_SERVICES_CACHE: /tmp/laravel-cache/services.php
+    APP_PACKAGES_CACHE: /tmp/laravel-cache/packages.php
+
+services:
+    relay:
+        image: '${STACK_RELAY_IMAGE:?}'
+        build:
+            # intentional: nothing is copied from it; any narrow context without secrets would do.
+            context: ./database/baseline
+            dockerfile_inline: |
+                FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
+                RUN apk add --no-cache socat postgresql17-client
+            labels:
+                com.docker.compose.project: '${STACK_PROJECT:?}'
+        # intentional: an init as PID 1, so the shell takes SIGTERM and each forward is an ordinary process.
+        init: true
+        command:
+            - sh
+            - '-c'
+            - |
+                for port in "$$RELAY_API_PORT" "$$PGPORT"; do
+                    socat "TCP4-LISTEN:$$port,bind=127.0.0.1,fork,reuseaddr" "TCP4:host.docker.internal:$$port" &
+                done
+                wait -n
+                exit 1
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '127.0.0.1:${STACK_PORT:-}:8000'
+        environment:
+            RELAY_API_PORT: '${STACK_SHARED_API_PORT:?}'
+            PGHOST: 127.0.0.1
+            PGPORT: '${STACK_SHARED_DB_PORT:?}'
+        # A reply through both forwards: a listener alone accepts while the shared Supabase is gone.
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'pg_isready -q -t 3 && wget -q -T 3 -O /dev/null "http://127.0.0.1:$$RELAY_API_PORT/auth/v1/.well-known/openid-configuration"'
+            interval: 2s
+            timeout: 8s
+            retries: 15
+
+    app:
+        network_mode: 'service:relay'
+        depends_on: !override
+            relay:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        ports: !reset []
+        environment: !override
+            <<: *shared-env
+
+    worker:
+        network_mode: 'service:relay'
+        depends_on: !override
+            relay:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        environment: !override
+            <<: *shared-env

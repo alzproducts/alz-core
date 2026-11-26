@@ -89,8 +89,14 @@ final readonly class StackStubRun
             port) [ "$(knob fail)" = port ] || echo 127.0.0.1:5000 ;;
             logs) echo "stub log of $*" ;;
             exec)
-                while [ "$1" != sh ]; do shift; done
-                SUPABASE_LOCAL_BYPASS_SECRET=stub-secret exec "$@"
+                case " $* " in
+                    *' sh '*)
+                        while [ "$1" != sh ]; do shift; done
+                        SUPABASE_LOCAL_BYPASS_SECRET=stub-secret exec "$@"
+                        ;;
+                esac
+                [ "$(knob fail)" = exec ] && echo 'stub exec error' && exit 1
+                echo "stub exec $*"
                 ;;
         esac
         exit 0
