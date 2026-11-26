@@ -13,7 +13,6 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Infrastructure\Persistence\EloquentGateway;
 use App\Infrastructure\Persistence\Models\QuickBooks\OrderSyncRunModel;
-use DateTimeInterface;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Str;
 use Override;
@@ -47,7 +46,7 @@ final readonly class EloquentOrderSyncRunRepository implements OrderSyncRunRepos
             'order_references' => $run->references === null ? null : '{' . \implode(',', $run->references) . '}',
             'status' => OrderSyncRunStatus::Queued->value,
             'candidate_count' => $run->candidateCount,
-            'requested_at' => $run->requestedAt->format(DateTimeInterface::ATOM),
+            'requested_at' => $run->requestedAt->format('Y-m-d H:i:s.uP'),
         ]]);
     }
 

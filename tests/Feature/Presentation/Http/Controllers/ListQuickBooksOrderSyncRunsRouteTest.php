@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Controllers;
 
+use App\Application\Contracts\QuickBooks\OrderSyncRunRepositoryInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\RequestedOrderSyncRunDTO;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
+use App\Domain\ValueObjects\DateRange;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Override;
@@ -94,6 +99,18 @@ final class ListQuickBooksOrderSyncRunsRouteTest extends TestCase
     }
 
     #[Test]
+    public function runs_requested_within_the_same_second_list_newest_first(): void
+    {
+        $repository = $this->app->make(OrderSyncRunRepositoryInterface::class);
+        $repository->record($this->requested(self::OLDEST_RUN, '2026-11-22T10:00:00.100000+00:00'));
+        $repository->record($this->requested(self::RANGE_RUN, '2026-11-22T10:00:00.900000+00:00'));
+
+        $response = $this->asRole('standard')->getJson(self::URL)->assertOk();
+
+        self::assertSame([self::RANGE_RUN, self::OLDEST_RUN], \array_column($response->json('data'), 'id'));
+    }
+
+    #[Test]
     public function pages_carry_the_query_parameters(): void
     {
         $this->insertRun(self::OLDEST_RUN, ['requested_at' => '2026-11-20 09:00:00+00']);
@@ -123,6 +140,19 @@ final class ListQuickBooksOrderSyncRunsRouteTest extends TestCase
     public function users_below_staff_are_refused(): void
     {
         $this->asRole('guest')->getJson(self::URL)->assertForbidden();
+    }
+
+    private function requested(string $id, string $requestedAt): RequestedOrderSyncRunDTO
+    {
+        return new RequestedOrderSyncRunDTO(
+            $id,
+            OrderSyncTrigger::Range,
+            false,
+            new DateRange(new DateTimeImmutable('2026-11-01'), new DateTimeImmutable('2026-11-02')),
+            null,
+            1,
+            new DateTimeImmutable($requestedAt),
+        );
     }
 
     /**
