@@ -194,6 +194,79 @@ final class ValidateSupabaseJwtTest extends TestCase
         Http::assertNothingSent();
     }
 
+    /**
+     * @return iterable<string, array{string, array<string, string>}>
+     */
+    public static function nonLocalRequests(): iterable
+    {
+        yield 'remote peer forging X-Forwarded-For' => ['172.18.0.1', ['X-Forwarded-For' => '127.0.0.1']];
+        yield 'remote peer forging IPv6 X-Forwarded-For' => ['172.18.0.1', ['X-Forwarded-For' => '::1']];
+        yield 'remote peer without forwarding headers' => ['172.18.0.1', []];
+        yield 'local proxy relaying a public client' => ['127.0.0.1', ['X-Forwarded-For' => '203.0.113.7']];
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    #[Test]
+    #[DataProvider('nonLocalRequests')]
+    public function it_does_not_bypass_for_a_non_local_request(string $remoteAddress, array $headers): void
+    {
+        $this->enableLocalBypass();
+
+        $this->withServerVariables(['REMOTE_ADDR' => $remoteAddress])
+            ->withHeaders(['X-Local-Bypass' => self::BYPASS_SECRET, ...$headers])
+            ->getJson(self::ROUTE)
+            ->assertUnauthorized()
+            ->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Missing authorization token.']]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function loopbackAddresses(): iterable
+    {
+        yield 'IPv4 loopback' => ['127.0.0.1'];
+        yield 'IPv6 loopback' => ['::1'];
+    }
+
+    #[Test]
+    #[DataProvider('loopbackAddresses')]
+    public function it_bypasses_for_a_swoole_connection_from_a_loopback_peer(string $peer): void
+    {
+        $this->enableLocalBypass();
+        $this->bindSwooleWorker($peer);
+
+        $this->withHeaders(['X-Local-Bypass' => self::BYPASS_SECRET])->getJson(self::ROUTE)
+            ->assertOk()
+            ->assertJsonPath('auth_user_email', 'developer@example.com');
+    }
+
+    /**
+     * REMOTE_ADDR reads 127.0.0.1, as after Octane merges a `Remote-Addr` header over it.
+     */
+    #[Test]
+    public function it_does_not_bypass_when_a_swoole_peer_is_remote_but_remote_addr_reads_loopback(): void
+    {
+        $this->enableLocalBypass();
+        $this->bindSwooleWorker('172.18.0.1');
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->withHeaders(['X-Local-Bypass' => self::BYPASS_SECRET])
+            ->getJson(self::ROUTE)
+            ->assertUnauthorized();
+    }
+
+    #[Test]
+    public function it_does_not_bypass_when_the_swoole_peer_cannot_be_established(): void
+    {
+        $this->enableLocalBypass();
+        $this->bindSwooleWorker('127.0.0.1', hasTimerTable: false);
+
+        $this->withHeaders(['X-Local-Bypass' => self::BYPASS_SECRET])->getJson(self::ROUTE)
+            ->assertUnauthorized();
+    }
+
     #[Test]
     public function it_ignores_a_mismatched_local_bypass_secret(): void
     {
@@ -219,6 +292,33 @@ final class ValidateSupabaseJwtTest extends TestCase
                     'departments' => null,
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * Stand-in for Octane's Swoole worker state: CI runs without ext-swoole.
+     */
+    private function bindSwooleWorker(string $peer, bool $hasTimerTable = true): void
+    {
+        $this->app->instance('Laravel\Octane\Swoole\WorkerState', (object) [
+            'workerId' => 3,
+            'timerTable' => $hasTimerTable ? new class {
+                public function get(string $key, string $field): int|false
+                {
+                    return ($key === '3') && ($field === 'fd') ? 42 : false;
+                }
+            } : null,
+            'server' => new class ($peer) {
+                public function __construct(private readonly string $peer) {}
+
+                /**
+                 * @return array{remote_ip: string}|false
+                 */
+                public function getClientInfo(int|false $fd): array|false
+                {
+                    return $fd === 42 ? ['remote_ip' => $this->peer] : false;
+                }
+            },
         ]);
     }
 
