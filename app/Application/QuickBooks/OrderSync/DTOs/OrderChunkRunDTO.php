@@ -11,7 +11,7 @@ use Webmozart\Assert\Assert;
  */
 final readonly class OrderChunkRunDTO
 {
-    public const int MAX_ATTEMPTS = 3;
+    public const int MAX_ATTEMPTS = 6;
 
     public function __construct(
         public OrderSyncChunkDTO $chunk,

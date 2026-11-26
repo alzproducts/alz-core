@@ -16,13 +16,16 @@ use Illuminate\Support\Collection;
 use Override;
 
 /**
- * A copy waits a random time, so a run's copies do not come back together.
+ * A copy waiting for a slot waits a random time, so a run's copies do not come back together. A re-attempt waits
+ * long enough for QuickBooks to recover from what stopped the last one.
  */
 final readonly class QueuedOrderSyncDispatcher implements OrderSyncDispatcherInterface
 {
     public const int MIN_DELAY_SECONDS = 20;
 
     public const int MAX_DELAY_SECONDS = 40;
+
+    public const int REATTEMPT_DELAY_SECONDS = 600;
 
     /**
      * @throws InvalidConfigurationException when no chunk could ever take a slot
@@ -46,7 +49,7 @@ final readonly class QueuedOrderSyncDispatcher implements OrderSyncDispatcherInt
     public function dispatchChunk(OrderChunkRunDTO $run): void
     {
         if ($run->attempt > 1) {
-            self::dispatchDelayed($run);
+            SyncQuickBooksOrderChunkJob::dispatch($run)->delay(self::REATTEMPT_DELAY_SECONDS);
 
             return;
         }
@@ -65,11 +68,6 @@ final readonly class QueuedOrderSyncDispatcher implements OrderSyncDispatcherInt
             throw new InvalidConfigurationException('QUEUE_CONNECTION', 'Waiting for a slot needs a queue that keeps delays');
         }
 
-        self::dispatchDelayed($run);
-    }
-
-    private static function dispatchDelayed(OrderChunkRunDTO $run): void
-    {
         SyncQuickBooksOrderChunkJob::dispatch($run)->delay(new Collection(\range(self::MIN_DELAY_SECONDS, self::MAX_DELAY_SECONDS))->random());
     }
 }
