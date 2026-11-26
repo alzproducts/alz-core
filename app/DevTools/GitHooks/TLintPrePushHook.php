@@ -16,13 +16,14 @@ final class TLintPrePushHook extends AbstractProcessHook
      */
     protected function getProcessCommand(): array
     {
-        // Full scan - checks entire codebase including tests, config, bootstrap
-        return ['vendor/bin/tlint'];
+        // intentional: never a bare `vendor/bin/tlint`. Its walk enters excluded directories too,
+        // so nested agent worktrees outlast the timeout.
+        return ['make', 'tlint'];
     }
 
     protected function getTimeout(): int
     {
-        return 180; // 180 seconds: a full-repo scan exceeded 60s on a loaded machine
+        return 90; // 90 seconds: `make tlint` took over 30s on a loaded machine
     }
 
     protected function getSuccessMessage(): string
