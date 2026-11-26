@@ -12,8 +12,10 @@ use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
+use App\Application\QuickBooks\OrderSync\UseCases\RunOrderChunkUseCase;
 use App\Application\QuickBooks\OrderSync\UseCases\SyncOrderChunkUseCase;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\Shared\ValueObjects\Deadline;
@@ -163,6 +165,52 @@ final class SyncOrderChunkFloorTest extends TestCase
         $this->assertRow(self::REFERENCE, ['status' => 'failed', 'last_error_code' => 'outcome_unknown']);
         self::assertStringContainsString('before_floor_date', (string) DB::table('quickbooks.order_syncs')->value('last_error_message'));
         self::assertSame(['before_floor_date'], DB::table('quickbooks.order_sync_errors')->pluck('reason_code')->all());
+    }
+
+    #[Test]
+    public function an_unset_floor_fails_the_chunk_before_any_row_or_quickbooks_call(): void
+    {
+        $this->insertOrder(self::REFERENCE, self::FLOOR_START);
+        $this->insertOrder(self::OTHER_REFERENCE, self::FLOOR_START);
+        $this->insertSync(self::OTHER_REFERENCE, [
+            'status' => 'processing',
+            'claim_token' => '00000000-0000-4000-8000-000000000001',
+            'lease_expires_at' => '2026-01-01 00:00:00+00',
+            'last_error_code' => 'qbo_unavailable',
+            'last_error_message' => 'QuickBooks was unavailable and nothing was posted.',
+        ]);
+        DB::table('quickbooks.order_sync_errors')->insert([
+            'order_sync_id' => DB::table('quickbooks.order_syncs')->value('id'),
+            'trigger' => 'manual',
+            'reason_code' => 'qbo_unavailable',
+            'message' => 'QuickBooks was unavailable and nothing was posted.',
+        ]);
+        $rows = $this->syncTables();
+        \config(['quickbooks.backfill_floor_date' => null]);
+
+        try {
+            $this->app->make(RunOrderChunkUseCase::class)->execute(
+                new OrderChunkRunDTO(new OrderSyncChunkDTO(self::REALM, [self::REFERENCE, self::OTHER_REFERENCE], true, OrderSyncTrigger::Manual, null)),
+                Deadline::after(CarbonImmutable::now()->toDateTimeImmutable(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
+            );
+            self::fail('The chunk did not fail.');
+        } catch (InvalidConfigurationException $e) {
+            self::assertSame('QUICKBOOKS_BACKFILL_FLOOR_DATE', $e->configKey);
+        }
+
+        self::assertSame(0, DB::table('quickbooks.order_syncs')->where('reference', self::REFERENCE)->count());
+        self::assertEquals($rows, $this->syncTables());
+        self::assertSame([], $this->posting->calls);
+    }
+
+    /**
+     * @return array{list<array<string, mixed>>, list<array<string, mixed>>}
+     */
+    private function syncTables(): array
+    {
+        $rows = static fn(string $table): array => DB::table($table)->orderBy('id')->get()->map(static fn(object $row): array => (array) $row)->all();
+
+        return [$rows('quickbooks.order_syncs'), $rows('quickbooks.order_sync_errors')];
     }
 
     /**
