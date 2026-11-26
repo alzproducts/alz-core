@@ -341,8 +341,8 @@ final class QuickBooksSandboxBatchTest extends TestCase
         }
 
         $item = $this->first("SELECT * FROM Item WHERE Type IN ('Service', 'NonInventory') AND Active = true MAXRESULTS 1");
-        $taxCodes = $this->transport->query($this->accessToken, 'SELECT * FROM TaxCode WHERE Active = true MAXRESULTS 100', self::call());
-        $customFields = self::enabledCustomFieldIds($this->transport->query($this->accessToken, 'SELECT * FROM Preferences', self::call()));
+        $taxCodes = $this->transport->query($this->accessToken, 'SELECT * FROM TaxCode WHERE Active = true MAXRESULTS 100', self::otherCall());
+        $customFields = self::enabledCustomFieldIds($this->transport->query($this->accessToken, 'SELECT * FROM Preferences', self::otherCall()));
 
         $refs = [
             'customer' => self::id($this->first('SELECT * FROM Customer WHERE Active = true MAXRESULTS 1')),
@@ -383,7 +383,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
 
     private function first(string $query): ?object
     {
-        $rows = $this->transport->query($this->accessToken, $query, self::call());
+        $rows = $this->transport->query($this->accessToken, $query, self::otherCall());
         $row = $rows[0] ?? null;
 
         return \is_object($row) ? $row : null;
@@ -524,7 +524,7 @@ final class QuickBooksSandboxBatchTest extends TestCase
         return Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS);
     }
 
-    private static function call(): QuickBooksCallSpec
+    private static function otherCall(): QuickBooksCallSpec
     {
         return new QuickBooksCallSpec(QuickBooksCall::Other, self::deadline());
     }

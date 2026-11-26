@@ -101,7 +101,7 @@ final class QuickBooksSandboxTest extends TestCase
         $rows = $this->transport->query(
             $this->accessToken,
             'SELECT * FROM Item WHERE Name IN ' . QuickBooksQueryEscaper::inList([self::missingName()]),
-            self::call(),
+            self::otherCall(),
         );
 
         self::assertSame([], $rows);
@@ -115,7 +115,7 @@ final class QuickBooksSandboxTest extends TestCase
         $this->transport->query(
             $this->accessToken,
             'SELECT * FROM Item WHERE NoSuchField IN ' . QuickBooksQueryEscaper::inList([self::missingName()]),
-            self::call(),
+            self::otherCall(),
         );
     }
 
@@ -135,7 +135,7 @@ final class QuickBooksSandboxTest extends TestCase
     private function customerNames(string $query): array
     {
         $names = [];
-        foreach ($this->transport->query($this->accessToken, $query, self::call()) as $row) {
+        foreach ($this->transport->query($this->accessToken, $query, self::otherCall()) as $row) {
             self::assertInstanceOf(IPPCustomer::class, $row);
             $names[] = (string) $row->DisplayName;
         }
@@ -149,7 +149,7 @@ final class QuickBooksSandboxTest extends TestCase
     private function itemNames(string $query): array
     {
         $names = [];
-        foreach ($this->transport->query($this->accessToken, $query, self::call()) as $row) {
+        foreach ($this->transport->query($this->accessToken, $query, self::otherCall()) as $row) {
             self::assertInstanceOf(IPPItem::class, $row);
             $names[] = (string) $row->Name;
         }
@@ -165,7 +165,7 @@ final class QuickBooksSandboxTest extends TestCase
         return "zz-no-such-name O'Brien\\" . Str::random(8);
     }
 
-    private static function call(): QuickBooksCallSpec
+    private static function otherCall(): QuickBooksCallSpec
     {
         return new QuickBooksCallSpec(QuickBooksCall::Other, Deadline::after(new DateTimeImmutable(), self::DEADLINE_SECONDS));
     }
