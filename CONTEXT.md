@@ -236,6 +236,10 @@ _Avoid_: sync job, sync run (a run is one trigger that processes many order sync
 What one trigger did for one **reference**: `synced`, `already_synced`, `skipped`, `failed` or `not_attempted`.
 _Avoid_: status (the row's stored state; `already_synced`, `skipped` and `not_attempted` are outcomes only)
 
+**Sync run**:
+One accepted trigger (a range, a set of references, or a scheduled catch-up) and every chunk job it dispatches, recorded with the **sync outcome** counts of its **references**; a retry is a forced run by reference, not a trigger of its own.
+_Avoid_: batch (a QBO batch call is one chunk's create request), retry run
+
 **Retry mark**:
 A time-limited mark on a failed **order sync** that a forced retry is queued for, hiding it from the failed list until the retry ends or the mark expires.
 _Avoid_: retrying status (the row's status stays `failed`)
