@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\Access\AccessTokenVerifierInterface;
+use App\Application\Contracts\Access\ConnectionPeerResolverInterface;
 use App\Application\Contracts\ResilientCacheInterface;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
 use App\Domain\Exceptions\InvalidConfigurationException;
+use App\Infrastructure\Access\OctaneConnectionPeerResolver;
 use App\Infrastructure\Access\SupabaseAuthConfig;
 use App\Infrastructure\Access\SupabaseJwksHttpTransport;
 use App\Infrastructure\Access\SupabaseJwksKeySet;
@@ -25,7 +27,8 @@ use Override;
 use Psr\Log\LoggerInterface;
 
 /**
- * Provides AuthenticatedUser resolution from request attributes and the access-token verifier.
+ * Provides AuthenticatedUser resolution from request attributes, the access-token verifier
+ * and the connection peer resolver.
  *
  * Bridges the middleware layer (which sets authenticated_user in request
  * attributes) with the controller layer (which uses DI for type-safe access).
@@ -35,6 +38,11 @@ use Psr\Log\LoggerInterface;
  */
 final class AuthServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    /**
+     * intentional: a string, not ::class — Octane declares this class in bin/, outside its autoloader.
+     */
+    private const string SWOOLE_WORKER_STATE = 'Laravel\Octane\Swoole\WorkerState';
+
     #[Override]
     public function register(): void
     {
@@ -46,6 +54,11 @@ final class AuthServiceProvider extends ServiceProvider implements DeferrablePro
         $this->app->singleton(
             AccessTokenVerifierInterface::class,
             static fn(Application $app): AccessTokenVerifierInterface => self::buildAccessTokenVerifier($app),
+        );
+
+        $this->app->bind(
+            ConnectionPeerResolverInterface::class,
+            static fn(Application $app): ConnectionPeerResolverInterface => self::buildConnectionPeerResolver($app),
         );
     }
 
@@ -98,12 +111,26 @@ final class AuthServiceProvider extends ServiceProvider implements DeferrablePro
         );
     }
 
+    private static function buildConnectionPeerResolver(Application $app): OctaneConnectionPeerResolver
+    {
+        if (! $app->bound(self::SWOOLE_WORKER_STATE)) {
+            return new OctaneConnectionPeerResolver(null);
+        }
+
+        $workerState = $app->make(self::SWOOLE_WORKER_STATE);
+        if (! \is_object($workerState)) {
+            throw new LogicException('The bound Swoole worker state is not an object.');
+        }
+
+        return new OctaneConnectionPeerResolver($workerState);
+    }
+
     /**
      * @return list<class-string>
      */
     #[Override]
     public function provides(): array
     {
-        return [AuthenticatedUser::class, AccessTokenVerifierInterface::class];
+        return [AuthenticatedUser::class, AccessTokenVerifierInterface::class, ConnectionPeerResolverInterface::class];
     }
 }
