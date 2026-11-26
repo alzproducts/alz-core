@@ -44,6 +44,7 @@ final class SyncOrderChunkUseCaseTest extends TestCase
     {
         parent::setUp();
 
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         DB::table('quickbooks.order_syncs')->delete();
         $this->posting = new FakeQuickBooksOrderPosting();
         $this->app->instance(QuickBooksOrderPostingInterface::class, $this->posting);

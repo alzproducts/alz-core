@@ -31,6 +31,7 @@ final readonly class OrderSyncAttemptService
 {
     public function __construct(
         private OrderSyncSettingsInterface $settings,
+        private OrderSyncFloorService $floor,
         private OrderSyncPreparationService $preparation,
         private OrderSyncExistingDocumentService $existing,
         private OrderSyncResolutionService $resolution,
@@ -74,6 +75,8 @@ final readonly class OrderSyncAttemptService
 
     /**
      * Each step's settled orders are recorded before the next QuickBooks call, so a later throw cannot release them.
+     * intentional: the floor split runs before the DocNumber lookup, so a pre-floor order QuickBooks already holds is
+     * refused, not recorded as synced.
      *
      * @return array{list<ReadyOrderDTO>, list<OrderSyncResultDTO>}
      *
@@ -87,8 +90,10 @@ final readonly class OrderSyncAttemptService
      */
     private function prepare(#[SensitiveParameter] ApiKeyToken $accessToken, OrderSyncChunkDTO $chunk, OrderClaimResult $claim, Deadline $deadline): array
     {
-        $built = $this->preparation->build(new OrderPreparationDTO($chunk->realmId, $claim->claimed, $this->settings->runLabels()));
-        $results = $this->records->record($chunk, $built->settled);
+        $floor = $this->floor->withinFloor($claim->claimed);
+        $results = $this->records->record($chunk, $floor->settled);
+        $built = $this->preparation->build(new OrderPreparationDTO($chunk->realmId, $floor->open, $this->settings->runLabels()));
+        $results = [...$results, ...$this->records->record($chunk, $built->settled)];
         $open = $this->existing->withoutExisting($accessToken, $built->open, $deadline);
         $results = [...$results, ...$this->records->record($chunk, $open->settled)];
         $items = $this->resolution->withItems($accessToken, $open->open, $deadline);
