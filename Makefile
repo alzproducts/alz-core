@@ -1,4 +1,4 @@
-.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -380,8 +380,14 @@ redis-recreate: ## Recreate Redis container (fixes dropped host-port bindings)
 	docker compose up -d --force-recreate redis
 
 # Development Tools
-serve: ## Start full dev environment (Docker + Octane + Queue)
-	bin/serve
+serve: ## Bring this worktree's stack up (app, Horizon worker, Redis, own Postgres) and print its port
+	bin/stack up
+
+stack-down: ## Take this worktree's stack down (containers, volumes, network, images)
+	bin/stack down
+
+stack-logs: ## Follow the stack app's log (bin/stack logs <service> for another)
+	bin/stack logs
 
 pail: ## Tail logs (respects LOG_LEVEL from .env, defaults to info)
 	@LOG_LEVEL=$$(grep -E '^LOG_LEVEL=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"'"'" || echo "info"); \
