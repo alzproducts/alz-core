@@ -151,6 +151,11 @@ parameters:
         -
             identifier: property.uninitialized
             path: app/DevTools/GitHooks/Abstract*Hook.php
+        # A timed-out hook kills its command's whole process tree. Symfony Process signals only the child it started.
+        -
+            identifier: disallowed.function
+            path: app/DevTools/GitHooks/ProcessTreeProcess.php
+            count: 2
         # Laravel often requires unused closure parameters (Gate::define signatures, factory states, etc.)
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
