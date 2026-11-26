@@ -23,6 +23,7 @@ use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksRateLimiter;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use App\Infrastructure\Support\TransientLogThrottle;
+use App\Presentation\Http\QuickBooks\QuickBooksMappingDeadlineFactory;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -316,13 +317,14 @@ final class QuickBooksMappingRoutesTest extends TestCase
         $this->connect();
         $this->app->instance(QuickBooksMappingCandidatesInterface::class, $this->stallingReader(14));
         $start = CarbonImmutable::now();
+        $this->withServerVariables(['REQUEST_TIME_FLOAT' => (float) $start->subSeconds(5)->getTimestamp()]);
 
         $response = $this->asRole('standard')->getJson(self::URL . '/check');
 
         $response->assertStatus(Response::HTTP_SERVICE_UNAVAILABLE)->assertJsonPath('error.type', 'service_unavailable');
         $elapsed = $start->diffInSeconds(CarbonImmutable::now());
         self::assertGreaterThanOrEqual(14, $elapsed);
-        self::assertLessThanOrEqual(25, $elapsed);
+        self::assertLessThanOrEqual(QuickBooksMappingDeadlineFactory::SECONDS - 5, $elapsed);
     }
 
     /**

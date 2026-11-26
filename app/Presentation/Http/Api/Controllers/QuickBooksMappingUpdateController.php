@@ -24,6 +24,7 @@ use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Presentation\Http\Api\DTOs\UpdateQuickBooksMappingRequestDTO;
 use App\Presentation\Http\Api\Resources\QuickBooksMappingResource;
 use App\Presentation\Http\QuickBooks\QuickBooksMappingDeadlineFactory;
+use Illuminate\Http\Request;
 
 /**
  * @throws AuthenticationExpiredException
@@ -61,9 +62,9 @@ final readonly class QuickBooksMappingUpdateController
      * @throws UnexpectedApiResultException
      * @throws ValidationFailedException
      */
-    public function __invoke(MappingKey $key, UpdateQuickBooksMappingRequestDTO $data, AuthenticatedUser $user): QuickBooksMappingResource
+    public function __invoke(MappingKey $key, UpdateQuickBooksMappingRequestDTO $data, AuthenticatedUser $user, Request $request): QuickBooksMappingResource
     {
-        $candidate = $this->listOptions->execute($key, QuickBooksMappingDeadlineFactory::fromNow())->pick($data->ref_id);
+        $candidate = $this->listOptions->execute($key, QuickBooksMappingDeadlineFactory::forRequest($request))->pick($data->ref_id);
         $this->recordPick->execute($key, $candidate, $user->id);
 
         return new QuickBooksMappingResource($this->listMappings->execute()->row($key));

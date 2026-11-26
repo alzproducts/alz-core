@@ -22,6 +22,7 @@ use App\Presentation\Http\Api\Resources\QuickBooksMappingCandidateResource;
 use App\Presentation\Http\Api\Resources\QuickBooksMappingFindingResource;
 use App\Presentation\Http\Api\Resources\QuickBooksMappingResource;
 use App\Presentation\Http\QuickBooks\QuickBooksMappingDeadlineFactory;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
@@ -66,9 +67,9 @@ final readonly class QuickBooksMappingController
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
-    public function candidates(MappingKey $key): AnonymousResourceCollection
+    public function candidates(MappingKey $key, Request $request): AnonymousResourceCollection
     {
-        $options = $this->listOptions->execute($key, QuickBooksMappingDeadlineFactory::fromNow());
+        $options = $this->listOptions->execute($key, QuickBooksMappingDeadlineFactory::forRequest($request));
 
         return QuickBooksMappingCandidateResource::collection($options->options);
     }
@@ -85,9 +86,9 @@ final readonly class QuickBooksMappingController
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
-    public function check(): AnonymousResourceCollection
+    public function check(Request $request): AnonymousResourceCollection
     {
-        $result = $this->checkMappings->execute(QuickBooksMappingDeadlineFactory::fromNow());
+        $result = $this->checkMappings->execute(QuickBooksMappingDeadlineFactory::forRequest($request));
 
         return QuickBooksMappingFindingResource::collection($result->findings);
     }
