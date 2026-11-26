@@ -9,7 +9,9 @@ use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncOutcomeDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\ReadyOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SyncFailureDTO;
+use App\Application\QuickBooks\OrderSync\Enums\BatchOutcomeKind;
 use App\Application\QuickBooks\OrderSync\Resolvers\SyncOutcomeResolver;
+use App\Application\QuickBooks\OrderSync\Resolvers\UnsentOrderResolver;
 use App\Application\QuickBooks\OrderSync\Results\BatchItemOutcomeResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -48,16 +50,32 @@ final readonly class OrderSyncPostingService
         $documents = \array_map(static fn(ReadyOrderDTO $order): PostableDocumentDTO => $order->document, $ready);
 
         try {
-            return \array_map(self::outcome(...), $ready, $this->posting->createDocuments($accessToken, $documents, $deadline));
+            return self::outcomes($ready, $this->posting->createDocuments($accessToken, $documents, $deadline));
         } catch (AuthenticationExpiredException $e) {
             throw $e;
         } catch (QuickBooksDeadlineExceededException) {
             return \array_map(static fn(ReadyOrderDTO $order): OrderSyncOutcomeDTO => OrderSyncOutcomeDTO::released($order->order), $ready);
         } catch (ExternalServiceUnavailableException) {
-            return self::failed($ready, SyncOutcomeResolver::forUnavailable(null));
+            return UnsentOrderResolver::unavailableReady($ready);
         } catch (Throwable $e) { // @ignoreException - the documents may be stored, so it becomes each order's outcome
             return $this->unknown($ready, $e);
         }
+    }
+
+    /**
+     * A batch still rate-limited after its in-call retries was never accepted, so none of its documents exist.
+     *
+     * @param list<ReadyOrderDTO>          $ready
+     * @param list<BatchItemOutcomeResult> $items
+     *
+     * @return list<OrderSyncOutcomeDTO>
+     */
+    private static function outcomes(array $ready, array $items): array
+    {
+        $rateLimited = \count($items) === \count($ready)
+            && \array_all($items, static fn(BatchItemOutcomeResult $item): bool => $item->kind === BatchOutcomeKind::RateLimited);
+
+        return $rateLimited ? UnsentOrderResolver::unavailableReady($ready) : \array_map(self::outcome(...), $ready, $items);
     }
 
     /**

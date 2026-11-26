@@ -86,7 +86,7 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
                 . QuickBooksQueryEscaper::inList($chunk)
                 . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
 
-            foreach ($this->transport->query($accessToken, $query, $deadline) as $row) {
+            foreach ($this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::ItemLookup, $deadline)) as $row) {
                 $found[] = $this->item($row);
             }
         }
@@ -113,7 +113,7 @@ final readonly class QuickBooksClient implements QuickBooksClientInterface, Quic
                     . QuickBooksQueryEscaper::inList($chunk)
                     . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
 
-                $rows = $this->transport->query($accessToken, $query, $deadline);
+                $rows = $this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::DocumentLookup, $deadline));
                 if (\count($rows) >= QuickBooksQueryEscaper::MAX_RESULTS) {
                     throw $this->unexpected('Document query hit the row limit');
                 }

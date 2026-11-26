@@ -6,6 +6,7 @@ namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\UseCases\SyncOrderChunkUseCase;
@@ -104,7 +105,7 @@ final class SyncOrderChunkUseCaseTest extends TestCase
 
         $this->app->make(SyncOrderChunkUseCase::class)->execute(
             new ApiKeyToken('test-access-token'),
-            new OrderSyncChunkDTO(self::REALM, $references, false, OrderSyncTrigger::Manual, null),
+            new OrderChunkRunDTO(new OrderSyncChunkDTO(self::REALM, $references, false, OrderSyncTrigger::Manual, null)),
             Deadline::at($deadline),
         );
     }

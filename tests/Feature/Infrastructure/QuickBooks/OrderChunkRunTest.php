@@ -137,6 +137,34 @@ final class OrderChunkRunTest extends TestCase
     }
 
     #[Test]
+    public function a_forced_re_attempt_never_sends_an_order_holding_an_unknown_outcome(): void
+    {
+        $this->insertOrder(self::REFERENCE);
+        $this->insertSync(self::REFERENCE, ['status' => 'failed', 'last_error_code' => 'outcome_unknown', 'last_error_message' => 'Timed out']);
+        $before = DB::table('quickbooks.order_syncs')->where('reference', self::REFERENCE)->sole();
+
+        $this->runChunk(self::chunkRun([self::REFERENCE], true, attempt: 2));
+
+        self::assertSame([], $this->postedDocNumbers());
+        self::assertSame([], $this->posting->lookedUp);
+        self::assertEquals($before, DB::table('quickbooks.order_syncs')->where('reference', self::REFERENCE)->sole());
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
+    #[Test]
+    public function a_forced_first_attempt_posts_an_order_holding_an_unknown_outcome_when_quickbooks_has_no_document(): void
+    {
+        $this->insertOrder(self::REFERENCE);
+        $this->insertSync(self::REFERENCE, ['status' => 'failed', 'last_error_code' => 'outcome_unknown', 'last_error_message' => 'Timed out']);
+
+        $this->runChunk(self::chunkRun([self::REFERENCE], true));
+
+        self::assertSame(['A' . self::REFERENCE], $this->posting->lookedUp);
+        self::assertSame(['A' . self::REFERENCE], $this->postedDocNumbers());
+        self::assertSame('synced', $this->rowStatus(self::REFERENCE));
+    }
+
+    #[Test]
     public function the_run_id_and_trigger_reach_every_recorded_error(): void
     {
         $this->insertOrder(self::REFERENCE, sku: 'SKU-MISSING');

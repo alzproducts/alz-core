@@ -9,6 +9,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
@@ -541,12 +542,32 @@ final class SyncOrderChunkOutcomesTest extends TestCase
 
     #[Test]
     #[DataProvider('steps')]
-    public function an_unavailable_call_fails_its_orders(string $step): void
+    public function an_unavailable_call_releases_its_orders(string $step): void
     {
         $references = $this->insertReleaseSet();
         $this->posting->throws[$step] = new ExternalServiceUnavailableException('QuickBooks');
 
-        $this->sync(['references' => $references, 'force_retry' => true])
+        $response = $this->sync(['references' => $references, 'force_retry' => true])
+            ->assertOk()
+            ->assertJsonPath('counts.not_attempted', 5);
+
+        self::assertSame(\array_map(
+            static fn(int $reference): array
+                => self::expected($reference, 'not_attempted', reason: ['code' => 'qbo_unavailable', 'retryable' => true]),
+            $references,
+        ), self::withoutMessages($response));
+        $this->assertReleased($references);
+        self::assertSame([], $this->posting->documents);
+    }
+
+    #[Test]
+    #[DataProvider('steps')]
+    public function an_unavailable_call_on_the_last_attempt_fails_its_orders(string $step): void
+    {
+        $references = $this->insertReleaseSet();
+        $this->posting->throws[$step] = new ExternalServiceUnavailableException('QuickBooks');
+
+        $this->sync(['references' => $references, 'force_retry' => true], attempt: OrderChunkRunDTO::MAX_ATTEMPTS)
             ->assertOk()
             ->assertJsonPath('counts.failed', 5)
             ->assertJsonPath('results.*.reason.code', \array_fill(0, 5, 'qbo_unavailable'));
@@ -877,7 +898,6 @@ final class SyncOrderChunkOutcomesTest extends TestCase
      */
     public static function failedBatchItems(): iterable
     {
-        yield 'rate limited' => [BatchItemOutcomeResult::rateLimited(1), 'qbo_unavailable'];
         foreach (self::faults() as $name => [$fault, $code]) {
             yield "fault {$name}" => [BatchItemOutcomeResult::faulted($fault), $code];
         }
@@ -1186,14 +1206,14 @@ final class SyncOrderChunkOutcomesTest extends TestCase
      *
      * @return TestResponse<Response>
      */
-    private function sync(array $body, ?Deadline $deadline = null): TestResponse
+    private function sync(array $body, ?Deadline $deadline = null, int $attempt = 1): TestResponse
     {
         $chunk = new OrderSyncChunkDTO(self::REALM, $body['references'], $body['force_retry'] ?? false, OrderSyncTrigger::Manual, null);
 
         try {
             $results = $this->app->make(SyncOrderChunkUseCase::class)->execute(
                 new ApiKeyToken('test-access-token'),
-                $chunk,
+                new OrderChunkRunDTO($chunk, $attempt),
                 $deadline ?? Deadline::after(CarbonImmutable::now(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
             );
         } catch (Throwable $e) {

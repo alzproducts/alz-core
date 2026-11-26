@@ -41,12 +41,10 @@ final readonly class OrderSyncOutcomeDTO
     }
 
     /**
-     * Nothing was attempted for the order, so its row is released.
+     * Nothing reached QuickBooks for the order, so its row is released, whatever the reason.
      */
-    public static function released(ClaimedOrderDTO $order): self
+    public static function released(ClaimedOrderDTO $order, SyncReasonCode $reason = SyncReasonCode::DeadlineExceeded): self
     {
-        $refusal = SyncFailureDTO::of(SyncReasonCode::DeadlineExceeded);
-
-        return new self($order, $refusal, $refusal->code->outcome(), null);
+        return new self($order, SyncFailureDTO::of($reason), SyncOutcome::NotAttempted, null);
     }
 }

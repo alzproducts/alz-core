@@ -70,7 +70,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $tokens->expects($this->once())->method('assertConnected');
         $tokens->expects($this->once())->method('accessToken')->willReturn($token);
         $this->syncChunk = $syncChunk = $this->createMock(SyncOrderChunkUseCase::class);
-        $syncChunk->expects($this->once())->method('execute')->with($token, $run->chunk, $this->deadline)->willReturn(self::results([]));
+        $syncChunk->expects($this->once())->method('execute')->with($token, $run, $this->deadline)->willReturn(self::results([]));
 
         $this->runChunk($run);
 
@@ -84,6 +84,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
     {
         yield 'first' => [1];
         yield 'second' => [2];
+        yield 'fifth' => [5];
     }
 
     #[Test]
@@ -95,6 +96,16 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->runChunk(self::chunkRun($attempt));
 
         self::assertEquals([self::chunkRun($attempt + 1, [2, 4])], $this->dispatcher->chunks);
+    }
+
+    #[Test]
+    public function a_reference_recorded_failed_as_unavailable_is_not_re_attempted(): void
+    {
+        $this->syncReturns(self::results([2 => SyncReasonCode::QboUnavailable]));
+
+        $this->runChunk(self::chunkRun());
+
+        self::assertSame([], $this->dispatcher->chunks);
     }
 
     #[Test]
@@ -113,7 +124,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->syncReturns(self::results([2 => SyncReasonCode::DeadlineExceeded, 3 => SyncReasonCode::InProgress]));
 
         try {
-            $this->runChunk(self::chunkRun(3));
+            $this->runChunk(self::chunkRun(6));
             self::fail('The chunk did not fail.');
         } catch (OrderChunkUnfinishedException $e) {
             self::assertSame([2], $e->references);
@@ -136,7 +147,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
     #[DataProvider('transientTokenFailures')]
     public function a_transient_token_failure_re_attempts_the_whole_chunk(string $method, Throwable $failure): void
     {
-        foreach ([1, 2] as $attempt) {
+        foreach ([1, 2, 5] as $attempt) {
             $this->setUp();
             $this->tokens->method($method)->willThrowException($failure);
             $this->syncIsNeverCalled();
@@ -154,7 +165,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->tokens->method($method)->willThrowException($failure);
 
         try {
-            $this->runChunk(self::chunkRun(3, [2, 4]));
+            $this->runChunk(self::chunkRun(6, [2, 4]));
             self::fail('The chunk did not fail.');
         } catch (OrderChunkUnfinishedException $e) {
             self::assertSame([2, 4], $e->references);

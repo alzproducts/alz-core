@@ -13,6 +13,7 @@ use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksBatchExecution;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
 use App\Infrastructure\QuickBooks\QuickBooksCurlHttpClient;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceFactory;
 use App\Infrastructure\QuickBooks\QuickBooksDataServiceSession;
@@ -224,7 +225,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         $execution = $this->transport([
             $this->batchSession(lastError: self::fault(429, ''), retryAfter: 3),
             $this->batchSession(responses: $responses),
-        ])->executeBatch(self::token(), self::entities(), self::deadline(60));
+        ])->executeBatch(self::token(), self::entities(), self::deadline(105));
 
         $this->assertSame(['101', '102', '103'], [
             $execution->outcomeFor('1', IPPInvoice::class)->qboId,
@@ -238,7 +239,7 @@ final class QuickBooksTransportBatchTest extends TestCase
     #[Test]
     public function a_429_past_the_retry_window_makes_every_item_rate_limited(): void
     {
-        $execution = $this->transport([$this->batchSession(lastError: self::fault(429, ''), retryAfter: 120)])->executeBatch(self::token(), self::entities(), self::deadline(60));
+        $execution = $this->transport([$this->batchSession(lastError: self::fault(429, ''), retryAfter: 120)])->executeBatch(self::token(), self::entities(), self::deadline(105));
 
         $outcome = $execution->outcomeFor('2', IPPInvoice::class);
         $this->assertSame([BatchOutcomeKind::RateLimited, 120], [$outcome->kind, $outcome->retryAfterSeconds]);
@@ -253,7 +254,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         $limiter->shouldReceive('acquireBy')->once()->ordered()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
 
         $execution = $this->transport([$this->batchSession(lastError: self::fault(429, ''), retryAfter: 2)], $limiter)
-            ->executeBatch(self::token(), self::entities(), self::deadline(60));
+            ->executeBatch(self::token(), self::entities(), self::deadline(105));
 
         $this->assertSame([BatchOutcomeKind::RateLimited, 2], [$execution->outcomeFor('1', IPPInvoice::class)->kind, $execution->outcomeFor('1', IPPInvoice::class)->retryAfterSeconds]);
     }
@@ -274,7 +275,7 @@ final class QuickBooksTransportBatchTest extends TestCase
     {
         $this->expectException(QuickBooksDeadlineExceededException::class);
 
-        $this->transport([])->executeBatch(self::token(), self::entities(), self::deadline(QuickBooksTransport::START_FLOOR_SECONDS - 1));
+        $this->transport([])->executeBatch(self::token(), self::entities(), self::deadline(59));
     }
 
     #[Test]
@@ -324,8 +325,36 @@ final class QuickBooksTransportBatchTest extends TestCase
         $this->assertSame($intuitTid, $execution->intuitTid);
         $this->assertCount(1, $logger->records);
         $this->assertSame($status, $logger->records[0][1]['status']);
+        $this->assertSame('batch_create', $logger->records[0][1]['call']);
         $this->assertArrayHasKey('intuit_tid', $logger->records[0][1]);
         $this->assertSame($intuitTid, $logger->records[0][1]['intuit_tid']);
+    }
+
+    #[Test]
+    public function a_batch_create_is_sent_with_a_60_second_curl_timeout(): void
+    {
+        $this->assertSame(60, QuickBooksCall::BatchCreate->timeoutSeconds());
+
+        $execution = $this->transport([$this->batchSession(responses: ['1' => self::created(new IPPInvoice(), '101')])], timeoutSeconds: 60)
+            ->executeBatch(self::token(), [new IPPInvoice()], self::deadline());
+
+        $this->assertSame('101', $execution->outcomeFor('1', IPPInvoice::class)->qboId);
+    }
+
+    #[Test]
+    public function a_batch_create_curl_error_is_logged_with_its_number_and_the_call_name(): void
+    {
+        $logger = new RecordingLogger();
+        $thrown = new SdkException('cURL error during making API call. cURL Error Number:[28] with error:[Operation timed out]');
+        $session = $this->batchSession(throws: $thrown, curlErrno: 28);
+
+        $execution = $this->transport([$session], logger: $logger)->executeBatch(self::token(), self::entities(), self::deadline());
+
+        $this->assertSame(BatchOutcomeKind::Ambiguous, $execution->outcomeFor('1', IPPInvoice::class)->kind);
+        $this->assertSame(
+            [['QuickBooks API request failed', ['status' => null, 'exception' => SdkException::class, 'call' => 'batch_create', 'intuit_tid' => null, 'curl_errno' => 28]]],
+            $logger->records,
+        );
     }
 
     #[Test]
@@ -352,7 +381,7 @@ final class QuickBooksTransportBatchTest extends TestCase
             $execution = $this->transport([$session], logger: $logger)->executeBatch(self::token(), self::entities(), self::deadline());
 
             $this->assertSame($intuitTid, $execution->intuitTid);
-            $this->assertSame(['status' => null, 'exception' => TypeError::class, 'intuit_tid' => $intuitTid], $logger->records[0][1]);
+            $this->assertSame(['status' => null, 'exception' => TypeError::class, 'call' => 'batch_create', 'intuit_tid' => $intuitTid], $logger->records[0][1]);
         }
     }
 
@@ -362,7 +391,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         $execution = $this->transport([
             $this->batchSession(lastError: self::fault(429, ''), retryAfter: 3, intuitTid: 'tid-429'),
             $this->batchSession(responses: ['1' => self::failed(new ValidationException('Rejected', 2500))], intuitTid: 'tid-200'),
-        ])->executeBatch(self::token(), self::entities(), self::deadline(60));
+        ])->executeBatch(self::token(), self::entities(), self::deadline(105));
 
         $this->assertSame('tid-200', $execution->intuitTid);
     }
@@ -398,7 +427,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         return new ApiKeyToken('access');
     }
 
-    private static function deadline(int $seconds = 30): Deadline
+    private static function deadline(int $seconds = 75): Deadline
     {
         return Deadline::after(CarbonImmutable::now(), $seconds);
     }
@@ -437,6 +466,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         ?Throwable $throws = null,
         ?int $retryAfter = null,
         ?string $intuitTid = null,
+        int $curlErrno = 0,
     ): QuickBooksDataServiceSession {
         $batch = Mockery::mock(Batch::class);
         $batch->shouldReceive('AddEntity');
@@ -450,6 +480,7 @@ final class QuickBooksTransportBatchTest extends TestCase
         $httpClient = Mockery::mock(QuickBooksCurlHttpClient::class);
         $httpClient->shouldReceive('retryAfterSeconds')->andReturn($retryAfter);
         $httpClient->shouldReceive('intuitTid')->andReturn($intuitTid);
+        $httpClient->shouldReceive('curlErrno')->andReturn($curlErrno);
 
         return self::sessionWith($batch, $httpClient);
     }
@@ -459,19 +490,22 @@ final class QuickBooksTransportBatchTest extends TestCase
         $dataService = Mockery::mock(DataService::class);
         $dataService->shouldReceive('CreateNewBatch')->once()->andReturn($batch);
 
-        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient());
+        return new QuickBooksDataServiceSession($dataService, $httpClient ?? new QuickBooksCurlHttpClient(60));
     }
 
     /**
      * @param list<QuickBooksDataServiceSession> $sessions one per expected attempt, in order
      */
-    private function transport(array $sessions, ?QuickBooksRateLimiter $limiter = null, ?AbstractLogger $logger = null): QuickBooksTransport
+    private function transport(array $sessions, ?QuickBooksRateLimiter $limiter = null, ?AbstractLogger $logger = null, ?int $timeoutSeconds = null): QuickBooksTransport
     {
         $factory = Mockery::mock(QuickBooksDataServiceFactory::class);
         if ($sessions === []) {
             $factory->shouldNotReceive('create');
         } else {
-            $factory->shouldReceive('create')->times(\count($sessions))->andReturn(...$sessions);
+            $expectation = $factory->shouldReceive('create')->times(\count($sessions))->andReturn(...$sessions);
+            if ($timeoutSeconds !== null) {
+                $expectation->with(Mockery::type(ApiKeyToken::class), $timeoutSeconds);
+            }
         }
 
         if ($limiter === null) {

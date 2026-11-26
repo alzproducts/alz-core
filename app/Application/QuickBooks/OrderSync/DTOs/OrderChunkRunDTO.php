@@ -11,7 +11,7 @@ use Webmozart\Assert\Assert;
  */
 final readonly class OrderChunkRunDTO
 {
-    public const int MAX_ATTEMPTS = 3;
+    public const int MAX_ATTEMPTS = 6;
 
     public function __construct(
         public OrderSyncChunkDTO $chunk,
@@ -23,6 +23,14 @@ final readonly class OrderChunkRunDTO
     public function isLastAttempt(): bool
     {
         return $this->attempt === self::MAX_ATTEMPTS;
+    }
+
+    /**
+     * A re-attempt never claims a row holding `outcome_unknown`, forced or not: an earlier attempt may have created its document.
+     */
+    public function claimRules(): OrderSyncClaimRulesDTO
+    {
+        return new OrderSyncClaimRulesDTO($this->chunk->forceRetry, $this->attempt > 1);
     }
 
     /**

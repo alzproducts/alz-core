@@ -8,7 +8,7 @@ use App\Application\Contracts\QuickBooks\OrderSyncQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ClaimedOrderDTO;
-use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncStateDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
@@ -40,8 +40,9 @@ final readonly class OrderSyncClaimService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function claim(OrderSyncChunkDTO $chunk, Deadline $deadline): OrderClaimResult
+    public function claim(OrderChunkRunDTO $run, Deadline $deadline): OrderClaimResult
     {
+        $chunk = $run->chunk;
         $rows = $this->sourceOrders->findByReferences($chunk->references);
         $states = $this->orderSyncStates->statesFor($chunk->realmId, $chunk->references);
 
@@ -50,7 +51,7 @@ final readonly class OrderSyncClaimService
             foreach ($chunk->references as $reference) {
                 $row = $rows[$reference] ?? null;
                 $orders[] = self::refusal($reference, $states[$reference] ?? null, $row, $chunk->forceRetry)
-                    ?? $this->claimInTime($chunk, $reference, $row, $deadline);
+                    ?? $this->claimInTime($run, $reference, $row, $deadline);
             }
         } catch (Throwable $e) {
             $this->recovery->recover(OrderClaimResult::of($orders)->claimed, $e);
@@ -66,13 +67,13 @@ final readonly class OrderSyncClaimService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function claimInTime(OrderSyncChunkDTO $chunk, int $reference, ?SourceOrderRowDTO $row, Deadline $deadline): ClaimedOrderDTO|OrderSyncResultDTO
+    private function claimInTime(OrderChunkRunDTO $run, int $reference, ?SourceOrderRowDTO $row, Deadline $deadline): ClaimedOrderDTO|OrderSyncResultDTO
     {
         if ($row !== null && $deadline->secondsLeft(new DateTimeImmutable()) <= 0) {
             return OrderSyncResultDTO::refused($reference, SyncReasonCode::DeadlineExceeded);
         }
 
-        return $this->claimOne($chunk, $reference, $row);
+        return $this->claimOne($run, $reference, $row);
     }
 
     /**
@@ -80,18 +81,19 @@ final readonly class OrderSyncClaimService
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function claimOne(OrderSyncChunkDTO $chunk, int $reference, ?SourceOrderRowDTO $row): ClaimedOrderDTO|OrderSyncResultDTO
+    private function claimOne(OrderChunkRunDTO $run, int $reference, ?SourceOrderRowDTO $row): ClaimedOrderDTO|OrderSyncResultDTO
     {
+        $chunk = $run->chunk;
         if ($row === null) {
             return OrderSyncResultDTO::refused($reference, SyncReasonCode::OrderNotFound);
         }
 
-        $claim = $this->orderSyncs->claim($chunk->realmId, $reference, $row->externalId, $chunk->forceRetry);
+        $claim = $this->orderSyncs->claim($chunk->realmId, $reference, $row->externalId, $run->claimRules());
         if ($claim !== null) {
-            return new ClaimedOrderDTO($row, $claim);
+            return new ClaimedOrderDTO($row, $claim, $run->isLastAttempt());
         }
 
-        // Another worker changed the row between the read and the claim.
+        // Another worker changed the row between the read and the claim, or a re-attempt refused its unknown outcome.
         $state = $this->orderSyncStates->statesFor($chunk->realmId, [$reference])[$reference] ?? null;
 
         return self::refusal($reference, $state, $row, $chunk->forceRetry)

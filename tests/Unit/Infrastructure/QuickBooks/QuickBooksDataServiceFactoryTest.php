@@ -14,6 +14,7 @@ use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
 use App\Infrastructure\QuickBooks\QuickBooksRestHandlerSeam;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use QuickBooksOnline\API\Core\CoreConstants;
 use QuickBooksOnline\API\Core\HttpClients\SyncRestHandler;
@@ -55,13 +56,21 @@ final class QuickBooksDataServiceFactoryTest extends TestCase
     }
 
     #[Test]
+    #[TestWith([15])]
+    #[TestWith([60])]
+    public function the_session_client_times_out_after_the_timeout_it_was_created_with(int $timeoutSeconds): void
+    {
+        $this->assertSame($timeoutSeconds, new ReflectionProperty(QuickBooksCurlHttpClient::class, 'timeoutSeconds')->getValue($this->session($timeoutSeconds)->httpClient));
+    }
+
+    #[Test]
     public function the_seam_fails_closed_without_a_rest_handler(): void
     {
         $dataService = new ReflectionClass(DataService::class)->newInstanceWithoutConstructor();
 
         $this->expectException(InvalidConfigurationException::class);
 
-        QuickBooksRestHandlerSeam::install($dataService, new QuickBooksCurlHttpClient());
+        QuickBooksRestHandlerSeam::install($dataService, new QuickBooksCurlHttpClient(15));
     }
 
     private function build(): DataService
@@ -69,7 +78,7 @@ final class QuickBooksDataServiceFactoryTest extends TestCase
         return $this->session()->dataService;
     }
 
-    private function session(): QuickBooksDataServiceSession
+    private function session(int $timeoutSeconds = 15): QuickBooksDataServiceSession
     {
         $config = new QuickBooksConfig(
             environment: QuickBooksEnvironment::Sandbox,
@@ -79,7 +88,7 @@ final class QuickBooksDataServiceFactoryTest extends TestCase
             realmId: '9130000000000001',
         );
 
-        return (new QuickBooksDataServiceFactory($config))->create(new ApiKeyToken('access-token'));
+        return (new QuickBooksDataServiceFactory($config))->create(new ApiKeyToken('access-token'), $timeoutSeconds);
     }
 
     /**

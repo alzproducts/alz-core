@@ -93,7 +93,7 @@ final readonly class QuickBooksCustomerProvisioner
                 . QuickBooksQueryEscaper::inList($chunk)
                 . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
 
-            foreach ($this->transport->query($accessToken, $query, $deadline) as $row) {
+            foreach ($this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::CustomerLookup, $deadline)) as $row) {
                 if (!$row instanceof IPPCustomer) {
                     throw $this->unexpected('Customer query returned another entity');
                 }
@@ -115,7 +115,7 @@ final readonly class QuickBooksCustomerProvisioner
     private function create(#[SensitiveParameter] ApiKeyToken $accessToken, CustomerDraftDTO $draft, Deadline $deadline): CustomerResolutionDTO
     {
         try {
-            $created = $this->transport->add($accessToken, QuickBooksCustomerMapper::toEntity($draft), IPPCustomer::class, $deadline);
+            $created = $this->transport->add($accessToken, QuickBooksCustomerMapper::toEntity($draft), IPPCustomer::class, new QuickBooksCallSpec(QuickBooksCall::CustomerCreate, $deadline));
         } catch (QuickBooksFaultException $e) { // @ignoreException - a create's Fault is this name's outcome, not the call's
             return $e->fault->kind === QuickBooksFaultKind::DuplicateCustomerName
                 ? $this->afterDuplicateName($accessToken, $draft->displayName, $e->fault, $deadline)

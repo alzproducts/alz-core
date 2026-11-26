@@ -31,6 +31,8 @@ use App\Domain\QuickBooks\OrderSync\Enums\PaymentKey;
 use App\Domain\QuickBooks\OrderSync\Enums\TaxKey;
 use App\Domain\Shared\Money\ValueObjects\DecimalMoney;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksQueryEscaper;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
@@ -141,7 +143,7 @@ final readonly class QuickBooksSandboxProofFactory
         };
         $query = "SELECT * FROM {$entity} WHERE Id = " . QuickBooksQueryEscaper::literal($document->qboId);
 
-        return $this->transport->query($this->tokens->accessToken(), $query, self::deadline())[0] ?? null;
+        return $this->transport->query($this->tokens->accessToken(), $query, new QuickBooksCallSpec(QuickBooksCall::Other, self::deadline()))[0] ?? null;
     }
 
     /**

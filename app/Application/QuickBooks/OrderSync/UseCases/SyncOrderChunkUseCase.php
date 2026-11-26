@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\OrderSync\UseCases;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
-use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncAttemptService;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncClaimService;
@@ -42,13 +42,14 @@ final readonly class SyncOrderChunkUseCase
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
-    public function execute(#[SensitiveParameter] ApiKeyToken $accessToken, OrderSyncChunkDTO $chunk, Deadline $deadline): OrderSyncResultsResult
+    public function execute(#[SensitiveParameter] ApiKeyToken $accessToken, OrderChunkRunDTO $run, Deadline $deadline): OrderSyncResultsResult
     {
+        $chunk = $run->chunk;
         $this->logger->info('Syncing QuickBooks order chunk', ['references' => $chunk->references]);
 
         // intentional: the attempt reads the labels it uses; this read makes a misconfigured one throw before any claim.
         $this->settings->runLabels();
-        $claim = $this->claims->claim($chunk, $deadline);
+        $claim = $this->claims->claim($run, $deadline);
         $attempted = $this->attempts->attempt($accessToken, $chunk, $claim, $deadline);
         $results = OrderSyncResultsResult::inRequestOrder($chunk->references, [...$claim->refused, ...$attempted]);
 

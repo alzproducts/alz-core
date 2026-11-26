@@ -13,6 +13,8 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksQueryEscaper;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
@@ -62,7 +64,7 @@ final readonly class QuickBooksSandboxCompanyFactory
         $update = $this->preferencesUpdate();
 
         try {
-            $this->transport->add($this->tokens->accessToken(), $update, IPPPreferences::class, self::deadline());
+            $this->transport->add($this->tokens->accessToken(), $update, IPPPreferences::class, self::call());
         } catch (QuickBooksFaultException $e) {
             return QuickBooksSandboxMapper::faultText($e->fault);
         }
@@ -81,7 +83,7 @@ final readonly class QuickBooksSandboxCompanyFactory
         $query = 'SELECT * FROM Item WHERE Active IN (true, false) AND Name IN '
             . QuickBooksQueryEscaper::inList(\array_column(FixtureSku::cases(), 'value'))
             . ' MAXRESULTS ' . QuickBooksQueryEscaper::MAX_RESULTS;
-        foreach ($this->transport->query($this->tokens->accessToken(), $query, self::deadline()) as $row) {
+        foreach ($this->transport->query($this->tokens->accessToken(), $query, self::call()) as $row) {
             $name = QuickBooksQueryEscaper::fold(QuickBooksSandboxRowParser::text($row, 'Name') ?? '');
             $active[$name] = !QuickBooksSandboxRowParser::isFalse($row, 'Active');
         }
@@ -115,7 +117,7 @@ final readonly class QuickBooksSandboxCompanyFactory
                 $this->tokens->accessToken(),
                 QuickBooksSandboxMapper::item($sku, $account->id),
                 IPPItem::class,
-                self::deadline(),
+                self::call(),
             );
         }
     }
@@ -140,12 +142,12 @@ final readonly class QuickBooksSandboxCompanyFactory
      */
     private function preferences(): object
     {
-        return $this->transport->query($this->tokens->accessToken(), 'SELECT * FROM Preferences', self::deadline())[0]
+        return $this->transport->query($this->tokens->accessToken(), 'SELECT * FROM Preferences', self::call())[0]
             ?? throw new UnexpectedApiResultException('QuickBooks', 'Preferences is empty');
     }
 
-    private static function deadline(): Deadline
+    private static function call(): QuickBooksCallSpec
     {
-        return Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS);
+        return new QuickBooksCallSpec(QuickBooksCall::Other, Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS));
     }
 }

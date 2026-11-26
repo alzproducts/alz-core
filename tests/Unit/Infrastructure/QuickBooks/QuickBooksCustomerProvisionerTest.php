@@ -10,11 +10,14 @@ use App\Application\QuickBooks\OrderSync\DTOs\StructuredAddressDTO;
 use App\Application\QuickBooks\OrderSync\Enums\CustomerFailureKind;
 use App\Application\QuickBooks\OrderSync\Results\CustomerResolutionResult;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
 use App\Domain\Shared\ValueObjects\Deadline;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksCustomerProvisioner;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use DateTimeImmutable;
@@ -221,6 +224,21 @@ final class QuickBooksCustomerProvisionerTest extends TestCase
     }
 
     #[Test]
+    public function a_create_that_failed_with_a_network_error_is_found_by_name_on_the_next_call_and_not_created_again(): void
+    {
+        $this->transport->shouldReceive('query')->twice()->andReturn([], [self::customer('Jo Bloggs', '42')]);
+        $this->transport->shouldReceive('add')->once()->andThrow(new ExternalServiceUnavailableException('QuickBooks'));
+
+        try {
+            $this->provision([self::draft('Jo Bloggs')]);
+            $this->fail('The create did not fail.');
+        } catch (ExternalServiceUnavailableException) {
+        }
+
+        $this->assertSame('42', $this->provision([self::draft('Jo Bloggs')])->forDisplayName('Jo Bloggs')?->match?->id);
+    }
+
+    #[Test]
     public function another_create_fault_fails_only_that_name(): void
     {
         $fault = self::faultException(QuickBooksFaultKind::Validation, '6000', 'PrimaryEmailAddr', 'Invalid email');
@@ -251,6 +269,19 @@ final class QuickBooksCustomerProvisionerTest extends TestCase
         $this->transport->shouldReceive('query')->once()->andReturn([self::customer('Jo Bloggs', null)]);
 
         $this->expectException(UnexpectedApiResultException::class);
+
+        $this->provision([self::draft('Jo Bloggs')]);
+    }
+
+    #[Test]
+    public function the_find_and_the_create_are_sent_as_their_own_calls(): void
+    {
+        $this->transport->shouldReceive('query')->once()
+            ->with(Mockery::any(), Mockery::any(), Mockery::on(static fn(QuickBooksCallSpec $spec): bool => $spec->call === QuickBooksCall::CustomerLookup))
+            ->andReturn([]);
+        $this->transport->shouldReceive('add')->once()
+            ->with(Mockery::any(), Mockery::any(), IPPCustomer::class, Mockery::on(static fn(QuickBooksCallSpec $spec): bool => $spec->call === QuickBooksCall::CustomerCreate))
+            ->andReturn(self::customer('Jo Bloggs', '3'));
 
         $this->provision([self::draft('Jo Bloggs')]);
     }

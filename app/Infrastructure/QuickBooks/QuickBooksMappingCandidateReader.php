@@ -183,7 +183,7 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
     private function query(#[SensitiveParameter] ApiKeyToken $accessToken, string $query): array
     {
         try {
-            return $this->transport->query($accessToken, $query, self::deadline());
+            return $this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::MappingCandidates, self::deadline()));
         } catch (QuickBooksDeadlineExceededException $e) {
             throw $this->unavailable($e);
         }

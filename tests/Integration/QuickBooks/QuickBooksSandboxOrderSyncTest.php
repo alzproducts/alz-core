@@ -13,6 +13,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\ResolvedMappingRefsDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
@@ -22,6 +23,8 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\Jobs\QuickBooks\SyncQuickBooksOrderChunkJob;
+use App\Infrastructure\QuickBooks\QuickBooksCall;
+use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +143,7 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
             $started = \hrtime(true);
             $results = $this->app->make(SyncOrderChunkUseCase::class)->execute(
                 $accessToken,
-                $chunk,
+                new OrderChunkRunDTO($chunk),
                 Deadline::after(CarbonImmutable::now(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
             )->results;
             $seconds[] = \round((\hrtime(true) - $started) / 1e9, 2);
@@ -284,7 +287,7 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
         $rows = $this->app->make(QuickBooksTransport::class)->query(
             $this->app->make(QuickBooksTokenService::class)->accessToken(),
             "SELECT * FROM Item WHERE Type IN ('Service', 'NonInventory') AND Active = true MAXRESULTS 1",
-            Deadline::after(CarbonImmutable::now(), 60),
+            new QuickBooksCallSpec(QuickBooksCall::Other, Deadline::after(CarbonImmutable::now(), 60)),
         );
         $name = isset($rows[0]) && $rows[0] instanceof IPPItem ? (string) $rows[0]->Name : '';
 

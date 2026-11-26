@@ -114,18 +114,28 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
         self::assertSame([600, 900, 960, 10800], [SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS, self::job()->timeout, QuickBooksOrderChunkSlot::HOLD_SECONDS, $retryAfter]);
     }
 
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function waitingAttempts(): iterable
+    {
+        yield 'first attempt' => [1];
+        yield 'second attempt' => [2];
+    }
+
     #[Test]
-    public function with_no_free_slot_nothing_is_called_and_one_delayed_copy_waits(): void
+    #[DataProvider('waitingAttempts')]
+    public function with_no_free_slot_nothing_is_called_and_one_delayed_copy_waits(int $attempt): void
     {
         $this->redis->free = false;
 
-        $job = $this->work(self::job(attempt: 2));
+        $job = $this->work(self::job(attempt: $attempt));
 
         self::assertFalse($job->hasFailed());
         self::assertFalse($job->isReleased());
         self::assertSame([], $this->synced);
         $copy = $this->onlyCopy();
-        self::assertEquals(self::chunkRun(attempt: 2), $copy->run);
+        self::assertEquals(self::chunkRun(attempt: $attempt), $copy->run);
         self::assertSame('low', $copy->queue);
         self::assertIsInt($copy->delay);
         self::assertGreaterThanOrEqual(20, $copy->delay);
@@ -180,15 +190,28 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
     }
 
     #[Test]
-    public function what_the_deadline_left_is_re_attempted_by_a_delayed_copy(): void
+    public function what_the_deadline_left_is_re_attempted_after_600_seconds(): void
     {
-        $this->syncs([2 => SyncReasonCode::DeadlineExceeded]);
+        $this->syncs([2 => SyncReasonCode::DeadlineExceeded, 4 => SyncReasonCode::DeadlineExceeded]);
 
         self::assertFalse($this->work(self::job())->hasFailed());
 
         $copy = $this->onlyCopy();
-        self::assertEquals(self::chunkRun(attempt: 2, references: [2]), $copy->run);
-        self::assertContains($copy->delay, \range(20, 40));
+        self::assertEquals(self::chunkRun(attempt: 2, references: [2, 4]), $copy->run);
+        self::assertSame(600, $copy->delay);
+    }
+
+    #[Test]
+    public function without_a_token_the_whole_chunk_is_re_attempted_after_600_seconds(): void
+    {
+        $this->tokenIs(static fn(): never => throw new ExternalServiceUnavailableException('QuickBooks'));
+
+        self::assertFalse($this->work(self::job())->hasFailed());
+
+        self::assertSame([], $this->synced);
+        $copy = $this->onlyCopy();
+        self::assertEquals(self::chunkRun(attempt: 2), $copy->run);
+        self::assertSame(600, $copy->delay);
     }
 
     #[Test]
@@ -196,7 +219,7 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
     {
         $this->syncs([2 => SyncReasonCode::DeadlineExceeded, 3 => SyncReasonCode::InProgress]);
 
-        self::assertTrue($this->work(self::job(attempt: 3))->hasFailed());
+        self::assertTrue($this->work(self::job(attempt: 6))->hasFailed());
 
         $this->assertLoggedFailure(OrderChunkUnfinishedException::class, [2]);
         Queue::assertNothingPushed();
@@ -207,7 +230,7 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
     {
         $this->tokenIs(static fn(): never => throw new ExternalServiceUnavailableException('QuickBooks'));
 
-        self::assertTrue($this->work(self::job(attempt: 3, references: [2, 4]))->hasFailed());
+        self::assertTrue($this->work(self::job(attempt: 6, references: [2, 4]))->hasFailed());
 
         $this->assertLoggedFailure(OrderChunkUnfinishedException::class, [2, 4]);
         Queue::assertNothingPushed();
@@ -377,11 +400,11 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
     private function chunkIs(Closure $outcome): void
     {
         $chunk = $this->createStub(SyncOrderChunkUseCase::class);
-        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderSyncChunkDTO $chunk, Deadline $deadline) use ($outcome): OrderSyncResultsResult {
+        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderChunkRunDTO $run, Deadline $deadline) use ($outcome): OrderSyncResultsResult {
             self::assertTrue($this->redis->held);
-            $this->synced[] = [$chunk, $deadline];
+            $this->synced[] = [$run->chunk, $deadline];
 
-            return $outcome($chunk);
+            return $outcome($run->chunk);
         });
         $this->app->instance(SyncOrderChunkUseCase::class, $chunk);
     }
