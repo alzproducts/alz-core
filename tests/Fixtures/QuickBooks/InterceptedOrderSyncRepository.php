@@ -6,6 +6,7 @@ namespace Tests\Fixtures\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use Closure;
@@ -37,12 +38,12 @@ final class InterceptedOrderSyncRepository implements OrderSyncRepositoryInterfa
     ) {}
 
     #[Override]
-    public function claim(string $realmId, int $reference, int $orderExternalId, bool $forceRetry): ?OrderSyncClaimDTO
+    public function claim(string $realmId, int $reference, int $orderExternalId, OrderSyncClaimRulesDTO $rules): ?OrderSyncClaimDTO
     {
         if ($this->beforeClaim !== null) {
             ($this->beforeClaim)($reference);
         }
-        $claim = $this->inner->claim($realmId, $reference, $orderExternalId, $forceRetry);
+        $claim = $this->inner->claim($realmId, $reference, $orderExternalId, $rules);
         $lease = $this->leases[$reference] ?? null;
 
         return $claim === null || $lease === null

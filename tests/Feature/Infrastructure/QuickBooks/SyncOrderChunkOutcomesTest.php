@@ -9,6 +9,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
@@ -1193,7 +1194,7 @@ final class SyncOrderChunkOutcomesTest extends TestCase
         try {
             $results = $this->app->make(SyncOrderChunkUseCase::class)->execute(
                 new ApiKeyToken('test-access-token'),
-                $chunk,
+                new OrderChunkRunDTO($chunk),
                 $deadline ?? Deadline::after(CarbonImmutable::now(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
             );
         } catch (Throwable $e) {

@@ -13,6 +13,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\Mappings\DTOs\ResolvedMappingRefsDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\CustomerDraftDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\DocumentRunLabelsDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
@@ -142,7 +143,7 @@ final class QuickBooksSandboxOrderSyncTest extends TestCase
             $started = \hrtime(true);
             $results = $this->app->make(SyncOrderChunkUseCase::class)->execute(
                 $accessToken,
-                $chunk,
+                new OrderChunkRunDTO($chunk),
                 Deadline::after(CarbonImmutable::now(), SyncQuickBooksOrderChunkJob::DEADLINE_SECONDS),
             )->results;
             $seconds[] = \round((\hrtime(true) - $started) / 1e9, 2);

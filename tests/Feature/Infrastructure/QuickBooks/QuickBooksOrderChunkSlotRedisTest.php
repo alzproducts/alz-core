@@ -73,8 +73,8 @@ final class QuickBooksOrderChunkSlotRedisTest extends TestCase
         $tokens->method('accessToken')->willReturn(new ApiKeyToken('test-access-token'));
         $this->app->instance(QuickBooksTokenService::class, $tokens);
         $chunk = $this->createStub(SyncOrderChunkUseCase::class);
-        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderSyncChunkDTO $chunk): OrderSyncResultsResult {
-            $this->synced[] = $chunk;
+        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderChunkRunDTO $run): OrderSyncResultsResult {
+            $this->synced[] = $run->chunk;
             $this->duringSync?->__invoke();
 
             return OrderSyncResultsResult::inRequestOrder([1], [OrderSyncResultDTO::refused(1, SyncReasonCode::OrderNotFound)]);

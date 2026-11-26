@@ -26,6 +26,14 @@ final readonly class OrderChunkRunDTO
     }
 
     /**
+     * A re-attempt never claims a row holding `outcome_unknown`, forced or not: an earlier attempt may have created its document.
+     */
+    public function claimRules(): OrderSyncClaimRulesDTO
+    {
+        return new OrderSyncClaimRulesDTO($this->chunk->forceRetry, $this->attempt > 1);
+    }
+
+    /**
      * @param non-empty-list<int> $references the ones still unsent
      */
     public function reattempt(array $references): self

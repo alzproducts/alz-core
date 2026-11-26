@@ -6,6 +6,7 @@ namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
@@ -121,8 +122,54 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         $this->seedRow([...$state, 'attempts' => 1]);
         $before = self::row();
 
-        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, $forceRetry));
+        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, false)));
         self::assertEquals($before, self::row());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function rowsHoldingAnUnknownOutcome(): iterable
+    {
+        yield 'failed' => [['status' => 'failed']];
+        yield 'processing with an expired lease' => [self::lapsed()];
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     */
+    #[Test]
+    #[DataProvider('rowsHoldingAnUnknownOutcome')]
+    public function a_forced_re_attempt_claims_no_row_holding_an_unknown_outcome(array $state): void
+    {
+        $this->seedRow([...$state, 'attempts' => 1, 'last_error_code' => 'outcome_unknown', 'last_error_message' => 'Timed out']);
+        $before = self::row();
+
+        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(true, true)));
+        self::assertEquals($before, self::row());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function rowsAReAttemptStillClaims(): iterable
+    {
+        yield 'pending, never failed' => [['status' => 'pending']];
+        yield 'processing with an expired lease, never failed' => [self::lapsed()];
+        yield 'failed with another reason' => [['status' => 'failed', 'last_error_code' => 'qbo_unavailable']];
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     */
+    #[Test]
+    #[DataProvider('rowsAReAttemptStillClaims')]
+    public function a_forced_re_attempt_still_claims_a_row_without_an_unknown_outcome(array $state): void
+    {
+        $this->seedRow([...$state, 'attempts' => 1]);
+
+        self::assertSame(2, $this->claim(forceRetry: true, refuseUnknownOutcome: true)->attempts);
+        self::assertSame('processing', self::row()->status);
     }
 
     #[Test]
@@ -339,7 +386,7 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
     {
         $this->seedRow(['status' => 'synced']);
 
-        $other = $this->repository->claim('realm-repository-other', self::REFERENCE, self::EXTERNAL_ID, false);
+        $other = $this->repository->claim('realm-repository-other', self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(false, false));
 
         self::assertNotNull($other);
         self::assertSame('synced', self::row()->status);
@@ -374,9 +421,9 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         return \array_values(DB::table('quickbooks.order_sync_errors')->where('order_sync_id', self::row()->id)->get()->all());
     }
 
-    private function claim(bool $forceRetry = false): OrderSyncClaimDTO
+    private function claim(bool $forceRetry = false, bool $refuseUnknownOutcome = false): OrderSyncClaimDTO
     {
-        $claim = $this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, $forceRetry);
+        $claim = $this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, $refuseUnknownOutcome));
         self::assertNotNull($claim);
 
         return $claim;

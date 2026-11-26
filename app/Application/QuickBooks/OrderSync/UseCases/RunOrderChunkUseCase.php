@@ -67,7 +67,7 @@ final readonly class RunOrderChunkUseCase
             return;
         }
 
-        $unfinished = self::unfinished($this->syncChunk->execute($accessToken, $run->chunk, $deadline));
+        $unfinished = self::unfinished($this->syncChunk->execute($accessToken, $run, $deadline));
         if ($unfinished !== []) {
             $this->reattempt($run, $unfinished);
         }

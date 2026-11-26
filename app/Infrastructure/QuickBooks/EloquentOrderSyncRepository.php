@@ -6,6 +6,7 @@ namespace App\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncRowStatus;
@@ -39,9 +40,10 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
             claim_token = EXCLUDED.claim_token,
             lease_expires_at = EXCLUDED.lease_expires_at,
             updated_at = now()
-        WHERE s.status = 'pending'
-           OR (s.status = 'processing' AND s.lease_expires_at <= now())
-           OR (s.status = 'failed' AND ?::boolean)
+        WHERE (s.status = 'pending'
+               OR (s.status = 'processing' AND s.lease_expires_at <= now())
+               OR (s.status = 'failed' AND ?::boolean))
+          AND NOT (?::boolean AND s.last_error_code IS NOT DISTINCT FROM 'outcome_unknown')
         RETURNING s.*
         SQL;
 
@@ -58,14 +60,14 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
      * @throws ExternalServiceUnavailableException
      */
     #[Override]
-    public function claim(string $realmId, int $reference, int $orderExternalId, bool $forceRetry): ?OrderSyncClaimDTO
+    public function claim(string $realmId, int $reference, int $orderExternalId, OrderSyncClaimRulesDTO $rules): ?OrderSyncClaimDTO
     {
         $token = Str::uuid()->toString();
 
         /** @var Collection<int, OrderSyncModel> $rows */
         $rows = $this->eloquentGateway->query(static fn(): Collection => OrderSyncModel::query()->fromQuery(
             self::CLAIM_SQL,
-            [$realmId, $reference, $orderExternalId, $token, $forceRetry ? 'true' : 'false'],
+            [$realmId, $reference, $orderExternalId, $token, self::flag($rules->forceRetry), self::flag($rules->refuseUnknownOutcome)],
         ));
         $row = $rows->first();
         if ($row?->lease_expires_at === null) {
@@ -154,6 +156,11 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
     private static function claimed(string $orderSyncId, string $claimToken): array
     {
         return ['id' => $orderSyncId, 'status' => 'processing', 'claim_token' => $claimToken];
+    }
+
+    private static function flag(bool $value): string
+    {
+        return $value ? 'true' : 'false';
     }
 
     private static function withoutChain(DatabaseOperationFailedException $e): DatabaseOperationFailedException

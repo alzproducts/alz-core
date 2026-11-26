@@ -70,7 +70,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $tokens->expects($this->once())->method('assertConnected');
         $tokens->expects($this->once())->method('accessToken')->willReturn($token);
         $this->syncChunk = $syncChunk = $this->createMock(SyncOrderChunkUseCase::class);
-        $syncChunk->expects($this->once())->method('execute')->with($token, $run->chunk, $this->deadline)->willReturn(self::results([]));
+        $syncChunk->expects($this->once())->method('execute')->with($token, $run, $this->deadline)->willReturn(self::results([]));
 
         $this->runChunk($run);
 

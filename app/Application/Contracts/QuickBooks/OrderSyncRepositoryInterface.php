@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Contracts\QuickBooks;
 
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncFailureDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncPostedDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
@@ -20,14 +21,15 @@ interface OrderSyncRepositoryInterface
 {
     /**
      * Claims a `pending` row, a `processing` row whose lease has expired, or a `failed` row when
-     * `$forceRetry` is set, creating the row when the reference has none. The stored reason stays on
-     * the row. Null means not claimed.
+     * `forceRetry` is set, creating the row when the reference has none. With `refuseUnknownOutcome`
+     * set it claims no row whose stored reason is `outcome_unknown`, in any state. The stored reason
+     * stays on the row. Null means not claimed.
      *
      * @throws DatabaseOperationFailedException
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    public function claim(string $realmId, int $reference, int $orderExternalId, bool $forceRetry): ?OrderSyncClaimDTO;
+    public function claim(string $realmId, int $reference, int $orderExternalId, OrderSyncClaimRulesDTO $rules): ?OrderSyncClaimDTO;
 
     /**
      * @throws DatabaseOperationFailedException

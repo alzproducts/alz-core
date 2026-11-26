@@ -122,11 +122,11 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         $synced = [];
         $useCase = $this->createStub(SyncOrderChunkUseCase::class);
         $useCase->method('execute')->willReturnCallback(
-            static function (ApiKeyToken $token, OrderSyncChunkDTO $chunk) use (&$synced): OrderSyncResultsResult {
-                $synced[] = $chunk;
+            static function (ApiKeyToken $token, OrderChunkRunDTO $run) use (&$synced): OrderSyncResultsResult {
+                $synced[] = $run->chunk;
 
                 return OrderSyncResultsResult::inRequestOrder(
-                    $chunk->references,
+                    $run->chunk->references,
                     [OrderSyncResultDTO::refused(self::REFERENCE, SyncReasonCode::OrderNotFound)],
                 );
             },

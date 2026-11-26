@@ -400,11 +400,11 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
     private function chunkIs(Closure $outcome): void
     {
         $chunk = $this->createStub(SyncOrderChunkUseCase::class);
-        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderSyncChunkDTO $chunk, Deadline $deadline) use ($outcome): OrderSyncResultsResult {
+        $chunk->method('execute')->willReturnCallback(function (ApiKeyToken $token, OrderChunkRunDTO $run, Deadline $deadline) use ($outcome): OrderSyncResultsResult {
             self::assertTrue($this->redis->held);
-            $this->synced[] = [$chunk, $deadline];
+            $this->synced[] = [$run->chunk, $deadline];
 
-            return $outcome($chunk);
+            return $outcome($run->chunk);
         });
         $this->app->instance(SyncOrderChunkUseCase::class, $chunk);
     }
