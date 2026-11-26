@@ -8,7 +8,7 @@ use Sentry\Event;
 use Sentry\EventHint;
 
 /**
- * Transactions skip `before_send`, so the request scrub needs its own hook.
+ * Transactions skip `before_send`, so the URL query scrub needs its own hook.
  */
 final class SentryBeforeSendTransactionCallback
 {
@@ -24,6 +24,6 @@ final class SentryBeforeSendTransactionCallback
 
     public function __invoke(Event $event, ?EventHint $hint): Event
     {
-        return SentryRequestScrubber::scrub($event);
+        return SentryEventScrubber::scrub($event);
     }
 }
