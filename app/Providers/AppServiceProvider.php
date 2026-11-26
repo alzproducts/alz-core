@@ -8,6 +8,7 @@ use App\Application\Contracts\ErrorReporterInterface;
 use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Infrastructure\ErrorReporting\SentryErrorReporter;
 use App\Infrastructure\Integrations\IntegrationCredentials;
+use App\Infrastructure\Sentry\SentryBeforeBreadcrumbCallback;
 use App\Infrastructure\Sentry\SentryBeforeSendCallback;
 use App\Infrastructure\Sentry\SentryBeforeSendTransactionCallback;
 use Illuminate\Support\ServiceProvider;
@@ -41,11 +42,12 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ErrorReporterInterface::class, SentryErrorReporter::class);
 
-        // Set Sentry before_send callback before Sentry initializes
+        // Set Sentry's hook callbacks before Sentry initializes
         // (must be in register(), not boot(), to run before Sentry's ServiceProvider)
         $this->app->booting(static function (): void {
             if (\class_exists(SentrySdk::class)) {
                 \config([
+                    'sentry.before_breadcrumb' => new SentryBeforeBreadcrumbCallback(),
                     'sentry.before_send' => new SentryBeforeSendCallback(),
                     'sentry.before_send_transaction' => new SentryBeforeSendTransactionCallback(),
                 ]);

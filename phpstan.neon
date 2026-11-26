@@ -155,6 +155,12 @@ parameters:
         - identifier: shipmonk.unusedParameter
         # Laravel config files use nullable string concatenation
         - identifier: shipmonk.binaryOperationWithNull
+        # Dropping a span data key needs a rebuilt span, and Sentry marks the only exact constructor @internal.
+        # startChild() would overwrite the parent and trace IDs and register the copy with the span recorder.
+        -
+            identifier: method.internal
+            path: app/Infrastructure/Sentry/SentrySpanScrubber.php
+            count: 1
         # Laravel ShouldQueue contract requires public mutable properties (tries, backoff, etc.)
         # These are intentionally public and mutable per Laravel's queue job/listener specification
         -
