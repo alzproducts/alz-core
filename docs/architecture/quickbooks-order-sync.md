@@ -16,7 +16,7 @@ Each Zap rule is described in words. Classes:
 | Trigger | Runs once per new ShopWired order | Staff trigger a range run or a reference sync from ADM; nothing runs on new orders | `replacement mechanism` | COR-294/D20 |
 | Trigger | No status filter: a cancelled order is posted | A cancelled order is skipped with reason `cancelled` | `user-approved deviation` | COR-294/D18 |
 | Trigger | An edited order fires the Zap again and can post a second document | The post-once sync row, unique on (`realm_id`, `reference`), returns `already_synced`; the live row comes from `orders_deduplicated` | `replacement mechanism` | COR-294/D20, ADR-0017 |
-| Run history | Each run is recorded by Zapier; nothing stops a second post | The post-once sync row records each reference's posted document | `replacement mechanism` | COR-294/D20, ADR-0017 |
+| Run history | Each run is recorded by Zapier; nothing stops a second post | Each accepted request records a run in `quickbooks.order_sync_runs` (trigger, range or references, status, counts per outcome), listed newest first by `GET /api/quickbooks/orders/runs`; the post-once sync row records each reference's posted document | `replacement mechanism` | COR-294/D20, COR-312/D1, ADR-0017 |
 | Error replay | A failed run is replayed from Zapier's run history | A failed order is a `failed` row in `GET /api/quickbooks/orders/failed`, re-attempted with `force_retry` | `replacement mechanism` | COR-294/D20 |
 | Notification | A chat message is sent per posted document | No per-document notification | `replacement mechanism` | COR-294/D20 |
 | Path split | Payment method picks the invoice path (substring match) or the sales-receipt path | Same split on the same payment methods | `parity` | COR-294/D21 |

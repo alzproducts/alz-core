@@ -235,6 +235,11 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
             ['2031-10-24 23:00:00+00', '2031-10-26 23:59:59+00'],
             ['2031-10-24 22:59:59+00', '2031-10-27 00:00:00+00'],
         ];
+        yield 'the BST change fixture' => [
+            '2026-10-24', '2026-10-25',
+            ['2026-10-23 23:30:00+00', '2026-10-25 23:30:00+00'],
+            ['2026-10-23 22:30:00+00', '2026-10-26 00:30:00+00'],
+        ];
     }
 
     /**
@@ -245,6 +250,9 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
     #[DataProvider('placedInRanges')]
     public function the_references_of_a_range_of_london_days_are_counted_and_listed_in_order(string $from, string $to, array $inRange, array $outOfRange): void
     {
+        DB::table('shopwired.orders')
+            ->whereBetween('order_placed_at', ["{$from} 00:00:00+12", "{$to} 23:59:59-12"])
+            ->update(['order_placed_at' => '1990-01-01 00:00:00+00']);
         foreach ([...$outOfRange, ...\array_reverse($inRange)] as $i => $placedAt) {
             $this->insertOrder(['reference' => self::REFERENCE - $i, 'external_id' => self::EXTERNAL_ID - $i, 'order_placed_at' => $placedAt], []);
         }

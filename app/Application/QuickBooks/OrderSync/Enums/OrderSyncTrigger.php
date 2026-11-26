@@ -8,4 +8,5 @@ enum OrderSyncTrigger: string
 {
     case Range = 'range';
     case Manual = 'manual';
+    case Schedule = 'schedule';
 }

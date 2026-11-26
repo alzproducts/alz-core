@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Jobs\QuickBooks;
 
+use App\Application\Contracts\QuickBooks\OrderSyncRunRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
@@ -80,7 +81,7 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
         $realm->method('realmId')->willReturn(self::REALM);
         $this->app->instance(QuickBooksRealmInterface::class, $realm);
         $this->app->instance(QuickBooksOrderChunkSlot::class, new QuickBooksOrderChunkSlot($this->redis, $this->slotLog, 1));
-        $this->app->instance(HandleOrderSyncRunFailureUseCase::class, new HandleOrderSyncRunFailureUseCase($this->failureLog));
+        $this->app->instance(HandleOrderSyncRunFailureUseCase::class, new HandleOrderSyncRunFailureUseCase($this->app->make(OrderSyncRunRepositoryInterface::class), $this->failureLog));
         $this->tokenIs(static fn(): ApiKeyToken => new ApiKeyToken('test-access-token'));
         $this->syncs([]);
     }
@@ -181,7 +182,7 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
         $this->redis->free = false;
         $queue = $this->createStub(QueueFactory::class);
         $queue->method('connection')->willReturn(new SyncQueue());
-        $this->app->instance(QueuedOrderSyncDispatcher::class, new QueuedOrderSyncDispatcher($queue, 1));
+        $this->app->instance(QueuedOrderSyncDispatcher::class, new QueuedOrderSyncDispatcher($queue, $this->app->make(OrderSyncRunRepositoryInterface::class), 1));
 
         self::assertTrue($this->work(self::job())->hasFailed());
 

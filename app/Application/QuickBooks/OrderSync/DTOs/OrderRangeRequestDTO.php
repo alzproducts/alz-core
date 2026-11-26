@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\OrderSync\DTOs;
 
-use DateTimeImmutable;
+use App\Domain\ValueObjects\DateRange;
 
 /**
- * A range staff asked to sync. Both dates are inclusive business-calendar dates.
+ * A range staff asked to sync. The range holds inclusive business-calendar dates.
  */
 final readonly class OrderRangeRequestDTO
 {
     public function __construct(
-        public DateTimeImmutable $from,
-        public DateTimeImmutable $to,
+        public DateRange $range,
         public bool $forceRetry,
     ) {}
 }

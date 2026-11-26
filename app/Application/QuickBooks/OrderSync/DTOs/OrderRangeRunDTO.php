@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\OrderSync\DTOs;
 
-use DateTimeImmutable;
+use App\Domain\ValueObjects\DateRange;
 
 /**
- * One accepted range run, bound to the company it was requested for. Both dates are inclusive business-calendar dates.
+ * One accepted range run, bound to the company it was requested for. The range holds inclusive business-calendar dates.
  */
 final readonly class OrderRangeRunDTO
 {
     public function __construct(
         public string $realmId,
-        public DateTimeImmutable $from,
-        public DateTimeImmutable $to,
+        public DateRange $range,
         public bool $forceRetry,
         public string $runId,
     ) {}

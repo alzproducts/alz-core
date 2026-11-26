@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
+use App\Application\Contracts\QuickBooks\OrderSyncRunQueryRepositoryInterface;
+use App\Application\Contracts\QuickBooks\OrderSyncRunRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderTotalsQueryRepositoryInterface;
@@ -25,6 +27,8 @@ use App\Infrastructure\QuickBooks\CacheQuickBooksStateStore;
 use App\Infrastructure\QuickBooks\Dispatchers\QueuedOrderSyncDispatcher;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncRepository;
+use App\Infrastructure\QuickBooks\EloquentOrderSyncRunQueryRepository;
+use App\Infrastructure\QuickBooks\EloquentOrderSyncRunRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderSyncSourceQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentOrderTotalsQueryRepository;
 use App\Infrastructure\QuickBooks\EloquentQuickBooksConnectionRepository;
@@ -79,6 +83,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
         $this->app->bind(OrderSyncSourceQueryRepositoryInterface::class, EloquentOrderSyncSourceQueryRepository::class);
         $this->app->bind(OrderSyncQueryRepositoryInterface::class, EloquentOrderSyncQueryRepository::class);
         $this->app->bind(OrderTotalsQueryRepositoryInterface::class, EloquentOrderTotalsQueryRepository::class);
+        $this->app->bind(OrderSyncRunRepositoryInterface::class, EloquentOrderSyncRunRepository::class);
+        $this->app->bind(OrderSyncRunQueryRepositoryInterface::class, EloquentOrderSyncRunQueryRepository::class);
     }
 
     private function registerOrderSyncQueue(): void
@@ -89,6 +95,7 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             QueuedOrderSyncDispatcher::class,
             static fn(Application $app): QueuedOrderSyncDispatcher => new QueuedOrderSyncDispatcher(
                 queue: $app->make(QueueFactory::class),
+                runs: $app->make(OrderSyncRunRepositoryInterface::class),
                 concurrency: self::orderSyncConcurrency(),
             ),
         );
@@ -148,6 +155,8 @@ final class QuickBooksServiceProvider extends ServiceProvider implements Deferra
             OrderSyncSourceQueryRepositoryInterface::class,
             OrderSyncQueryRepositoryInterface::class,
             OrderTotalsQueryRepositoryInterface::class,
+            OrderSyncRunRepositoryInterface::class,
+            OrderSyncRunQueryRepositoryInterface::class,
             OrderSyncSettingsInterface::class,
             QuickBooksMappingRepositoryInterface::class,
             QuickBooksOAuthClientInterface::class,
