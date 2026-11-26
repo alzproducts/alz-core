@@ -255,6 +255,10 @@ _Avoid_: calling a mapping key a QBO ID (committed text never holds one)
 A **mapping key** whose row holds a QBO ref for the connected company's realm; a null ref or another realm's ref leaves it unresolved.
 _Avoid_: treating "mapped" and "resolved" as different states
 
+**Mapping candidate**:
+An active entity of a **mapping key**'s QBO entity type in the connected company, read live from QBO; a key can be resolved only to one of its candidates.
+_Avoid_: offering an inactive entity as a candidate
+
 **Backfill floor date**:
 The earliest ShopWired order date the sync accepts, at both entry points and again when each chunk runs: a date-range sync may not start before it, a sync by **reference** rejects any reference whose order was placed before it, and a chunk records an order placed before it as a failed **order sync** instead of posting it.
 

@@ -6,6 +6,7 @@ namespace App\Presentation\Http\Auth\Middleware;
 
 use App\Application\Auth\TestUserPersonaResolver;
 use App\Application\Contracts\Access\AccessTokenVerifierInterface;
+use App\Application\Contracts\Access\ConnectionPeerResolverInterface;
 use App\Domain\Access\Exceptions\InvalidAccessTokenException;
 use App\Domain\Access\ValueObjects\AccessTokenClaims;
 use App\Domain\Access\ValueObjects\AuthenticatedUser;
@@ -27,6 +28,7 @@ final readonly class ValidateSupabaseJwtMiddleware
 
     public function __construct(
         private AccessTokenVerifierInterface $verifier,
+        private ConnectionPeerResolverInterface $peerResolver,
     ) {}
 
     /**
@@ -141,7 +143,7 @@ final readonly class ValidateSupabaseJwtMiddleware
      *
      * Bypass is allowed only when ALL conditions are met:
      * - Environment is 'local'
-     * - Request comes from localhost (127.0.0.1 or ::1)
+     * - Both the TCP peer and the client IP are localhost (127.0.0.1 or ::1)
      * - X-Local-Bypass header matches configured secret
      * - Local test email is configured
      */
@@ -154,11 +156,21 @@ final readonly class ValidateSupabaseJwtMiddleware
         return $this->isLocalhost($request) && $this->hasValidBypassCredentials($request);
     }
 
+    /**
+     * intentional: two checks. $request->ip() alone follows X-Forwarded-For because every proxy is
+     * trusted. The peer alone would admit a tunnel or proxy on this machine relaying a remote client.
+     */
     private function isLocalhost(Request $request): bool
     {
-        $ip = $request->ip();
+        $reportedAddress = $request->server('REMOTE_ADDR');
+        $peer = $this->peerResolver->resolve(\is_string($reportedAddress) ? $reportedAddress : null);
 
-        return ($ip === '127.0.0.1') || ($ip === '::1');
+        return self::isLoopbackAddress($peer) && self::isLoopbackAddress($request->ip());
+    }
+
+    private static function isLoopbackAddress(?string $address): bool
+    {
+        return ($address === '127.0.0.1') || ($address === '::1');
     }
 
     private function hasValidBypassCredentials(Request $request): bool
