@@ -122,21 +122,27 @@ final class ProductsPerfFollowerTest extends TestCase
 
     /**
      * Prints $lines on the container's stdout, then reads the log's size inside the container until it is $expected or
-     * `LOG_FLUSH_SECONDS` have passed since the last line.
+     * `LOG_FLUSH_SECONDS` have passed since the last line; a read that finishes after the window is discarded.
      */
     private function printAndRead(string $name, string $lines, int $expected): ?int
     {
         \file_put_contents("{$this->logs}/{$name}.txt", $lines);
-        self::docker('exec', $this->container, 'sh', '-c', "cat /logs/{$name}.txt >/proc/1/fd/1");
-        $deadline = \microtime(true) + self::LOG_FLUSH_SECONDS;
+        $read = self::docker('exec', $this->container, 'sh', '-c', <<<'SH'
+            cat "/logs/$1.txt" >/proc/1/fd/1
+            end=$(( $(date +%s) + $4 ))
+            last=-1
+            while :; do
+                size=$(stat -c %s "$2" 2>/dev/null || echo -1)
+                [ "$(date +%s)" -lt "$end" ] || break
+                last=$size
+                [ "$size" = "$3" ] && break
+                sleep 0.1
+            done
+            echo "$last"
+            SH, 'print-and-read', $name, self::LOG, (string) $expected, (string) self::LOG_FLUSH_SECONDS);
+        $size = (int) \mb_trim($read->getOutput());
 
-        $size = $this->sizeInContainer();
-        while ($size !== $expected && \microtime(true) + 0.5 < $deadline) {
-            \usleep(100_000);
-            $size = $this->sizeInContainer();
-        }
-
-        return $size;
+        return $size < 0 ? null : $size;
     }
 
     private static function lines(int $from, int $to): string
@@ -147,14 +153,6 @@ final class ProductsPerfFollowerTest extends TestCase
         }
 
         return $lines;
-    }
-
-    private function sizeInContainer(): ?int
-    {
-        $stat = new Process(['docker', 'exec', $this->container, 'stat', '-c', '%s', self::LOG]);
-        $stat->run();
-
-        return $stat->isSuccessful() ? (int) \mb_trim($stat->getOutput()) : null;
     }
 
     /**

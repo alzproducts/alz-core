@@ -78,7 +78,7 @@ http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one re
 exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
 db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
-test --evidence <dir> [--all-groups] <paths>...   Pest in the test sidecar, excluding the groups CI excludes (integration, seed-command, list-parity, docker) and repo-static; --all-groups excludes only repo-static; --group/--exclude-group exit 64; an excluded file beside selected ones is omitted silently (exit 69 in caller-supabase mode)
+test --evidence <dir> [--all-groups] <paths>...   Pest in the test sidecar, excluding the groups CI excludes (integration, seed-command, list-parity, docker) and repo-static; --all-groups excludes only repo-static and docker (the sidecar has no Docker); --group/--exclude-group exit 64; an excluded file beside selected ones is omitted silently (exit 69 in caller-supabase mode)
 baseline --evidence <dir> [--ref <SHA>] [--time-limit <seconds>]   boot one base run beside the head run, built from an ancestor commit (default: the merge base with origin/develop); prints baseline.sha=, baseline.evidence=, baseline.entry=, baseline.cwd= (exit 69 in caller-supabase mode)
 parity --evidence <dir> [--ignore <field path>]... [--expect <code>] GET <path> [GET <path>]...   send each GET to the head run and the base run and compare status and body (exit 69 in caller-supabase mode)
 note --evidence <dir> <text>   append a line to run-notes.md
@@ -954,6 +954,8 @@ cmd_test() {
         for group in $TEST_DEFAULT_EXCLUDE_GROUPS; do
             flags+=("--exclude-group=$group")
         done
+    else
+        flags+=("--exclude-group=docker")
     fi
     local out rc=0
     out="$(unique_file "$EVIDENCE/test" pest.log)"
