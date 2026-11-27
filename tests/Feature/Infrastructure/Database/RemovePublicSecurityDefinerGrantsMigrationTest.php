@@ -89,7 +89,11 @@ final class RemovePublicSecurityDefinerGrantsMigrationTest extends TestCase
     {
         self::createFunction();
         $before = self::apiRoleGrants();
-        self::assertSame(self::API_ROLES, \array_keys($before), 'The schema default grants to the API roles are missing');
+        self::assertSame(
+            ['anon EXECUTE by postgres', 'authenticated EXECUTE by postgres', 'service_role EXECUTE by postgres'],
+            $before,
+            'The schema default grants to the API roles are missing',
+        );
 
         self::runMigration();
 
@@ -196,19 +200,20 @@ final class RemovePublicSecurityDefinerGrantsMigrationTest extends TestCase
     }
 
     /**
-     * @return array<string, string>
+     * @return list<string>
      */
     private static function apiRoleGrants(): array
     {
         $grants = [];
         foreach (DB::select(
-            "SELECT a.grantee::regrole::text AS grantee, a.privilege_type, a.grantor::regrole::text AS grantor
+            "SELECT a.grantee::regrole::text AS grantee, a.privilege_type, a.grantor::regrole::text AS grantor, a.is_grantable
              FROM pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
              WHERE p.oid = to_regprocedure(?) AND a.grantee <> 0 AND a.grantee::regrole::text = ANY (?)
-             ORDER BY 1",
+             ORDER BY 1, 2, 3",
             [self::FUNCTION, '{' . \implode(',', self::API_ROLES) . '}'],
         ) as $grant) {
-            $grants[$grant->grantee] = "{$grant->privilege_type} by {$grant->grantor}";
+            $option = $grant->is_grantable ? ' with grant option' : '';
+            $grants[] = "{$grant->grantee} {$grant->privilege_type} by {$grant->grantor}{$option}";
         }
 
         return $grants;
