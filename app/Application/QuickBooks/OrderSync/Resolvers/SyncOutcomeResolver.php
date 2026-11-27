@@ -48,6 +48,14 @@ final class SyncOutcomeResolver
     }
 
     /**
+     * @param SyncReasonCode|null $storedCode the row's code before this attempt
+     */
+    public static function forFloor(?SyncReasonCode $storedCode): SyncFailureDTO
+    {
+        return self::keepingUnknownOutcome($storedCode, SyncFailureDTO::of(SyncReasonCode::BeforeFloorDate));
+    }
+
+    /**
      * @param SyncReasonCode|null $storedCode the row's code before this attempt; null at the batch create, after the
      *                                        DocNumber lookup found no document
      */

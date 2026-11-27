@@ -29,6 +29,7 @@ final class SyncReasonCodeTest extends TestCase
             'outcome_unknown' => ['failed', true],
             'in_progress' => ['not_attempted', true],
             'deadline_exceeded' => ['not_attempted', true],
+            'before_floor_date' => ['failed', false],
         ];
 
         $actual = [];
