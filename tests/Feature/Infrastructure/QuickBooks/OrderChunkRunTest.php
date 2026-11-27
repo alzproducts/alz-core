@@ -11,8 +11,12 @@ use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
+use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\UseCases\RunOrderChunkUseCase;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Exceptions\Api\AuthenticationExpiredException;
+use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\Shared\ValueObjects\Deadline;
@@ -179,6 +183,72 @@ final class OrderChunkRunTest extends TestCase
             DB::table('quickbooks.order_sync_errors')
                 ->get(['trigger', 'run_id'])->map(static fn(object $row): array => (array) $row)->all(),
         );
+    }
+
+    #[Test]
+    public function a_run_for_another_company_sends_nothing_to_quickbooks(): void
+    {
+        $this->insertOrder(self::REFERENCE);
+        $run = new OrderChunkRunDTO(new OrderSyncChunkDTO('9130000000000002', [self::REFERENCE], false, OrderSyncTrigger::Range, self::RUN_ID), 1);
+
+        try {
+            $this->runChunk($run);
+            self::fail('The chunk did not fail.');
+        } catch (InvalidConfigurationException $e) {
+            self::assertSame('QUICKBOOKS_REALM_ID', $e->configKey);
+        }
+        self::assertSame([], $this->posting->documents);
+        self::assertSame([], $this->posting->lookedUp);
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
+    #[Test]
+    public function a_failed_connection_read_behind_a_cached_token_re_attempts_the_whole_chunk(): void
+    {
+        $this->connectionReadThrows(new ExternalServiceUnavailableException('Database'));
+
+        $this->runChunk(self::chunkRun([self::REFERENCE, self::OTHER_REFERENCE], false));
+
+        self::assertEquals([self::chunkRun([self::REFERENCE, self::OTHER_REFERENCE], false, attempt: 2)], $this->dispatcher->chunks);
+        self::assertSame([], $this->posting->documents);
+    }
+
+    #[Test]
+    public function the_last_attempt_fails_on_a_failed_connection_read_behind_a_cached_token(): void
+    {
+        $failure = new ExternalServiceUnavailableException('Database');
+        $this->connectionReadThrows($failure);
+
+        try {
+            $this->runChunk(self::chunkRun([self::REFERENCE, self::OTHER_REFERENCE], false, attempt: OrderChunkRunDTO::MAX_ATTEMPTS));
+            self::fail('The chunk did not fail.');
+        } catch (OrderChunkUnfinishedException $e) {
+            self::assertSame([self::REFERENCE, self::OTHER_REFERENCE], $e->references);
+            self::assertSame($failure, $e->getPrevious());
+        }
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
+    #[Test]
+    public function a_deleted_connection_behind_a_cached_token_fails_the_chunk_without_a_re_attempt(): void
+    {
+        $this->insertOrder(self::REFERENCE);
+        DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
+
+        try {
+            $this->runChunk(self::chunkRun([self::REFERENCE], false));
+            self::fail('The chunk did not fail.');
+        } catch (AuthenticationExpiredException) {
+        }
+        self::assertSame([], $this->posting->documents);
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
+    private function connectionReadThrows(ExternalServiceUnavailableException $failure): void
+    {
+        $connections = $this->createStub(QuickBooksConnectionRepositoryInterface::class);
+        $connections->method('find')->willThrowException($failure);
+        $this->app->instance(QuickBooksConnectionRepositoryInterface::class, $connections);
     }
 
     private function runChunk(OrderChunkRunDTO $run): void

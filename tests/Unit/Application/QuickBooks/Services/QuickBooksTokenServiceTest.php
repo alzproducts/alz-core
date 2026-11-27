@@ -163,6 +163,34 @@ final class QuickBooksTokenServiceTest extends TestCase
     }
 
     #[Test]
+    public function a_cached_access_token_is_refused_once_the_connection_is_gone(): void
+    {
+        $this->cachedAccessToken = new ApiKeyToken('still-valid');
+        $this->storedConnection = null;
+
+        try {
+            $this->service->accessToken();
+            $this->fail('Expected AuthenticationExpiredException');
+        } catch (AuthenticationExpiredException) {
+        }
+
+        $this->assertSame([], $this->sentRefreshTokens);
+    }
+
+    #[Test]
+    public function a_refresh_after_waiting_on_the_lock_sends_the_refresh_token_stored_meanwhile(): void
+    {
+        $this->whileWaitingForLock = function (): void {
+            $this->whileWaitingForLock = null;
+            $this->storedConnection = self::connection('refresh-rotated-by-holder');
+        };
+
+        $this->service->accessToken();
+
+        $this->assertSame(['refresh-rotated-by-holder'], $this->sentRefreshTokens);
+    }
+
+    #[Test]
     public function a_failed_save_after_a_refresh_logs_critical_keeps_the_access_token_and_rethrows(): void
     {
         $this->saveFails = true;
