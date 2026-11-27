@@ -69,17 +69,18 @@ Every database alz-core migrates runs Supabase's images, with migrations run as 
 | Local dev | Supabase CLI stack in `${FRONTEND_APP}` (images from its re-linked `supabase/.temp/`) |
 | CI `tests` job | `database/baseline/compose.yaml`, project `baseline` |
 | Verify skill | `.agents/skills/verify/compose.yaml`: the baseline images with `roles.sql` baked in, one private project per worktree; a run may hold one base run, built from an ancestor commit, with the same env file. EXCEPTION: a dependent's run may supply its own Supabase (`up --supabase-url … --supabase-db-url …`) |
-| Dev image (`Dockerfile.dev`) | the baseline images, migrated at build time |
+| Dev image (`Dockerfile.dev`) | the baseline images, migrated at build time; the entrypoint re-runs Realtime's tenant set-up at each start, so a `realtime.messages` partition covers the run's date |
 | `docker-compose.prod.yml` | `include` of `database/baseline/compose.yaml` |
 
-- Caller contract: `up -d --wait pgsql` → `run --rm auth-migrate` → `php artisan migrate --force`.
-- DO NOT create Supabase-owned objects (`auth` schema or objects, `anon`/`authenticated`/`service_role`/`supabase_*` roles) in a migration; a missing one must fail the migration. `SupabaseLookAlikeTest` enforces this.
-- `database/baseline/versions.env` is the only file naming the image versions; `SupabaseImagePinTest` enforces this.
+- Caller contract: `up -d --wait pgsql` → `run --rm auth-migrate` → `run --rm realtime-migrate` → `php artisan migrate --force`.
+- DO NOT create Supabase-owned objects (`auth` or `realtime` schema objects, `anon`/`authenticated`/`service_role`/`supabase_*` roles) in a migration; a missing one must fail the migration. `SupabaseLookAlikeTest` enforces this for `auth` and the roles.
+- `database/baseline/versions.env` is the only file naming the Postgres, Auth and Realtime image versions; `SupabaseImagePinTest` enforces this.
 
 **Bumping the pin** (after the hosted project upgrades):
 1. `bin/supabase-hosted-version <${FRONTEND_APP} root>` prints the hosted Postgres version → `SUPABASE_POSTGRES_VERSION`.
 2. Re-link in `${FRONTEND_APP}` (`supabase link`); `supabase/.temp/gotrue-version` → `SUPABASE_AUTH_VERSION`.
-3. Edit `versions.env`; CI rebuilds the dev image from it.
+3. A human reads production's newest `realtime.schema_migrations` version; the newest `supabase/realtime` release tag whose newest tenant migration has that version → `SUPABASE_REALTIME_VERSION`.
+4. Edit `versions.env`; CI rebuilds the dev image from it.
 
 ## Seeded Faker
 
