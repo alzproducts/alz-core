@@ -7,6 +7,7 @@ namespace App\Infrastructure\Notifications\Slack;
 use App\Domain\Catalog\Product\ValueObjects\SaleSettings;
 use App\Domain\Catalog\Product\ValueObjects\SaleSubmissionContext;
 use App\Domain\Catalog\Product\ValueObjects\SkuPriceChange;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ActionsBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
@@ -66,7 +67,7 @@ final class ProductPricingUpdatedNotification extends Notification
         $this->appendProductButton($message);
 
         return $message->contextBlock(static function (ContextBlock $block): void {
-            $block->text('Updated at ' . \now()->format('Y-m-d H:i:s'));
+            $block->text('Updated at ' . \now()->format(DateFormat::DEFAULT_DATE_TIME_SECONDS_FORMAT));
         });
     }
 
@@ -147,7 +148,7 @@ final class ProductPricingUpdatedNotification extends Notification
         }
 
         if ($context->saleEndDate !== null) {
-            $lines[] = "*Sale ended:* {$context->saleEndDate->format('Y-m-d')}";
+            $lines[] = "*Sale ended:* {$context->saleEndDate->format(DateFormat::DEFAULT_DATE_FORMAT)}";
         }
 
         if ($context->saleEndsStock !== null) {
@@ -164,7 +165,7 @@ final class ProductPricingUpdatedNotification extends Notification
         $lines = \array_filter([
             $settings->saleReason !== '' ? "*Sale reason:* {$settings->saleReason}" : null,
             $discountPct !== null ? "*Discount:* {$discountPct}%" : null,
-            $settings->saleEndDate !== null ? "*Sale ends:* {$settings->saleEndDate->format('Y-m-d')}" : null,
+            $settings->saleEndDate !== null ? "*Sale ends:* {$settings->saleEndDate->format(DateFormat::DEFAULT_DATE_FORMAT)}" : null,
             $settings->saleEndsStock !== null ? "*Stock threshold:* {$settings->saleEndsStock} units" : null,
         ]);
 

@@ -7,6 +7,7 @@ namespace App\Infrastructure\Notifications\Slack;
 use App\Domain\ContactSubmission\ValueObjects\ContactFormData;
 use App\Domain\ContactSubmission\ValueObjects\ContactSubmission;
 use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
@@ -158,9 +159,7 @@ final class ContactFormFailedNotification extends Notification
         $contextParts = ["Submission ID: {$this->submissionId}"];
 
         if ($this->submission->submittedAt !== null) {
-            $submittedTime = $this->submission->submittedAt->format('g:ia');
-            $submittedDate = $this->submission->submittedAt->format('j M');
-            $contextParts[] = "Submitted: {$submittedDate} at {$submittedTime}";
+            $contextParts[] = "Submitted: {$this->submission->submittedAt->format(DateFormat::DEFAULT_DATE_TIME_FORMAT)}";
         }
 
         return \implode('  •  ', $contextParts);

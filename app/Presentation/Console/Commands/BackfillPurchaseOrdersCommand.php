@@ -12,6 +12,7 @@ use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\InvalidApiRequestException;
 use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\Guid;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
@@ -133,7 +134,7 @@ final class BackfillPurchaseOrdersCommand extends Command
         DateTimeImmutable $to,
     ): int {
         $dispatcher->dispatchDateRangeBackfill($from, $to);
-        $this->info("Dispatched purchase order backfill to queue ({$from->format('Y-m-d')} to {$to->format('Y-m-d')}).");
+        $this->info("Dispatched purchase order backfill to queue ({$from->format(DateFormat::DEFAULT_DATE_FORMAT)} to {$to->format(DateFormat::DEFAULT_DATE_FORMAT)}).");
 
         return self::SUCCESS;
     }
@@ -180,7 +181,7 @@ final class BackfillPurchaseOrdersCommand extends Command
         DateTimeImmutable $from,
         DateTimeImmutable $to,
     ): ?array {
-        $this->info("Querying Linnworks SQL API for purchase order IDs ({$from->format('Y-m-d')} to {$to->format('Y-m-d')})...");
+        $this->info("Querying Linnworks SQL API for purchase order IDs ({$from->format(DateFormat::DEFAULT_DATE_FORMAT)} to {$to->format(DateFormat::DEFAULT_DATE_FORMAT)})...");
         $ids = $dashboardsClient->getPurchaseOrderIdsByDateRange($from, $to);
 
         if ($ids === []) {
