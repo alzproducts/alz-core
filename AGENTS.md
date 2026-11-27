@@ -27,6 +27,7 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 - Date windows: `startOfMonth()->subMonths($n)`, never a bare `subMonths()`, which leaves gaps at month ends.
 - Security controls enforce (fail fast), never only warn.
 - Rate limits use Laravel's `Redis::throttle` / `RateLimiter` wherever they cover the need.
+- A merged feature runs in production once deployed: add no feature toggle or off-by-default env switch unless the user agrees one.
 
 ## Linting
 
