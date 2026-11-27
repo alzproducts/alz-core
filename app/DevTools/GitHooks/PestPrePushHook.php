@@ -16,17 +16,17 @@ final class PestPrePushHook extends AbstractProcessHook
      */
     protected function getProcessCommand(): array
     {
-        return ['make', 'test'];
+        return ['make', 'test-changed'];
     }
 
     protected function getTimeout(): int
     {
-        return 300; // 5 minutes (full test suite, run in parallel)
+        return 180;
     }
 
     protected function getSuccessMessage(): string
     {
-        return 'All tests passed!';
+        return 'Changed tests passed! CI runs the full suite.';
     }
 
     protected function getFailureMessage(): string

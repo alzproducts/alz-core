@@ -28,8 +28,8 @@ return [
     |--------------------------------------------------------------------------
     | Pre-Push Hooks
     |--------------------------------------------------------------------------
-    | Runs full test suite + layer dependency checks (~15 seconds with native PHP)
-    | All tests use mocks/fakes - no external dependencies
+    | Runs only the changed tests (`make test-changed`) + layer dependency checks;
+    | CI runs the full suite
     |
     | Coverage checks: Run `make test-coverage` manually before PRs
     | Mutation testing moved to CI (runs in parallel, no added wall time)

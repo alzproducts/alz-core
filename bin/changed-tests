@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Selects the tests a branch changed since its merge-base with origin/HEAD, for `make test-changed`.
+#   bin/changed-tests                        print the selection, one path per line
+#   bin/changed-tests --phpunit-config FILE  write a phpunit.xml copy whose one suite is the selection to FILE,
+#                                            or leave FILE empty when Pest must not start
+set -euo pipefail
+
+MAX_FILES=100
+
+config=''
+case "${1:-}" in
+    '') ;;
+    --phpunit-config)
+        config="${2:?--phpunit-config needs a file}"
+        ;;
+    *)
+        echo "changed-tests: unknown argument: $1" >&2
+        exit 2
+        ;;
+esac
+
+cd "$(git rev-parse --show-toplevel)"
+
+if ! base_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD)"; then
+    echo "changed-tests: refs/remotes/origin/HEAD is not set. Fix: git remote set-head origin --auto" >&2
+    exit 1
+fi
+
+if ! base="$(git merge-base HEAD "$base_ref" 2>/dev/null)"; then
+    echo "changed-tests: no merge-base between HEAD and ${base_ref#refs/remotes/}. Fix: git fetch origin, then git remote set-head origin --auto" >&2
+    exit 1
+fi
+
+select_tests() {
+    local changed all_tests path name
+    # intentional: diffed from the merge-base, never from origin/HEAD itself, which would pull in every unmerged trunk commit.
+    changed="$(git diff --name-only -M --diff-filter=AMR "$base" HEAD)"
+    all_tests="$(find tests -type f -name '*Test.php' 2>/dev/null || true)"
+
+    while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        case "$path" in
+            tests/*Test.php)
+                if [ -f "$path" ]; then printf '%s\n' "$path"; fi
+                ;;
+            app/*.php)
+                name="$(basename "$path" .php)"
+                printf '%s\n' "$all_tests" | awk -v suffix="/${name}Test.php" 'substr($0, length($0) - length(suffix) + 1) == suffix'
+                ;;
+        esac
+    done <<<"$changed"
+}
+
+selection="$(select_tests | LC_ALL=C sort -u)"
+
+if [ -z "$config" ]; then
+    [ -z "$selection" ] || printf '%s\n' "$selection"
+    exit 0
+fi
+
+: >"$config"
+
+if [ -z "$selection" ]; then
+    echo "No changed tests selected; skipping Pest. CI runs the full suite."
+    exit 0
+fi
+
+count="$(printf '%s\n' "$selection" | wc -l | tr -d ' ')"
+
+if [ "$count" -gt "$MAX_FILES" ]; then
+    echo "${count} changed test files selected (over ${MAX_FILES}); skipping Pest. CI runs the full suite."
+    exit 0
+fi
+
+echo "Running ${count} changed test file(s):"
+printf '%s\n' "$selection" | sed 's/^/  /'
+
+suite="$(
+    printf '    <testsuites>\n        <testsuite name="Changed">\n'
+    while IFS= read -r path; do
+        path="${path//&/&amp;}"
+        path="${path//</&lt;}"
+        printf '            <file>%s</file>\n' "${path//>/&gt;}"
+    done <<<"$selection"
+    printf '        </testsuite>\n    </testsuites>\n'
+)"
+
+SUITE="$suite" awk '
+    /<testsuites>/ { print ENVIRON["SUITE"]; skip = 1; next }
+    skip && /<\/testsuites>/ { skip = 0; next }
+    !skip { print }
+' phpunit.xml >"$config"

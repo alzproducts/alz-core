@@ -203,6 +203,8 @@ The dev-image CI job has no `.git` and excludes the `repo-static` group; a test 
 
 ### Pre-push hook says "Tests failed!" but all tests look like they pass
 
+The pre-push hook runs only the changed tests, through `make test-changed`: the `tests/**/*Test.php` files changed since the merge-base with `origin/HEAD`, plus `<Class>Test.php` matches for changed `app/` classes. It skips Pest when it selects none or more than 100. CI runs the full suite. Reproduce the hook's run with `make test-changed`; it fails naming `git remote set-head origin --auto` when `origin/HEAD` is unset.
+
 **Check Redis first**: `make redis` — if Redis is down, cache-dependent tests fail silently in `--parallel` mode.
 
 **Root cause**: `--parallel` (ParaTest) hides warnings and error details. PHPUnit warnings (not just failures) trigger exit code 1 when `failOnWarning="true"` in `phpunit.xml`. The parallel runner shows all dots as passes but returns non-zero.
@@ -223,7 +225,7 @@ cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30
 
 **Step 3 — If output is truncated** (agent CLI / CI), redirect to a file and read the tail:
 ```bash
-make test > tmp/test-output.txt 2>&1
+make test-changed > tmp/test-output.txt 2>&1
 cat tmp/test-output.txt | sed 's/\x1b\[[0-9;]*m//g' | tail -30
 ```
 

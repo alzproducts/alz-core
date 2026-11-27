@@ -38,3 +38,4 @@ _ide_helper_models.php
 /tmp
 /.claude/scheduled_tasks.lock
 /.claude/settings.local.json
+/phpunit-changed.*
