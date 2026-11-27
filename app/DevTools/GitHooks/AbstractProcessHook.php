@@ -39,7 +39,7 @@ abstract class AbstractProcessHook implements PrePushHook
         $hookName = $this->getName();
         $this->command->info("Running {$hookName}...");
 
-        $process = new Process($this->getProcessCommand(), null, DotenvProcessEnvironment::withoutDotenvValues(\base_path('.env')));
+        $process = new ProcessTreeProcess($this->getProcessCommand(), null, DotenvProcessEnvironment::withoutDotenvValues(\base_path('.env')));
         $process->setTimeout($this->getTimeout());
         $process->run();
 
