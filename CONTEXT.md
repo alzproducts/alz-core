@@ -34,6 +34,14 @@ _Avoid_: role hierarchy, "manager and up" (tiers are explicit sets, not a rankin
 A custom field whose values and definition only the **Admin-area tier** may see or write.
 _Avoid_: "admin" meaning the `admin` **Role** alone — managers see admin-only fields too
 
+**Agent database login**:
+The dedicated production database login agents use for read-only SQL; it can read only the **Read allowlist**.
+_Avoid_: "role" alone (that is the Admin Dashboard **Role**), read replica, service account
+
+**Read allowlist**:
+The committed list of tables and columns the **Agent database login** may read; anything not on it, including any table or column added later, stays unreadable.
+_Avoid_: whitelist, column blacklist, exclusion list
+
 ### Catalog & ShopWired sync
 
 **Margin tier**:
