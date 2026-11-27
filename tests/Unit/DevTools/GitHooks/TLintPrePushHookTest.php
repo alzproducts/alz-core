@@ -13,12 +13,12 @@ use ReflectionMethod;
 #[CoversNothing]
 final class TLintPrePushHookTest extends TestCase
 {
-    public function test_it_runs_make_tlint_with_a_90_second_timeout(): void
+    public function test_it_runs_make_tlint_with_a_180_second_timeout(): void
     {
         $hook = new TLintPrePushHook();
 
         self::assertSame(['make', 'tlint'], new ReflectionMethod($hook, 'getProcessCommand')->invoke($hook));
-        self::assertSame(90, new ReflectionMethod($hook, 'getTimeout')->invoke($hook));
+        self::assertSame(180, new ReflectionMethod($hook, 'getTimeout')->invoke($hook));
     }
 
     // intentional: grouped although it reads no git. The verify test image ships no Makefile.

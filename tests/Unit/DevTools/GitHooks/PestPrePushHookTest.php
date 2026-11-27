@@ -13,12 +13,12 @@ use ReflectionMethod;
 #[CoversNothing]
 final class PestPrePushHookTest extends TestCase
 {
-    public function test_it_runs_make_test_changed_with_a_180_second_timeout(): void
+    public function test_it_runs_make_test_changed_with_a_600_second_timeout(): void
     {
         $hook = new PestPrePushHook();
 
         self::assertSame(['make', 'test-changed'], new ReflectionMethod($hook, 'getProcessCommand')->invoke($hook));
-        self::assertSame(180, new ReflectionMethod($hook, 'getTimeout')->invoke($hook));
+        self::assertSame(600, new ReflectionMethod($hook, 'getTimeout')->invoke($hook));
     }
 
     // intentional: grouped although it reads no git. The verify test image ships no Makefile.
