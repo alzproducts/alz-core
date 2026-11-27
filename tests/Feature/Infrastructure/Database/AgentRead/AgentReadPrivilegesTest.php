@@ -244,7 +244,7 @@ final class AgentReadPrivilegesTest extends TestCase
                AND CASE WHEN c.relkind = 'S' THEN has_sequence_privilege(?, c.oid, 'SELECT,USAGE,UPDATE') ELSE false END
              UNION ALL
              SELECT 'CREATE on schema ' || n.nspname FROM pg_namespace n
-             WHERE " . self::SYSTEM_SCHEMAS . " AND has_schema_privilege(?, n.oid, 'CREATE')
+             WHERE n.oid <> pg_my_temp_schema() AND has_schema_privilege(?, n.oid, 'CREATE')
              UNION ALL
              SELECT 'CREATE on database' WHERE has_database_privilege(?, current_database(), 'CREATE')
              ORDER BY 1",

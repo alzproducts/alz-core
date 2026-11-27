@@ -16,6 +16,11 @@ user_schema AS (
     FROM pg_namespace n
     WHERE n.nspname NOT LIKE 'pg\_%' AND n.nspname <> 'information_schema'
 ),
+any_schema AS (
+    SELECT n.oid, n.nspname, has_schema_privilege(n.oid, 'USAGE') AS usable
+    FROM pg_namespace n
+    WHERE n.oid <> pg_my_temp_schema()
+),
 rel AS (
     SELECT c.oid, c.relkind, s.nspname || '.' || c.relname AS name, s.direct AS schema_direct
     FROM pg_class c
@@ -57,7 +62,7 @@ FROM (
 
     UNION ALL
     SELECT 'schema', s.nspname::text, 'CREATE'
-    FROM user_schema s
+    FROM any_schema s
     WHERE has_schema_privilege(s.oid, 'CREATE')
 
     UNION ALL
@@ -88,7 +93,7 @@ FROM (
     UNION ALL
     SELECT 'security definer function', p.oid::regprocedure::text, 'EXECUTE'
     FROM pg_proc p
-    JOIN user_schema s ON s.oid = p.pronamespace AND s.usable
+    JOIN any_schema s ON s.oid = p.pronamespace AND s.usable
     WHERE p.prosecdef AND has_function_privilege(p.oid, 'EXECUTE')
 
     UNION ALL
