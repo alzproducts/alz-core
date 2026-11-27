@@ -31,6 +31,7 @@ final readonly class WorktreeDbFixture
         [ -f "$S/db-up" ] || { [ "$1" = compose ] && exit 1; exit 0; }
         case "$1" in
             ps) echo stub-container ;;
+            wait) echo 0 ;;
             inspect) case "$3" in *ExitCode*) echo 'exited 0' ;; *) echo running ;; esac ;;
             compose) case " $* " in *' port pgsql 5432 '*) echo "127.0.0.1:$(cat "$S/db-up")" ;; esac ;;
         esac

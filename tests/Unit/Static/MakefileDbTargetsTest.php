@@ -170,7 +170,7 @@ final class MakefileDbTargetsTest extends TestCase
             ['artisan dev:seed-fake --dry-run | ' . WorktreeDbFixture::OWN_CONNECTION, 'artisan dev:seed-fake | ' . WorktreeDbFixture::OWN_CONNECTION],
             $this->fixture->calls('php-calls'),
         );
-        $this->assertNotSame([], \preg_grep('/ up .*--force-recreate.* pgsql auth-migrate/', $this->fixture->calls('docker-calls')), 'bin/stack db-reset recreated pgsql');
+        $this->assertNotSame([], \preg_grep('/ up .*--force-recreate pgsql$/', $this->fixture->calls('docker-calls')), 'bin/stack db-reset recreated pgsql');
         $this->assertStringContainsString('db-reset ok', $make->getOutput());
     }
 
