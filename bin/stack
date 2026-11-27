@@ -42,6 +42,7 @@ SHARED_DB_PORT=''
 SHARED_API_PORT=''
 
 dc() {
+    backfill_pins
     if [ "$MODE" = shared ]; then
         docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" \
             -f "$REPO/compose.local.shared-supabase.yaml" --env-file "$COMPOSE_ENV" "$@"
@@ -190,13 +191,30 @@ host_port() {
     dc port "$svc" 8000 2>/dev/null | tail -1 | sed 's/.*://'
 }
 
-# write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
-write_env() {
-    local pg auth realtime
+# read_pins: sets the caller's pg, auth and realtime locals from the pin file.
+read_pins() {
     pg="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$REPO/database/baseline/versions.env")"
     auth="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$REPO/database/baseline/versions.env")"
     realtime="$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' "$REPO/database/baseline/versions.env")"
     [ -n "$pg" ] && [ -n "$auth" ] && [ -n "$realtime" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
+}
+
+# backfill_pins: adds the pins a compose env minted before them lacks; Compose interpolates every service, inactive profiles included.
+backfill_pins() {
+    [ -f "$COMPOSE_ENV" ] || return 0
+    grep -q '^SUPABASE_POSTGRES_VERSION=' "$COMPOSE_ENV" && grep -q '^SUPABASE_AUTH_VERSION=' "$COMPOSE_ENV" &&
+        grep -q '^SUPABASE_REALTIME_VERSION=' "$COMPOSE_ENV" && return 0
+    local pg auth realtime
+    read_pins
+    grep -q '^SUPABASE_POSTGRES_VERSION=' "$COMPOSE_ENV" || echo "SUPABASE_POSTGRES_VERSION=$pg" >>"$COMPOSE_ENV"
+    grep -q '^SUPABASE_AUTH_VERSION=' "$COMPOSE_ENV" || echo "SUPABASE_AUTH_VERSION=$auth" >>"$COMPOSE_ENV"
+    grep -q '^SUPABASE_REALTIME_VERSION=' "$COMPOSE_ENV" || echo "SUPABASE_REALTIME_VERSION=$realtime" >>"$COMPOSE_ENV"
+}
+
+# write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
+write_env() {
+    local pg auth realtime
+    read_pins
     mkdir -p "$STATE"
     (
         umask 077

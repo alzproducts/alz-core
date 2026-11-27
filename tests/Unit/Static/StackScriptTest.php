@@ -168,6 +168,19 @@ final class StackScriptTest extends TestCase
     }
 
     #[Test]
+    public function up_on_a_stack_minted_before_a_pin_appends_only_that_pin(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+        $older = \str_replace("SUPABASE_REALTIME_VERSION=v1.0.0\n", '', $this->run->read('tmp/stack/compose.env'));
+        $this->run->write('tmp/stack/compose.env', $older);
+
+        $again = $this->run->stack([], 'up');
+
+        $this->assertSame(0, $again->getExitCode(), $again->getErrorOutput());
+        $this->assertSame($older . "SUPABASE_REALTIME_VERSION=v1.0.0\n", $this->run->read('tmp/stack/compose.env'));
+    }
+
+    #[Test]
     public function up_with_a_free_fixed_port_publishes_it(): void
     {
         $port = $this->freePort();
