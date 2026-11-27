@@ -12,7 +12,7 @@ use Tests\TestCase;
 use Tests\Unit\Static\Support\TrackedFiles;
 
 /**
- * The production-like compose starts the app only once the baseline carries Realtime's tenant schema (COR-381 AC4).
+ * The production-like compose starts the app only once the baseline carries Realtime's tenant schema.
  */
 #[CoversNothing]
 #[Group('repo-static')]
