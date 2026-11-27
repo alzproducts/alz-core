@@ -12,11 +12,9 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 ## Local environment
 
 - Native PHP 8.4 for host tooling (`make test`, `make lint`), Redis in Docker, and one local Supabase PostgreSQL shared with the frontend repo and every worktree.
-- Serve through the worktree's stack: `bin/stack up` (`make serve`) prints the app's host port, a free one per worktree, which `bin/stack port` prints again; `--shared-supabase` runs it against the shared Supabase, never migrating or seeding it. A `.env` edit applies on the next `bin/stack up` ([local setup](docs/guides/local-setup.md)).
-- Queued jobs run on the stack's Horizon worker (`bin/stack logs worker`); never start `queue:work` or `queue:listen` on host PHP.
+- Serve, run queued jobs and call the API through the worktree's `bin/stack` (`bin/stack help`).
 - Fresh worktree: `make install` first, never `composer install` or an `APP_ENV` override by hand ([local setup](docs/guides/local-setup.md)).
 - Start a needed service without asking: `make redis`, `make supabase-start` (including the `make db-reset-full` it runs on a stopped stack). A manual `make db-reset-full` (wipes local data, reseeds via `dev:seed-fake`), `make supabase-reset` or seed needs the user's go-ahead.
-- Consumer API on the stack: `bin/stack curl <METHOD> /api/...` (body on stdin) sends the `X-Local-Bypass` request inside the app container; never host curl to the published port, which arrives from the Docker gateway and fails the loopback gate. Setup in `.env.example` (Local Development Auth Bypass).
 - Auth rejections log to `storage/logs/security-*.log`, not `laravel.log`. Only the stack app and the product-list bench write `octane.log`.
 
 ## Decisions
