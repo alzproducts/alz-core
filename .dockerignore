@@ -64,15 +64,13 @@ _ide_helper_models.php
 # Build Artifacts
 # ------------------------------------------------------------------------------
 storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/testing/*
-storage/framework/views/*
+storage/framework/**
 !storage/logs/.gitkeep
-!storage/framework/cache/.gitkeep
-!storage/framework/sessions/.gitkeep
-!storage/framework/testing/.gitkeep
-!storage/framework/views/.gitkeep
+# intentional: `**` also drops the directories; each one survives only through its re-included, tracked .gitignore
+!storage/framework/cache/.gitignore
+!storage/framework/sessions/.gitignore
+!storage/framework/testing/.gitignore
+!storage/framework/views/.gitignore
 # Host-built package and provider manifests list dev packages the image lacks
 bootstrap/cache/*.php
 
