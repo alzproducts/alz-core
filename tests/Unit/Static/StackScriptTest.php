@@ -65,7 +65,7 @@ final class StackScriptTest extends TestCase
         $env = $this->run->read('tmp/stack/compose.env');
         $this->assertStringContainsString("STACK_IMAGE=alz-dev-local:{$this->run->project}\n", $env);
         $this->assertStringContainsString("STACK_PORT=\n", $env);
-        $this->assertStringContainsString("SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\n", $env);
+        $this->assertStringContainsString("SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\nSUPABASE_REALTIME_VERSION=v1.0.0\n", $env);
         $this->assertMatchesRegularExpression('/^STACK_DB_PASSWORD=[0-9a-f]{48}$/m', $env);
         $this->assertSame('0777', \mb_substr(\sprintf('%o', \fileperms("{$this->run->repo}/storage/logs")), -4));
     }
@@ -674,7 +674,7 @@ final class StackScriptTest extends TestCase
             $this->assertSame($expected, $environment);
         }
 
-        foreach (['seed', 'pgsql', 'auth-migrate'] as $service) {
+        foreach (['seed', 'pgsql', 'auth-migrate', 'realtime-migrate'] as $service) {
             $this->assertArrayNotHasKey($service, $shared['services']);
             $this->assertSame(['own-postgres'], $base['services'][$service]['profiles']);
         }

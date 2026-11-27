@@ -6,7 +6,7 @@
 # shellcheck disable=SC2016,SC2086
 set -euo pipefail
 
-SERVICES='app worker seed pgsql redis auth-migrate relay'
+SERVICES='app worker seed pgsql redis auth-migrate realtime-migrate relay'
 
 die() {
     local code="$1"
@@ -192,10 +192,11 @@ host_port() {
 
 # write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
 write_env() {
-    local pg auth
+    local pg auth realtime
     pg="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$REPO/database/baseline/versions.env")"
     auth="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$REPO/database/baseline/versions.env")"
-    [ -n "$pg" ] && [ -n "$auth" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
+    realtime="$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' "$REPO/database/baseline/versions.env")"
+    [ -n "$pg" ] && [ -n "$auth" ] && [ -n "$realtime" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
     mkdir -p "$STATE"
     (
         umask 077
@@ -213,6 +214,7 @@ write_env() {
             echo "STACK_PORT=${ALZ_STACK_PORT:-}"
             echo "SUPABASE_POSTGRES_VERSION=$pg"
             echo "SUPABASE_AUTH_VERSION=$auth"
+            echo "SUPABASE_REALTIME_VERSION=$realtime"
         } >"$COMPOSE_ENV"
         : >"$FILL_ENV"
         env_file_sets "$ENV_FILE" APP_KEY || echo "APP_KEY='base64:$(openssl rand -base64 32)'" >>"$FILL_ENV"

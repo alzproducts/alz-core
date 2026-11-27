@@ -1,7 +1,7 @@
 # Layered over compose.local.yaml by bin/stack up --shared-supabase: app and worker run against the shared local
 # Supabase, through a relay whose network namespace they share, so the .env's loopback URLs work in them unchanged.
-# intentional: no seed, pgsql or auth-migrate (bin/stack drops the own-postgres profile); the shared database is never
-# migrated or seeded (COR-318/D12). COR-375 removes this file.
+# intentional: no seed, pgsql, auth-migrate or realtime-migrate (bin/stack drops the own-postgres profile); the
+# shared database is never migrated or seeded (COR-318/D12). COR-375 removes this file.
 # intentional: environment is !override, so DB_DATABASE, DB_USERNAME, DB_PASSWORD, DB_PORT, SUPABASE_URL and
 # SHOPWIRED_SALE_CATEGORY_ID come from the worktree's .env; every other key matches compose.local.yaml's x-stack-env.
 
