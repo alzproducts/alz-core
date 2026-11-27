@@ -231,14 +231,27 @@ final class MakefileDbTargetsTest extends TestCase
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function worktreeCheckTargets(): iterable
+    {
+        yield from self::supabaseTargets();
+
+        foreach (['install', 'db-reset-full'] as $target) {
+            yield $target => [$target];
+        }
+    }
+
     #[Test]
-    #[DataProvider('supabaseTargets')]
+    #[DataProvider('worktreeCheckTargets')]
     public function a_failed_worktree_check_refuses_instead_of_acting_on_the_shared_supabase(string $target): void
     {
         $make = $this->fixture->make($this->fixture->main, ['GIT_DIR' => "{$this->fixture->main}/no-such-git-dir"], $target);
 
         $this->assertMakeError(75, $target, $make);
-        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm or composer call');
+        $this->assertSame([], $this->fixture->calls('php-calls'));
     }
 
     /**
