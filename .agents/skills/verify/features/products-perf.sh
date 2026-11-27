@@ -4,6 +4,7 @@
 #   .agents/skills/verify/features/products-perf.sh load    --evidence <dir> [--requests N] [--warmup N] [--rate R]
 #   .agents/skills/verify/features/products-perf.sh writers --evidence <dir> [--runs N] [--baseline <evidence dir>]
 # Load requests and the Octane request log stay inside the app container; writers run in the worker container.
+# Sourced, it defines the functions only: follow_start and follow_stop run the Octane log follower on their own.
 set -euo pipefail
 umask 077
 
@@ -49,6 +50,46 @@ shared_dir() {
     CONTAINER_DIR="$LOGS/$2"
 }
 
+# follow_start <container> <log path in the container> <host state dir>: appends the container's output to the log
+# from inside the container, where the load reads it; on Docker Desktop a host append to the bind mount never reaches
+# a reader in the container. intentional: the container's user creates the log; a host-made file refuses uid 33 on Linux.
+follow_start() {
+    local fifo="$3/follow.fifo"
+    rm -f "$fifo" "$3/follow.pids"
+    mkfifo "$fifo"
+    # The subshell detaches both halves, so follow_stop works from any shell and leaves no zombie to poll.
+    (
+        # shellcheck disable=SC2016
+        docker exec -i "$1" sh -c 'cat >>"$1"' sh "$2" <"$fifo" >"$3/follow-writer.log" 2>&1 &
+        echo "$!" >>"$3/follow.pids"
+        docker logs -f "$1" </dev/null >"$fifo" 2>&1 &
+        echo "$!" >>"$3/follow.pids"
+    )
+}
+
+# follow_stop <host state dir>: stops both halves of follow_start's pipe; killing only the writer leaves docker logs -f attached.
+follow_stop() {
+    local writer reader
+    [ -f "$1/follow.pids" ] || return 0
+    { read -r writer; read -r reader; } <"$1/follow.pids"
+    # Reader first: the writer then drains the pipe and exits on its end, keeping every line already read.
+    kill "$reader" 2>/dev/null || true
+    gone "$reader" || kill -9 "$reader" 2>/dev/null || true
+    gone "$writer" || kill "$writer" 2>/dev/null || true
+    gone "$writer" || kill -9 "$writer" 2>/dev/null || true
+    rm -f "$1/follow.fifo" "$1/follow.pids"
+}
+
+# gone <pid>: waits up to 5 s for the process to exit.
+gone() {
+    local i
+    for i in $(seq 50); do
+        kill -0 "$1" 2>/dev/null || return 0
+        sleep 0.1
+    done
+    return 1
+}
+
 cmd_load() {
     local requests=2000 warmup=100 rate=2
     while [ "$#" -gt 0 ]; do
@@ -73,12 +114,8 @@ cmd_load() {
     v note "bench load requests=$requests warmup=$warmup rate=$rate dir=logs/app/bench/load-$stamp"
     v exec app -- php "$BENCH" shapes --out "$app_dir/shapes.json" >/dev/null || die 1 "could not derive the request mix from the seed"
 
-    # Octane's request lines go to the app container's stdout; follow them into a file the load reads via the mount.
-    local octane_log="$app_host/octane-stdout.log" follow_pid
-    : >"$octane_log"
-    chmod 0644 "$octane_log"
-    docker logs -f "$(project_app_container)" >"$octane_log" 2>&1 &
-    follow_pid=$!
+    # Octane's request lines go to the app container's stdout; the load reads them back from octane-stdout.log.
+    follow_start "$(project_app_container)" "$app_dir/octane-stdout.log" "$EVIDENCE/bench"
 
     local deadline schedule kind interval delay pids=() kinds=() fail=0
     deadline=$(($(date +%s) + (warmup + requests) / rate + 600))
@@ -105,7 +142,7 @@ EOF
     touch "$worker_host/stop"
     local pid
     for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
-    kill "$follow_pid" 2>/dev/null || true
+    follow_stop "$EVIDENCE/bench"
 
     [ -f "$app_host/load.json" ] || { v note "bench load FAIL no result"; die 1 "load produced no result (see output above)"; }
     local summary="$EVIDENCE/bench/load-$stamp.json" writers='{}' result i
@@ -187,26 +224,30 @@ project_app_container() {
     docker ps -q --filter "label=com.docker.compose.project=$project" --filter "label=com.docker.compose.service=app"
 }
 
-[ "$#" -ge 1 ] || usage
-journey="$1"
-shift
-EVIDENCE=''
-rest=()
-while [ "$#" -gt 0 ]; do
-    if [ "$1" = --evidence ]; then
-        [ "$#" -ge 2 ] || usage
-        EVIDENCE="$2"
-        shift 2
-    else
-        rest+=("$1")
-        shift
-    fi
-done
-[ -n "$EVIDENCE" ] || usage
-case "$EVIDENCE" in /*) ;; *) die 64 "--evidence must be an absolute path" ;; esac
-[ -f "$EVIDENCE/.verify/state.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
-case "$journey" in
-    load) cmd_load ${rest[@]+"${rest[@]}"} ;;
-    writers) cmd_writers ${rest[@]+"${rest[@]}"} ;;
-    *) usage ;;
-esac
+main() {
+    [ "$#" -ge 1 ] || usage
+    local journey="$1"
+    shift
+    EVIDENCE=''
+    local rest=()
+    while [ "$#" -gt 0 ]; do
+        if [ "$1" = --evidence ]; then
+            [ "$#" -ge 2 ] || usage
+            EVIDENCE="$2"
+            shift 2
+        else
+            rest+=("$1")
+            shift
+        fi
+    done
+    [ -n "$EVIDENCE" ] || usage
+    case "$EVIDENCE" in /*) ;; *) die 64 "--evidence must be an absolute path" ;; esac
+    [ -f "$EVIDENCE/.verify/state.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
+    case "$journey" in
+        load) cmd_load ${rest[@]+"${rest[@]}"} ;;
+        writers) cmd_writers ${rest[@]+"${rest[@]}"} ;;
+        *) usage ;;
+    esac
+}
+
+[ "${BASH_SOURCE[0]}" != "$0" ] || main "$@"
