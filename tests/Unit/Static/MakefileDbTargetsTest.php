@@ -230,6 +230,27 @@ final class MakefileDbTargetsTest extends TestCase
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function alzAdminTargets(): iterable
+    {
+        foreach (['supabase-start', 'supabase-reset', 'supabase-seed-users'] as $target) {
+            yield $target => [$target];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('alzAdminTargets')]
+    public function a_main_checkout_supabase_target_without_alz_admin_refuses(string $target): void
+    {
+        $make = $this->fixture->run($this->fixture->main, [], 'make', '--no-print-directory', $target, "EXEC={$this->fixture->stubs}/php");
+
+        $this->assertStringContainsString("[{$target}] Error 1", $make->getErrorOutput());
+        $this->assertStringContainsString('ALZ_ADMIN not set', $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
+    }
+
     #[Test]
     #[DataProvider('supabaseTargets')]
     public function a_main_checkout_supabase_target_still_runs(string $target): void
