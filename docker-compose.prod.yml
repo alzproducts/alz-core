@@ -85,6 +85,8 @@ services:
         condition: service_healthy
       auth-migrate:
         condition: service_completed_successfully
+      realtime-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     # intentional: included services join only the project's default network.
