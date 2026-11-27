@@ -34,17 +34,12 @@ final class OrderSyncCalendarResolver
     }
 
     /**
-     * The half-open UTC bounds of an inclusive range of business days.
+     * The half-open bounds of an inclusive range of business days, as instants in the business timezone.
      *
      * @return array{DateTimeImmutable, DateTimeImmutable} the start of `from`, and the start of the day after `to`
      */
     public static function rangeBounds(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
-        $utc = new DateTimeZone('UTC');
-
-        return [
-            self::startOfDate($from)->setTimezone($utc),
-            self::startOfDate($to->modify('+1 day'))->setTimezone($utc),
-        ];
+        return [self::startOfDate($from), self::startOfDate($to->modify('+1 day'))];
     }
 }

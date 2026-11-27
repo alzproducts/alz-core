@@ -17,6 +17,7 @@ use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\Exceptions\ValidationFailedException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
 use App\Presentation\Http\Api\DTOs\SyncQuickBooksOrdersRequestDTO;
+use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 
@@ -40,8 +41,6 @@ final readonly class SyncQuickBooksOrdersController
     ) {}
 
     /**
-     * `run_id` is a log correlation id only: no endpoint takes it.
-     *
      * @throws AuthenticationExpiredException
      * @throws CorruptApiKeyException
      * @throws DatabaseOperationFailedException
@@ -57,7 +56,7 @@ final readonly class SyncQuickBooksOrdersController
     public function __invoke(SyncQuickBooksOrdersRequestDTO $data): JsonResponse
     {
         $runId = Str::uuid()->toString();
-        $this->syncOrders->execute($data->references, $data->force_retry, $runId);
+        $this->syncOrders->execute($data->references, $data->force_retry, $runId, new DateTimeImmutable());
 
         return new JsonResponse(['message' => 'QuickBooks order sync queued.', 'run_id' => $runId], JsonResponse::HTTP_ACCEPTED);
     }

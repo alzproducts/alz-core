@@ -10,6 +10,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\OrderRangeRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\UseCases\RunOrderRangeSyncUseCase;
+use App\Domain\ValueObjects\DateRange;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Tests\Fixtures\QuickBooks\SpyOrderSyncDispatcher;
+use Tests\Fixtures\QuickBooks\SpyOrderSyncRunRepository;
 
 #[CoversClass(RunOrderRangeSyncUseCase::class)]
 final class RunOrderRangeSyncUseCaseTest extends TestCase
@@ -45,10 +47,10 @@ final class RunOrderRangeSyncUseCaseTest extends TestCase
             ->with(new DateTimeImmutable('2026-07-14T23:00:00Z'), new DateTimeImmutable('2026-07-16T23:00:00Z'))
             ->willReturn($references);
         $dispatcher = new SpyOrderSyncDispatcher();
+        $runs = new SpyOrderSyncRunRepository();
+        $range = new DateRange(new DateTimeImmutable('2026-07-15'), new DateTimeImmutable('2026-07-16'));
 
-        new RunOrderRangeSyncUseCase($sourceOrders, $dispatcher, new NullLogger())->execute(
-            new OrderRangeRunDTO('realm-1', new DateTimeImmutable('2026-07-15'), new DateTimeImmutable('2026-07-16'), true, 'run-1'),
-        );
+        new RunOrderRangeSyncUseCase($sourceOrders, $dispatcher, $runs, new NullLogger())->execute(new OrderRangeRunDTO('realm-1', $range, true, 'run-1'));
 
         self::assertSame($sizes, \array_map(static fn(OrderChunkRunDTO $run): int => \count($run->chunk->references), $dispatcher->chunks));
         self::assertSame($references, \array_merge(...\array_map(static fn(OrderChunkRunDTO $run): array => $run->chunk->references, $dispatcher->chunks)));
@@ -56,5 +58,6 @@ final class RunOrderRangeSyncUseCaseTest extends TestCase
             self::assertEquals(new OrderChunkRunDTO(new OrderSyncChunkDTO('realm-1', $run->chunk->references, true, OrderSyncTrigger::Range, 'run-1'), 1), $run);
         }
         self::assertSame([], $dispatcher->ranges);
+        self::assertEquals([['markStarted', 'run-1'], ['endRangeJob', 'run-1', \count($references)]], $runs->calls, 'The candidate count becomes what was dispatched.');
     }
 }

@@ -10,6 +10,7 @@ use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncRunCountsDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
@@ -36,6 +37,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use Tests\Fixtures\QuickBooks\SpyOrderSyncDispatcher;
+use Tests\Fixtures\QuickBooks\SpyOrderSyncRunRepository;
 use Throwable;
 
 #[CoversClass(RunOrderChunkUseCase::class)]
@@ -48,6 +50,8 @@ final class RunOrderChunkUseCaseTest extends TestCase
     private const string RUN_ID = '0f8b6d2e-3c1a-4e5b-9a7d-2b6c4e8f1a90';
 
     private SpyOrderSyncDispatcher $dispatcher;
+
+    private SpyOrderSyncRunRepository $runs;
 
     private QuickBooksTokenService&Stub $tokens;
 
@@ -63,6 +67,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         parent::setUp();
 
         $this->dispatcher = new SpyOrderSyncDispatcher();
+        $this->runs = new SpyOrderSyncRunRepository();
         $this->tokens = $this->createStub(QuickBooksTokenService::class);
         $this->syncChunk = $this->createStub(SyncOrderChunkUseCase::class);
         $this->deadline = Deadline::at(new DateTimeImmutable('2026-11-24 12:00:00+00'));
@@ -82,6 +87,10 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->runChunk($run);
 
         self::assertSame([], $this->dispatcher->chunks);
+        self::assertEquals([
+            ['markStarted', self::RUN_ID],
+            ['endJob', self::RUN_ID, new OrderSyncRunCountsDTO(0, 0, 4, 0, 0), false],
+        ], $this->runs->calls);
     }
 
     /**
@@ -103,6 +112,10 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->runChunk(self::chunkRun($attempt));
 
         self::assertEquals([self::chunkRun($attempt + 1, [2, 4])], $this->dispatcher->chunks);
+        self::assertEquals([
+            ['markStarted', self::RUN_ID],
+            ['endJob', self::RUN_ID, new OrderSyncRunCountsDTO(0, 0, 1, 0, 1), false],
+        ], $this->runs->calls, 'The re-attempted references count at the attempt that ends them.');
     }
 
     #[Test]
@@ -138,6 +151,10 @@ final class RunOrderChunkUseCaseTest extends TestCase
             self::assertSame(['references' => [2]], $e->context());
         }
         self::assertSame([], $this->dispatcher->chunks);
+        self::assertEquals([
+            ['markStarted', self::RUN_ID],
+            ['addCounts', self::RUN_ID, new OrderSyncRunCountsDTO(0, 0, 2, 0, 2), true],
+        ], $this->runs->calls, 'The finished outcomes and the unfinished reference count before the throw; the failure handler ends the job.');
     }
 
     /**
@@ -161,6 +178,10 @@ final class RunOrderChunkUseCaseTest extends TestCase
             $this->runChunk(self::chunkRun($attempt));
 
             self::assertEquals([self::chunkRun($attempt + 1)], $this->dispatcher->chunks);
+            self::assertEquals([
+                ['markStarted', self::RUN_ID],
+                ['endJob', self::RUN_ID, OrderSyncRunCountsDTO::zero(), false],
+            ], $this->runs->calls);
         }
     }
 
@@ -178,6 +199,10 @@ final class RunOrderChunkUseCaseTest extends TestCase
             self::assertSame($failure, $e->getPrevious());
         }
         self::assertSame([], $this->dispatcher->chunks);
+        self::assertEquals([
+            ['markStarted', self::RUN_ID],
+            ['addCounts', self::RUN_ID, new OrderSyncRunCountsDTO(0, 0, 0, 0, 2), true],
+        ], $this->runs->calls);
     }
 
     /**
@@ -287,7 +312,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $floor = new OrderSyncFloorService($settings);
         $preflight = new OrderSyncPreflightService($this->tokens, $realm, $this->createStub(QuickBooksMappingRepositoryInterface::class));
 
-        new RunOrderChunkUseCase($preflight, $this->tokens, $floor, $this->syncChunk, $this->dispatcher, new NullLogger())->execute($run, $this->deadline);
+        new RunOrderChunkUseCase($preflight, $this->tokens, $floor, $this->syncChunk, $this->dispatcher, $this->runs, new NullLogger())->execute($run, $this->deadline);
     }
 
     /**

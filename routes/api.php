@@ -20,6 +20,7 @@ use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ListFailedQuickBooksOrdersController;
+use App\Presentation\Http\Api\Controllers\ListQuickBooksOrderSyncRunsController;
 use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
@@ -306,6 +307,8 @@ Route::middleware([
         // QuickBooks order sync
         Route::get('quickbooks/orders/failed', ListFailedQuickBooksOrdersController::class)
             ->name('quickbooks.orders.failed');
+        Route::get('quickbooks/orders/runs', ListQuickBooksOrderSyncRunsController::class)
+            ->name('quickbooks.orders.runs');
         Route::post('quickbooks/orders/sync', SyncQuickBooksOrdersController::class)
             ->name('quickbooks.orders.sync');
         Route::post('quickbooks/orders/sync-range', SyncQuickBooksOrderRangeController::class)
