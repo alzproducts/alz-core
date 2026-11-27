@@ -438,19 +438,23 @@ cmd_db_env() {
 
 db_logs_tail() { db_dc logs --no-color --tail 40 "$1" >&2 || true; }
 
-# start_db [--force-recreate]: pgsql and auth-migrate, then waits for auth-migrate to exit 0.
+# start_db [--force-recreate]: pgsql until healthy, then auth-migrate, which must exit 0.
 start_db() {
-    local id
-    db_dc up -d --wait --wait-timeout 300 "$@" pgsql auth-migrate >&2 || {
+    local id code
+    db_dc up -d --wait --wait-timeout 300 "$@" pgsql >&2 || {
         db_logs_tail pgsql
         die 75 "pgsql did not start; see bin/stack logs pgsql (run bin/stack down to clean up)"
     }
-    # intentional: up --wait counts a running one-shot as ready, so it returns before the migrations finish.
-    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=auth-migrate" | head -1)"
-    [ -z "$id" ] || docker wait "$id" >/dev/null 2>&1 || true
-    [ "$(service_state auth-migrate '{{.State.Status}} {{.State.ExitCode}}')" = 'exited 0' ] || {
+    # intentional: auth-migrate is a one-shot outside up --wait, which fails once a waited container exits, even with 0.
+    db_dc up -d "$@" --no-deps auth-migrate >&2 || {
         db_logs_tail auth-migrate
-        die 75 "auth-migrate did not complete; see bin/stack logs auth-migrate (run bin/stack down to clean up)"
+        die 75 "auth-migrate did not start; see bin/stack logs auth-migrate (run bin/stack down to clean up)"
+    }
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=auth-migrate" | head -1)"
+    code="$([ -z "$id" ] || docker wait "$id" 2>/dev/null)" || true
+    [ "$code" = 0 ] || {
+        db_logs_tail auth-migrate
+        die 75 "auth-migrate did not complete (exit ${code:-unknown}); see bin/stack logs auth-migrate (run bin/stack down to clean up)"
     }
 }
 

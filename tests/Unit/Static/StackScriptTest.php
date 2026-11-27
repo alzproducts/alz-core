@@ -692,7 +692,9 @@ final class StackScriptTest extends TestCase
         $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
         $this->assertSame("project={$this->run->project}\ndb_port=55001\n", $up->getOutput());
         $calls = $this->run->calls();
-        $this->assertMatchesRegularExpression('/^compose -p \S+ .*-f \S+\/compose\.local\.yaml --profile own-postgres .*up -d --wait --wait-timeout 300 pgsql auth-migrate$/m', $calls);
+        $this->assertMatchesRegularExpression('/^compose -p \S+ .*-f \S+\/compose\.local\.yaml --profile own-postgres .*up -d --wait --wait-timeout 300 pgsql$/m', $calls);
+        $this->assertMatchesRegularExpression('/^compose -p \S+ .*--profile own-postgres .*up -d --no-deps auth-migrate$/m', $calls);
+        $this->assertStringNotContainsString('--wait-timeout 300 pgsql auth-migrate', $calls);
         $this->assertStringNotContainsString('build ', $calls);
         $this->assertStringNotContainsString(' app worker', $calls);
         $this->assertSame(
@@ -732,9 +734,9 @@ final class StackScriptTest extends TestCase
     #[Test]
     public function db_up_refuses_an_auth_migrate_that_did_not_complete_and_migrates_nothing(): void
     {
-        $this->run->knob('state-auth-migrate', 'exited 1');
+        $this->run->knob('wait-auth-migrate', "1\n");
 
-        $this->assertRefusal($this->run->stack([], 'db-up'), 75, 'auth-migrate did not complete');
+        $this->assertRefusal($this->run->stack([], 'db-up'), 75, 'auth-migrate did not complete (exit 1)');
         $this->assertSame('', $this->run->phpCalls());
     }
 
@@ -815,9 +817,10 @@ final class StackScriptTest extends TestCase
         $this->assertSame("db-reset ok project={$this->run->project}\n", $reset->getOutput());
         $this->assertSame($env, $this->run->read('tmp/stack/compose.env'));
         $ups = \array_values(\array_filter(\explode("\n", $this->run->calls()), static fn(string $call): bool => \str_contains($call, ' up ')));
-        $this->assertCount(2, $ups);
-        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql auth-migrate', $ups[0]);
-        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker', $ups[1]);
+        $this->assertCount(3, $ups);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql', $ups[0]);
+        $this->assertStringEndsWith('up -d --force-recreate --no-deps auth-migrate', $ups[1]);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker', $ups[2]);
     }
 
     #[Test]
@@ -851,9 +854,10 @@ final class StackScriptTest extends TestCase
         $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
         $this->assertStringContainsString('build ', $this->run->calls());
         $ups = \array_values(\array_filter(\explode("\n", $this->run->calls()), static fn(string $call): bool => \str_contains($call, ' up ')));
-        $this->assertCount(2, $ups);
-        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql auth-migrate', $ups[0], 'a boot recreates the DB-only Postgres empty');
-        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 app worker', $ups[1]);
+        $this->assertCount(3, $ups);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql', $ups[0], 'a boot recreates the DB-only Postgres empty');
+        $this->assertStringEndsWith('up -d --force-recreate --no-deps auth-migrate', $ups[1]);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 app worker', $ups[2]);
         $this->assertSame($password, $this->dbPassword());
     }
 

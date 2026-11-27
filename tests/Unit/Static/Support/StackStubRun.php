@@ -43,7 +43,7 @@ final readonly class StackStubRun
         remove() { kind="$1"; shift; [ "$(knob sticky)" = "$kind" ] && exit 0; for a in "$@"; do case "$a" in -*) ;; *) rm -f "$S/resources/$kind/$a" ;; esac; done; exit 0; }
         case "$1 $2" in
             "info "*) [ "$(knob fail)" = info ] && exit 1; exit 0 ;;
-            "wait "*) echo 0; exit 0 ;;
+            "wait "*) knob "wait-${2##*__}" || echo 0; exit 0 ;;
             "ps "*) list container "$@" ;;
             "rm "*) shift; remove container "$@" ;;
             "network ls" | "volume ls" | "image ls") list "$@" ;;
@@ -86,7 +86,7 @@ final readonly class StackStubRun
                         if [ "$shared" = yes ]; then : >"$S/resources/container/${project}__relay"
                         else for s in seed pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done; fi
                         ;;
-                    *) for s in pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done ;;
+                    *) for s in pgsql auth-migrate; do case " $* " in *" $s "*) : >"$S/resources/container/${project}__$s" ;; esac; done ;;
                 esac
                 : >"$S/resources/network/${project}__default"
                 : >"$S/resources/volume/${project}__data"
