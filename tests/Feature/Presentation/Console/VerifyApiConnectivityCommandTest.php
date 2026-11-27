@@ -81,6 +81,12 @@ final class VerifyApiConnectivityCommandTest extends TestCase
 
         $this->quickBooksClient = Mockery::mock(QuickBooksClientInterface::class);
         $this->app->instance(QuickBooksClientInterface::class, $this->quickBooksClient);
+        DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
+        $this->app->make(QuickBooksConnectionRepositoryInterface::class)->save(new QuickBooksConnection(
+            refreshToken: new ApiKeyToken('refresh-stored'),
+            refreshTokenExpiresAt: new DateTimeImmutable('+30 days'),
+            refreshTokenHardExpiresAt: null,
+        ));
         $this->app->make(QuickBooksAccessTokenCacheInterface::class)
             ->put(new ApiKeyToken('access-cached'), new DateTimeImmutable('+1 hour'));
     }

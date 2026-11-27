@@ -6,7 +6,6 @@ namespace App\Application\QuickBooks\OrderSync\UseCases;
 
 use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncRunRepositoryInterface;
-use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncRunCountsDTO;
@@ -15,6 +14,7 @@ use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncFloorService;
+use App\Application\QuickBooks\OrderSync\Services\OrderSyncPreflightService;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -41,7 +41,7 @@ final readonly class RunOrderChunkUseCase
     private const array REQUEUED = [SyncReasonCode::DeadlineExceeded, SyncReasonCode::QboUnavailable];
 
     public function __construct(
-        private QuickBooksRealmInterface $realm,
+        private OrderSyncPreflightService $preflight,
         private QuickBooksTokenService $tokens,
         private OrderSyncFloorService $floor,
         private SyncOrderChunkUseCase $syncChunk,
@@ -72,7 +72,7 @@ final readonly class RunOrderChunkUseCase
         $this->assertConfigured($run->chunk->realmId);
 
         try {
-            $accessToken = $this->accessToken();
+            $accessToken = $this->tokens->accessToken();
         } catch (ExternalServiceUnavailableException|LockAcquisitionException $e) {
             $this->tokenFailed($run, $e);
 
@@ -131,29 +131,10 @@ final readonly class RunOrderChunkUseCase
      */
     private function assertConfigured(string $realmId): void
     {
-        if ($this->realm->realmId() !== $realmId) {
-            throw new InvalidConfigurationException('QUICKBOOKS_REALM_ID', 'The run was requested for another company');
-        }
+        $this->preflight->assertSameCompany($realmId);
 
         // intentional: the attempt reads the floor it uses; this read makes an unset one throw before a token failure re-attempts.
         $this->floor->floorStart();
-    }
-
-    /**
-     * @throws AuthenticationExpiredException
-     * @throws CorruptApiKeyException
-     * @throws DatabaseOperationFailedException
-     * @throws DuplicateRecordException
-     * @throws ExternalServiceUnavailableException
-     * @throws InvalidApiResponseException
-     * @throws KeyEncryptionFailedException
-     * @throws LockAcquisitionException
-     */
-    private function accessToken(): ApiKeyToken
-    {
-        $this->tokens->assertConnected();
-
-        return $this->tokens->accessToken();
     }
 
     /**

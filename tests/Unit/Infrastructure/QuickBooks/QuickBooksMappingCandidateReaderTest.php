@@ -10,10 +10,12 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksCall;
 use App\Infrastructure\QuickBooks\QuickBooksCallSpec;
 use App\Infrastructure\QuickBooks\QuickBooksMappingCandidateReader;
 use App\Infrastructure\QuickBooks\QuickBooksTransport;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -215,7 +217,7 @@ final class QuickBooksMappingCandidateReaderTest extends TestCase
      */
     private function candidates(MappingEntity $entity): array
     {
-        return $this->reader()->candidates(new ApiKeyToken('access'), $entity);
+        return $this->reader()->candidates(new ApiKeyToken('access'), $entity, Deadline::after(new DateTimeImmutable(), 60));
     }
 
     private function reader(): QuickBooksMappingCandidateReader

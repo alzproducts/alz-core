@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\Mappings\DTOs;
 
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
+use DateTimeImmutable;
 
 final readonly class MappingDTO
 {
@@ -13,5 +14,6 @@ final readonly class MappingDTO
         public ?string $refId,
         public ?string $refName,
         public ?string $realmId,
+        public ?DateTimeImmutable $resolvedAt = null,
     ) {}
 }

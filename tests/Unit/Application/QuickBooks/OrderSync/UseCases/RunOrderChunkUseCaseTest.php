@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Application\QuickBooks\OrderSync\UseCases;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksMappingRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
@@ -15,6 +16,7 @@ use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
 use App\Application\QuickBooks\OrderSync\Services\OrderSyncFloorService;
+use App\Application\QuickBooks\OrderSync\Services\OrderSyncPreflightService;
 use App\Application\QuickBooks\OrderSync\UseCases\RunOrderChunkUseCase;
 use App\Application\QuickBooks\OrderSync\UseCases\SyncOrderChunkUseCase;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
@@ -40,6 +42,7 @@ use Throwable;
 
 #[CoversClass(RunOrderChunkUseCase::class)]
 #[CoversClass(OrderChunkRunDTO::class)]
+#[CoversClass(OrderSyncPreflightService::class)]
 final class RunOrderChunkUseCaseTest extends TestCase
 {
     private const string REALM = '9130000000000001';
@@ -77,7 +80,6 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $token = new ApiKeyToken('test-access-token');
         $run = self::chunkRun();
         $this->tokens = $tokens = $this->createMock(QuickBooksTokenService::class);
-        $tokens->expects($this->once())->method('assertConnected');
         $tokens->expects($this->once())->method('accessToken')->willReturn($token);
         $this->syncChunk = $syncChunk = $this->createMock(SyncOrderChunkUseCase::class);
         $syncChunk->expects($this->once())->method('execute')->with($token, $run, $this->deadline)->willReturn(self::results([]));
@@ -160,7 +162,6 @@ final class RunOrderChunkUseCaseTest extends TestCase
      */
     public static function transientTokenFailures(): iterable
     {
-        yield 'connection read' => ['assertConnected', new ExternalServiceUnavailableException('Database')];
         yield 'token refresh' => ['accessToken', new ExternalServiceUnavailableException('QuickBooks')];
         yield 'token lock' => ['accessToken', new LockAcquisitionException('test', 1)];
     }
@@ -209,7 +210,6 @@ final class RunOrderChunkUseCaseTest extends TestCase
      */
     public static function otherTokenFailures(): iterable
     {
-        yield 'connection gone' => ['assertConnected', new AuthenticationExpiredException('QuickBooks')];
         yield 'revoked grant' => ['accessToken', new AuthenticationExpiredException('QuickBooks')];
         yield 'invalid response' => ['accessToken', new InvalidApiResponseException('QuickBooks', 'test')];
     }
@@ -250,7 +250,6 @@ final class RunOrderChunkUseCaseTest extends TestCase
     public function a_run_for_another_company_fails_before_any_token(): void
     {
         $this->tokens = $tokens = $this->createMock(QuickBooksTokenService::class);
-        $tokens->expects($this->never())->method('assertConnected');
         $tokens->expects($this->never())->method('accessToken');
         $this->syncIsNeverCalled();
 
@@ -268,7 +267,6 @@ final class RunOrderChunkUseCaseTest extends TestCase
     {
         $this->floor = null;
         $this->tokens = $tokens = $this->createMock(QuickBooksTokenService::class);
-        $tokens->expects($this->never())->method('assertConnected');
         $tokens->expects($this->never())->method('accessToken');
         $this->syncIsNeverCalled();
 
@@ -312,8 +310,9 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $settings = $this->createStub(OrderSyncSettingsInterface::class);
         $settings->method('backfillFloor')->willReturn($this->floor);
         $floor = new OrderSyncFloorService($settings);
+        $preflight = new OrderSyncPreflightService($this->tokens, $realm, $this->createStub(QuickBooksMappingRepositoryInterface::class));
 
-        new RunOrderChunkUseCase($realm, $this->tokens, $floor, $this->syncChunk, $this->dispatcher, $this->runs, new NullLogger())->execute($run, $this->deadline);
+        new RunOrderChunkUseCase($preflight, $this->tokens, $floor, $this->syncChunk, $this->dispatcher, $this->runs, new NullLogger())->execute($run, $this->deadline);
     }
 
     /**

@@ -13,6 +13,7 @@ use App\Domain\Exceptions\Api\CorruptApiKeyException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
+use App\Domain\Exceptions\InvalidConfigurationException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksMappingsUnresolvedException;
 
 /**
@@ -45,6 +46,18 @@ final readonly class OrderSyncPreflightService
         $this->assertMappingsResolved($realmId);
 
         return $realmId;
+    }
+
+    /**
+     * Stops a queued run posting to another company after the configured one changed.
+     *
+     * @throws InvalidConfigurationException when the run's company is no longer the configured one
+     */
+    public function assertSameCompany(string $realmId): void
+    {
+        if ($this->realm->realmId() !== $realmId) {
+            throw new InvalidConfigurationException('QUICKBOOKS_REALM_ID', 'The run was requested for another company');
+        }
     }
 
     /**
