@@ -815,7 +815,10 @@ final class StackScriptTest extends TestCase
 
         $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
         $this->assertStringContainsString('build ', $this->run->calls());
-        $this->assertStringContainsString('up -d --wait --wait-timeout 900 app worker', $this->run->calls());
+        $ups = \array_values(\array_filter(\explode("\n", $this->run->calls()), static fn(string $call): bool => \str_contains($call, ' up ')));
+        $this->assertCount(2, $ups);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql auth-migrate', $ups[0], 'a boot recreates the DB-only Postgres empty');
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 app worker', $ups[1]);
         $this->assertSame($password, $this->dbPassword());
     }
 

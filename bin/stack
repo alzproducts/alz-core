@@ -379,6 +379,11 @@ cmd_up() {
     write_env
     prepare_mount
     build_images
+    if [ "$MODE" = default ] && [ -n "$(service_state pgsql '{{.State.Status}}')" ]; then
+        # intentional: a boot starts from an empty database; the stack seed refuses a slice that already holds rows.
+        echo "bin/stack: recreating $PROJECT's Postgres empty before the boot" >&2
+        start_db --force-recreate
+    fi
     echo "bin/stack: starting $PROJECT ($(mode_label "$MODE") mode)" >&2
     dc up -d --wait --wait-timeout 900 app worker || report_failed_start
     ping_shared_db

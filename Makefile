@@ -24,7 +24,8 @@ endif
 CI ?= false
 ALZ_ADMIN ?=
 DB_RUN := bin/worktree-db
-IN_WORKTREE = [ "$$($(DB_RUN) --is-worktree)" = 1 ]
+# intentional: a failed worktree check exits 75 rather than falling through to the main checkout's shared-Supabase branch.
+IN_WORKTREE = { in_worktree="$$($(DB_RUN) --is-worktree)" || exit 75; [ "$$in_worktree" = 1 ]; }
 REFUSE_IN_WORKTREE = if $(IN_WORKTREE); then echo "make $@ acts on the shared Supabase; run it in the main checkout (this worktree's database: make db-up)" >&2; exit 75; fi
 # intentional: a recipe-line check, not $(error), so a worktree's REFUSE_IN_WORKTREE runs first.
 REQUIRE_ALZ_ADMIN = [ -n "$(ALZ_ADMIN)" ] || { echo "ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin" >&2; exit 1; }

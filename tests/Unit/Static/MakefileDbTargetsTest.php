@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Static\Support\WorktreeDbFixture;
 
@@ -214,7 +215,7 @@ final class MakefileDbTargetsTest extends TestCase
 
         $this->assertNotSame(0, $make->getExitCode());
         $this->assertStringContainsString("make {$target} acts on the shared Supabase; run it in the main checkout", $make->getErrorOutput());
-        $this->assertStringContainsString("[{$target}] Error 75", $make->getErrorOutput(), 'the refusing recipe line exits 75');
+        $this->assertMakeError(75, $target, $make, 'the refusing recipe line exits 75');
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
         $this->assertSame([], $this->fixture->calls('php-calls'));
     }
@@ -225,8 +226,18 @@ final class MakefileDbTargetsTest extends TestCase
     {
         $make = $this->fixture->run($this->fixture->worktree, [], 'make', '--no-print-directory', $target, "EXEC={$this->fixture->stubs}/php");
 
-        $this->assertStringContainsString("[{$target}] Error 75", $make->getErrorOutput());
+        $this->assertMakeError(75, $target, $make);
         $this->assertStringNotContainsString('ALZ_ADMIN not set', $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
+    }
+
+    #[Test]
+    #[DataProvider('supabaseTargets')]
+    public function a_failed_worktree_check_refuses_instead_of_acting_on_the_shared_supabase(string $target): void
+    {
+        $make = $this->fixture->make($this->fixture->main, ['GIT_DIR' => "{$this->fixture->main}/no-such-git-dir"], $target);
+
+        $this->assertMakeError(75, $target, $make);
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
     }
 
@@ -246,7 +257,7 @@ final class MakefileDbTargetsTest extends TestCase
     {
         $make = $this->fixture->run($this->fixture->main, [], 'make', '--no-print-directory', $target, "EXEC={$this->fixture->stubs}/php");
 
-        $this->assertStringContainsString("[{$target}] Error 1", $make->getErrorOutput());
+        $this->assertMakeError(1, $target, $make);
         $this->assertStringContainsString('ALZ_ADMIN not set', $make->getErrorOutput());
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
     }
@@ -359,6 +370,14 @@ final class MakefileDbTargetsTest extends TestCase
         );
 
         return \array_values(\array_map(static fn(string $call): string => \explode(' | ', $call, 2)[1] ?? '', $calls));
+    }
+
+    /**
+     * GNU Make 3.81 prints `[target] Error N`, 4.x `[Makefile:LINE: target] Error N`.
+     */
+    private function assertMakeError(int $code, string $target, Process $make, string $message = ''): void
+    {
+        $this->assertMatchesRegularExpression('/\[(?:\S+:\d+: )?' . \preg_quote($target, '/') . "\\] Error {$code}\\b/", $make->getErrorOutput(), $message);
     }
 
     /**
