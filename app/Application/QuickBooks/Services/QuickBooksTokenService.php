@@ -56,7 +56,8 @@ final readonly class QuickBooksTokenService
     }
 
     /**
-     * The cached access token, refreshed under the lock when none is cached.
+     * The cached access token, refreshed under the lock when none is cached. A cached token is never returned
+     * without a stored connection.
      *
      * @throws LockAcquisitionException
      * @throws AuthenticationExpiredException     when there is no connection or Intuit rejects it
@@ -69,6 +70,9 @@ final readonly class QuickBooksTokenService
      */
     public function accessToken(): ApiKeyToken
     {
+        // intentional: this read only refuses a deleted connection; a refresh re-reads it under the lock (ADR-0021).
+        $this->storedConnection();
+
         return $this->accessTokens->get() ?? $this->refreshUnderLock(force: false);
     }
 

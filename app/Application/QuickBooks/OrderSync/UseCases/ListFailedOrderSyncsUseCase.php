@@ -50,7 +50,6 @@ final readonly class ListFailedOrderSyncsUseCase
             'per_page' => $page->perPage,
         ]);
 
-        $this->tokens->assertConnected();
         $this->tokens->accessToken();
 
         $result = $this->listRows($status, $page);
