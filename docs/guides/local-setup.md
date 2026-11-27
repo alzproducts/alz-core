@@ -24,7 +24,7 @@ make test
 
 1. Creates `.env` when it is missing (`bin/install-env`). An existing `.env` is never overwritten.
 2. `composer install`.
-3. Registers the `pre-commit` and `pre-push` git hooks (`bin/install-git-hooks`) in the hooks directory git resolves for the checkout (`core.hooksPath` and worktrees honoured, so every worktree of a repo shares one pair). Each hook runs `php artisan git-hooks:<hook>` in the checkout git runs it from. Re-running rewrites them identically.
+3. Registers the `pre-commit` and `pre-push` git hooks (`bin/install-git-hooks`) in the hooks directory git resolves for the checkout (`core.hooksPath` and worktrees honoured, so every worktree of a repo shares one pair). Each hook runs `php artisan git-hooks:<hook>` in the checkout git runs it from. Re-running rewrites them identically. The `pre-push` Pest step runs only the changed tests (`make test-changed`: the tests changed since the merge-base with `origin/HEAD`, plus basename matches for changed `app/` classes), while CI runs the full suite.
 4. `php artisan key:generate`, only when `APP_KEY` is blank.
 5. `make supabase-start`: starts local Supabase (PostgreSQL on port 54322, which `.env.example` points at) from `$ALZ_ADMIN` and resets a stack it starts from empty with `make db-reset-full`, or skips both when it is already running. It is the only local database: the repo `compose.yaml` runs Redis only, and CI and the verify skill run the pinned Supabase baseline instead, unless a dependent's verify run supplies its own Supabase (see [`database/AGENTS.md`](../../database/AGENTS.md)).
 6. `make redis`: starts Redis in Docker.
