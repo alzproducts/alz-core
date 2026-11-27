@@ -83,7 +83,7 @@ services:
 
     realtime-migrate:
         image: '${VERIFY_REALTIME_IMAGE:?}'
-        # intentional: the script is baked in, not bind-mounted, as pgsql bakes roles.sql (COR-320 AC16).
+        # intentional: the script is baked in, not bind-mounted, as pgsql bakes roles.sql.
         build:
             context: ./src/database/baseline
             dockerfile_inline: |
