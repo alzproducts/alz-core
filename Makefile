@@ -22,11 +22,12 @@ endif
 
 # Configuration
 CI ?= false
-# Every recipe that opens the database runs through it: a worktree gets its own Postgres or a refusal (bin/worktree-db).
+ALZ_ADMIN ?=
 DB_RUN := bin/worktree-db
 IN_WORKTREE = [ "$$($(DB_RUN) --is-worktree)" = 1 ]
-# A worktree runs none of the shared Supabase's targets: they act on alz-admin's main stack (COR-375/D10).
 REFUSE_IN_WORKTREE = if $(IN_WORKTREE); then echo "make $@ acts on the shared Supabase; run it in the main checkout (this worktree's database: make db-up)" >&2; exit 75; fi
+# intentional: a recipe-line check, not $(error), so a worktree's REFUSE_IN_WORKTREE runs first.
+REQUIRE_ALZ_ADMIN = [ -n "$(ALZ_ADMIN)" ] || { echo "ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin" >&2; exit 1; }
 GIT_HOOKS_TEST := tests/Unit/Static/GitHooksInstalledTest.php
 # intentional: the empty-suite flag is added only when TEST_ARGS is set (the offline dev image's `--exclude-group=repo-static`), so a missing guard file still fails a plain `make lint`.
 GIT_HOOKS_ARGS := $(TEST_ARGS)$(if $(TEST_ARGS), --do-not-fail-on-empty-test-suite)
@@ -68,11 +69,8 @@ help: ## Show this help message
 
 # Installation & Setup
 # intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
-# A worktree install stops after the key: its database is its own (make db-up), never the shared Supabase (COR-375/D11).
 install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key; main checkout: Supabase, Redis, migrate)
-	@if ! $(IN_WORKTREE) && [ -z "$(ALZ_ADMIN)" ]; then \
-		echo "ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin" >&2; exit 1; \
-	fi
+	@$(IN_WORKTREE) || $(REQUIRE_ALZ_ADMIN)
 	@bin/install-env
 	composer install
 	@bin/install-git-hooks
@@ -319,7 +317,7 @@ migrate: ## Run database migrations
 # Use this target instead for safe, coordinated resets.
 
 # intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
-# intentional: a worktree recreates only its own compose Postgres, never db:wipe, which leaves the shopwired schemas (COR-375/D7).
+# intentional: a worktree recreates only its own compose Postgres, never db:wipe, which leaves the shopwired schemas (database/AGENTS.md).
 db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
 	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic seed.$(NC)"
@@ -355,10 +353,8 @@ seed-fake: ## Seed the synthetic, production-shaped data (add ARGS=--fresh to re
 # Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin
 
 supabase-start: ## Start Supabase services; a stopped stack is started then reset from empty (make db-reset-full)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
 	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 ifneq ($(CI),true)
 	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
 		echo "Supabase already running"; \
@@ -386,19 +382,15 @@ ifdef ALZ_ADMIN
 endif
 
 supabase-reset: ## Reset Supabase DB, regenerate types, seed test users
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
 	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
 	cd $(ALZ_ADMIN) && ALZ_CORE_PATH="$(CURDIR)" pnpm db:setup-local
 	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
 
 supabase-seed-users: ## Seed test users only (no DB reset)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
 	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 	@echo "$(YELLOW)Seeding test users...$(NC)"
 	cd $(ALZ_ADMIN) && pnpm tsx scripts/seed-test-users.ts
 	@echo "$(GREEN)Test users seeded.$(NC)"

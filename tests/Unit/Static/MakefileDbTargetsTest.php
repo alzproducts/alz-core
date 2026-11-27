@@ -137,6 +137,16 @@ final class MakefileDbTargetsTest extends TestCase
     }
 
     #[Test]
+    public function a_worktree_install_needs_no_alz_admin(): void
+    {
+        $make = $this->fixture->run($this->fixture->worktree, [], 'make', '--no-print-directory', 'install', "EXEC={$this->fixture->stubs}/php");
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertStringNotContainsString('ALZ_ADMIN', $make->getErrorOutput());
+        $this->assertSame(['composer install'], $this->fixture->calls('tool-calls'), 'no pnpm or supabase call');
+    }
+
+    #[Test]
     public function a_main_checkout_install_without_alz_admin_refuses_before_any_step(): void
     {
         $make = $this->fixture->run($this->fixture->main, [], 'make', '--no-print-directory', 'install', "EXEC={$this->fixture->stubs}/php");
@@ -207,6 +217,17 @@ final class MakefileDbTargetsTest extends TestCase
         $this->assertStringContainsString("[{$target}] Error 75", $make->getErrorOutput(), 'the refusing recipe line exits 75');
         $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
         $this->assertSame([], $this->fixture->calls('php-calls'));
+    }
+
+    #[Test]
+    #[DataProvider('supabaseTargets')]
+    public function a_worktree_supabase_target_without_alz_admin_still_refuses_with_75(string $target): void
+    {
+        $make = $this->fixture->run($this->fixture->worktree, [], 'make', '--no-print-directory', $target, "EXEC={$this->fixture->stubs}/php");
+
+        $this->assertStringContainsString("[{$target}] Error 75", $make->getErrorOutput());
+        $this->assertStringNotContainsString('ALZ_ADMIN not set', $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
     }
 
     #[Test]
