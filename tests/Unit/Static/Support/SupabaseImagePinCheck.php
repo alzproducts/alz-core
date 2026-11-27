@@ -24,9 +24,9 @@ final class SupabaseImagePinCheck
      * @var array<string, list<string>> consumer => text it must contain to read the pin
      */
     public const array CONSUMERS = [
-        '.github/workflows/ci.yml' => [self::PIN_FILE, 'SUPABASE_POSTGRES_VERSION', 'SUPABASE_AUTH_VERSION'],
+        '.github/workflows/ci.yml' => [self::PIN_FILE, 'SUPABASE_POSTGRES_VERSION', 'SUPABASE_AUTH_VERSION', 'SUPABASE_REALTIME_VERSION'],
         'database/baseline/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
-        'Dockerfile.dev' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION}', 'supabase/auth:${SUPABASE_AUTH_VERSION}'],
+        'Dockerfile.dev' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION}', 'supabase/auth:${SUPABASE_AUTH_VERSION}', 'supabase/realtime:${SUPABASE_REALTIME_VERSION}'],
         '.agents/skills/verify/verify' => [
             's/^SUPABASE_POSTGRES_VERSION=//p\' "$src/' . self::PIN_FILE,
             's/^SUPABASE_AUTH_VERSION=//p\' "$src/' . self::PIN_FILE,

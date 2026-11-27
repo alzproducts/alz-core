@@ -92,7 +92,7 @@ final class SupabaseImagePinTest extends TestCase
     {
         $this->assertSame(
             ['Dockerfile.dev does not read the pin: supabase/auth:${SUPABASE_AUTH_VERSION}'],
-            self::check(['Dockerfile.dev' => "ARG SUPABASE_POSTGRES_VERSION\nFROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:latest\n"]),
+            self::check(['Dockerfile.dev' => "ARG SUPABASE_POSTGRES_VERSION\nFROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:latest\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION}\n"]),
         );
     }
 
@@ -172,9 +172,9 @@ final class SupabaseImagePinTest extends TestCase
     {
         return [
             SupabaseImagePinCheck::PIN_FILE => self::VALID_PIN,
-            '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\n",
+            '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\nSUPABASE_REALTIME_VERSION\n",
             'database/baseline/compose.yaml' => "image: supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\nimage: supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}\n",
-            'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\n",
+            'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION}\n",
             '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
             '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
             'compose.local.yaml' => "image: 'supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}'\nimage: 'supabase/auth:\${SUPABASE_AUTH_VERSION:?}'\n",

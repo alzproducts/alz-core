@@ -4,14 +4,18 @@
 # Build: docker build -f Dockerfile.dev $(sed 's/^/--build-arg /' database/baseline/versions.env) -t alz-core-dev .
 # Run:   docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=repo-static
 # Bakes vendor (with dev deps), .env and the Supabase baseline (ADR-0016), migrated on database `postgres` as role `postgres`.
+# Each start re-runs Realtime's tenant set-up (about 4 s), so realtime.messages has a partition for that day.
 # Not included: Redis, Swoole/Octane, integration tests.
 # Uses Dockerfile.dev.dockerignore (BuildKit), not the production .dockerignore.
 # ==============================================================================
 
 ARG SUPABASE_POSTGRES_VERSION
 ARG SUPABASE_AUTH_VERSION
+ARG SUPABASE_REALTIME_VERSION
 
 FROM supabase/auth:${SUPABASE_AUTH_VERSION} AS auth
+
+FROM supabase/realtime:${SUPABASE_REALTIME_VERSION} AS realtime
 
 FROM supabase/postgres:${SUPABASE_POSTGRES_VERSION}
 
@@ -37,6 +41,9 @@ COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 COPY --from=auth /usr/local/bin/auth /usr/local/bin/auth
 COPY --from=auth /usr/local/etc/auth/migrations /usr/local/etc/auth/migrations
 COPY database/baseline/roles.sql /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
+# intentional: Realtime's whole root filesystem, run by chroot; its Elixir release cannot be copied in as Auth's binary is (COR-381 P2).
+COPY --from=realtime / /opt/realtime
+COPY database/baseline/realtime-migrate.sh /opt/realtime/usr/local/bin/realtime-migrate
 
 # intentional: a fixed password is safe only because the server never listens beyond loopback.
 ENV POSTGRES_PASSWORD=password
@@ -85,7 +92,10 @@ RUN mkdir -p \
     && composer run-script post-autoload-dump \
     && php artisan key:generate
 
-# Single RUN so the layer holds a cleanly stopped cluster: init, Auth migrations, then Laravel's as non-superuser postgres.
+# intentional: a build seam only; a port the build's Postgres does not listen on makes Realtime's tenant set-up fail.
+ARG REALTIME_TENANT_DB_PORT=5432
+
+# Single RUN so the layer holds a cleanly stopped cluster: init, Auth and Realtime migrations, then Laravel's as non-superuser postgres.
 # intentional: artisan, not `make migrate` — /.dockerenv is absent during docker build.
 RUN set -eu \
     && (docker-entrypoint.sh postgres -D /etc/postgresql -c "data_directory=$PGDATA" -c listen_addresses=127.0.0.1 &) \
@@ -97,6 +107,9 @@ RUN set -eu \
        API_EXTERNAL_URL=http://localhost:9999 \
        GOTRUE_SITE_URL=http://localhost:3000 \
        auth migrate \
+    && env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/tmp \
+         DB_HOST=127.0.0.1 DB_PASSWORD="$POSTGRES_PASSWORD" SELF_HOST_TENANT_DB_PORT="$REALTIME_TENANT_DB_PORT" \
+         chroot /opt/realtime bash /usr/local/bin/realtime-migrate \
     && php artisan migrate --force \
     && su-exec postgres pg_ctl -D "$PGDATA" -m fast -w stop
 
@@ -105,6 +118,11 @@ COPY --chmod=755 <<'EOF' /usr/local/bin/dev-entrypoint
 set -eu
 su-exec postgres pg_ctl -D /etc/postgresql -o "-c data_directory=$PGDATA -c listen_addresses=127.0.0.1" -w start >/dev/null
 until pg_isready -q -h 127.0.0.1 -U postgres; do sleep 0.2; done
+# intentional: re-run at every start so a realtime.messages partition covers the start date on an image of any age (COR-381 P3, P4).
+env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/tmp \
+  DB_HOST=127.0.0.1 DB_PASSWORD="$POSTGRES_PASSWORD" \
+  chroot /opt/realtime bash /usr/local/bin/realtime-migrate >/tmp/realtime-migrate.log 2>&1 \
+  || { cat /tmp/realtime-migrate.log >&2; exit 1; }
 exec "$@"
 EOF
 

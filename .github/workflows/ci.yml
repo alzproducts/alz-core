@@ -249,7 +249,7 @@ jobs:
       - name: Read the Supabase baseline pin
         id: pin
         run: |
-          for key in SUPABASE_POSTGRES_VERSION SUPABASE_AUTH_VERSION; do
+          for key in SUPABASE_POSTGRES_VERSION SUPABASE_AUTH_VERSION SUPABASE_REALTIME_VERSION; do
             value="$(sed -n "s/^${key}=//p" database/baseline/versions.env)"
             [[ -n "$value" ]] || { echo "::error::$key missing from database/baseline/versions.env"; exit 1; }
             echo "$key=$value" >> "$GITHUB_OUTPUT"
@@ -262,6 +262,7 @@ jobs:
           build-args: |
             SUPABASE_POSTGRES_VERSION=${{ steps.pin.outputs.SUPABASE_POSTGRES_VERSION }}
             SUPABASE_AUTH_VERSION=${{ steps.pin.outputs.SUPABASE_AUTH_VERSION }}
+            SUPABASE_REALTIME_VERSION=${{ steps.pin.outputs.SUPABASE_REALTIME_VERSION }}
           load: true
           tags: alz-core-dev
           cache-from: type=gha
