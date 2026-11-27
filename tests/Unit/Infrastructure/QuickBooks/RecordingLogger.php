@@ -13,6 +13,9 @@ final class RecordingLogger extends AbstractLogger
     /** @var list<array{string, array<mixed>}> */
     public array $records = [];
 
+    /** @var list<string> each record's level, in the same order */
+    public array $levels = [];
+
     /**
      * @param array<mixed> $context
      */
@@ -20,5 +23,6 @@ final class RecordingLogger extends AbstractLogger
     public function log($level, string|Stringable $message, array $context = []): void
     {
         $this->records[] = [(string) $message, $context];
+        $this->levels[] = (string) $level;
     }
 }

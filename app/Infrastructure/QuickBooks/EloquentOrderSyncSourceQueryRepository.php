@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\CatchUpCandidateWindowDTO;
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -14,7 +16,10 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\JoinClause;
 use Override;
+use stdClass;
 
 final readonly class EloquentOrderSyncSourceQueryRepository implements OrderSyncSourceQueryRepositoryInterface
 {
@@ -84,6 +89,47 @@ final readonly class EloquentOrderSyncSourceQueryRepository implements OrderSync
         }
 
         return $references;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function catchUpCandidates(CatchUpCandidateWindowDTO $window): array
+    {
+        /** @var list<stdClass> $rows */
+        $rows = $this->eloquentGateway->query(static fn(): array => self::placedIn($window->from, $window->before)
+            ->toBase()
+            ->leftJoin('quickbooks.order_syncs as s', static function (JoinClause $join) use ($window): void {
+                $join->on('s.reference', '=', 'order_sync_source.reference')->where('s.realm_id', '=', $window->realmId);
+            })
+            ->whereRaw("order_sync_source.lifecycle_status IS DISTINCT FROM 'cancelled'")
+            ->where(static fn(QueryBuilder $q): QueryBuilder => self::unsyncedOrRecentItemMissing($q, $window->itemMissingSince))
+            ->orderBy('order_sync_source.reference')
+            ->get(['order_sync_source.reference'])
+            ->all());
+
+        $references = [];
+        foreach (OrderSyncSourceViewModel::hydrate($rows) as $row) {
+            $references[] = $row->reference;
+        }
+
+        return $references;
+    }
+
+    private static function unsyncedOrRecentItemMissing(QueryBuilder $q, DateTimeImmutable $itemMissingSince): QueryBuilder
+    {
+        return $q->whereNull('s.reference')
+            ->orWhereNotIn('s.status', ['synced', 'failed'])
+            ->orWhere(static function (QueryBuilder $failed) use ($itemMissingSince): void {
+                $failed->where('s.status', 'failed')
+                    ->where('s.last_error_code', SyncReasonCode::ItemMissing->value)
+                    ->where('order_sync_source.order_placed_at', '>=', self::instant($itemMissingSince));
+            });
     }
 
     /**

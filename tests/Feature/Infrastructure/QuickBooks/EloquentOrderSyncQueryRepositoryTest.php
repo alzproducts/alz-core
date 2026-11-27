@@ -85,7 +85,7 @@ final class EloquentOrderSyncQueryRepositoryTest extends TestCase
         $this->insertSync(890000021, ['status' => 'processing', 'claim_token' => $token, 'lease_expires_at' => DB::raw("now() + interval '1 minute'")]);
         $this->insertSync(890000022, ['status' => 'processing', 'claim_token' => $token, 'lease_expires_at' => DB::raw('now()')]);
         $this->insertSync(890000023, ['status' => 'pending']);
-        $this->insertSync(890000024, ['status' => 'failed', 'doc_type' => 'sales_receipt']);
+        $this->insertSync(890000024, ['status' => 'failed', 'doc_type' => 'sales_receipt', 'last_error_code' => 'item_missing']);
         $this->insertSync(890000025, ['status' => 'synced', 'doc_type' => 'invoice', 'qbo_doc_number' => 'DOC-9', 'qbo_txn_id' => 'txn-9']);
         $this->insertSync(890000026, ['realm_id' => 'another-company']);
         $this->insertSync(890000028);
@@ -96,11 +96,11 @@ final class EloquentOrderSyncQueryRepositoryTest extends TestCase
 
         \ksort($states);
         self::assertEquals([
-            890000021 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, true, null, null, null),
-            890000022 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, false, null, null, null),
-            890000023 => new OrderSyncStateDTO(OrderSyncRowStatus::Pending, false, null, null, null),
-            890000024 => new OrderSyncStateDTO(OrderSyncRowStatus::Failed, false, DocType::SalesReceipt, null, null),
-            890000025 => new OrderSyncStateDTO(OrderSyncRowStatus::Synced, false, DocType::Invoice, 'DOC-9', 'txn-9'),
+            890000021 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, true, null, null, null, SyncReasonCode::QboValidation),
+            890000022 => new OrderSyncStateDTO(OrderSyncRowStatus::Processing, false, null, null, null, SyncReasonCode::QboValidation),
+            890000023 => new OrderSyncStateDTO(OrderSyncRowStatus::Pending, false, null, null, null, SyncReasonCode::QboValidation),
+            890000024 => new OrderSyncStateDTO(OrderSyncRowStatus::Failed, false, DocType::SalesReceipt, null, null, SyncReasonCode::ItemMissing),
+            890000025 => new OrderSyncStateDTO(OrderSyncRowStatus::Synced, false, DocType::Invoice, 'DOC-9', 'txn-9', SyncReasonCode::QboValidation),
         ], $states);
         self::assertSame([], $this->repository->statesFor(self::REALM, []));
     }

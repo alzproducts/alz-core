@@ -40,6 +40,12 @@ return [
     'backfill_floor_date' => env('QUICKBOOKS_BACKFILL_FLOOR_DATE'),
 
     /*
+    | The hourly catch-up run syncs orders placed from the later of this date
+    | (YYYY-MM-DD) and the backfill floor. While it is unset, the run does nothing.
+    */
+    'order_sync_schedule_from' => env('QUICKBOOKS_ORDER_SYNC_SCHEDULE_FROM'),
+
+    /*
     | How many queued order chunks may run at once, across every run. A value
     | below 1 refuses the request.
     */

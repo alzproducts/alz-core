@@ -6,6 +6,7 @@ namespace App\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRunQueryRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncRunDTO;
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
@@ -42,5 +43,24 @@ final readonly class EloquentOrderSyncRunQueryRepository implements OrderSyncRun
             perPage: $page->perPage,
             page: $page->page,
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    #[Override]
+    public function latestFor(OrderSyncTrigger $trigger): ?OrderSyncRunDTO
+    {
+        $row = $this->eloquentGateway->query(static fn(): ?OrderSyncRunViewModel => OrderSyncRunViewModel::query()
+            ->where('trigger', $trigger->value)
+            ->latest('requested_at')
+            ->latest('id')
+            ->first());
+
+        return $row?->toDomain();
     }
 }

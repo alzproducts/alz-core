@@ -139,11 +139,12 @@ final class OrderSyncSchemaTest extends TestCase
     }
 
     #[Test]
-    public function order_sync_errors_trigger_check_allows_only_range_and_manual(): void
+    public function order_sync_errors_trigger_check_allows_only_range_manual_and_schedule(): void
     {
         $syncId = $this->insertSync('realm-schema', 2147450103);
         DB::table('quickbooks.order_sync_errors')->insert(['order_sync_id' => $syncId, 'trigger' => 'range', 'reason_code' => 'a']);
         DB::table('quickbooks.order_sync_errors')->insert(['order_sync_id' => $syncId, 'trigger' => 'manual', 'reason_code' => 'b']);
+        DB::table('quickbooks.order_sync_errors')->insert(['order_sync_id' => $syncId, 'trigger' => 'schedule', 'reason_code' => 'd']);
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessage('check constraint');

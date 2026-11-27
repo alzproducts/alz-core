@@ -6,6 +6,7 @@ namespace App\Infrastructure\Persistence\Models\QuickBooks;
 
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncStateDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncRowStatus;
+use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -17,6 +18,7 @@ use Override;
  * @property DocType|null $doc_type
  * @property string|null $qbo_doc_number
  * @property string|null $qbo_txn_id
+ * @property string|null $last_error_code
  */
 final class OrderSyncStateViewModel extends Model
 {
@@ -52,6 +54,7 @@ final class OrderSyncStateViewModel extends Model
             docType: $this->doc_type,
             qboDocNumber: $this->qbo_doc_number,
             qboTxnId: $this->qbo_txn_id,
+            lastErrorCode: SyncReasonCode::tryFrom($this->last_error_code ?? ''),
         );
     }
 }

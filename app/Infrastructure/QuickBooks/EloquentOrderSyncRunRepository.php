@@ -172,7 +172,8 @@ final readonly class EloquentOrderSyncRunRepository implements OrderSyncRunRepos
     }
 
     /**
-     * Reads `open_jobs` and `job_failed` as they were before this update, so `open_jobs > 1` means other jobs remain.
+     * Reads `status`, `open_jobs` and `job_failed` as they were before this update, so `open_jobs > 1` means other jobs remain.
+     * A run that other jobs keep open keeps its status, so a queued run is left for its first job's `markStarted`.
      *
      * @return array<string, mixed>
      */
@@ -180,8 +181,8 @@ final readonly class EloquentOrderSyncRunRepository implements OrderSyncRunRepos
     {
         return [
             'status' => new Expression($failed
-                ? "CASE WHEN open_jobs > 1 THEN 'running' ELSE 'failed' END"
-                : "CASE WHEN open_jobs > 1 THEN 'running' WHEN job_failed THEN 'failed' ELSE 'completed' END"),
+                ? "CASE WHEN open_jobs > 1 THEN status ELSE 'failed' END"
+                : "CASE WHEN open_jobs > 1 THEN status WHEN job_failed THEN 'failed' ELSE 'completed' END"),
             'finished_at' => new Expression('CASE WHEN open_jobs > 1 THEN NULL ELSE now() END'),
         ];
     }

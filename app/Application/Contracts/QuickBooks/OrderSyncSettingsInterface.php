@@ -18,6 +18,13 @@ interface OrderSyncSettingsInterface
     public function backfillFloor(): ?DateTimeImmutable;
 
     /**
+     * The date the hourly catch-up run starts from, null while unset (which switches the run off).
+     *
+     * @throws InvalidConfigurationException when the date is malformed
+     */
+    public function scheduleFrom(): ?DateTimeImmutable;
+
+    /**
      * @throws InvalidConfigurationException when a label is set outside the sandbox environment
      */
     public function runLabels(): DocumentRunLabelsDTO;

@@ -48,7 +48,7 @@ final readonly class EloquentOrderSyncQueryRepository implements OrderSyncQueryR
             static fn(): Collection => OrderSyncStateViewModel::query()
                 ->whereKey($references)
                 ->where('realm_id', $realmId)
-                ->get(['reference', 'status', 'doc_type', 'qbo_doc_number', 'qbo_txn_id', new Expression(self::LEASE_LIVE_SQL)]),
+                ->get(['reference', 'status', 'doc_type', 'qbo_doc_number', 'qbo_txn_id', 'last_error_code', new Expression(self::LEASE_LIVE_SQL)]),
         );
 
         $states = [];

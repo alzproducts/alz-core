@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\QuickBooks\OrderSync\Resolvers;
 
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncStateDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncRowStatus;
 use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
@@ -63,15 +64,41 @@ final class OrderEligibilityResolverTest extends TestCase
         ?SyncOutcome $outcome,
         ?SyncReasonCode $reason,
     ): void {
-        $result = OrderEligibilityResolver::resolve($state, $orderStatus, $forceRetry);
+        $result = OrderEligibilityResolver::resolve($state, $orderStatus, new OrderSyncClaimRulesDTO($forceRetry, false, false));
 
         self::assertSame($outcome, $result->outcome);
         self::assertSame($reason, $result->reason);
         self::assertSame($outcome === null, $result->isClaimable());
     }
 
-    private static function state(OrderSyncRowStatus $status, bool $leaseLive = false): OrderSyncStateDTO
+    /**
+     * @return iterable<string, array{SyncReasonCode|null, bool, SyncReasonCode|null}>
+     */
+    public static function failedRowRetries(): iterable
     {
-        return new OrderSyncStateDTO($status, $leaseLive, null, null, null);
+        yield 'item missing, retried by a scheduled claim' => [SyncReasonCode::ItemMissing, true, null];
+        yield 'item missing, refused to another claim' => [SyncReasonCode::ItemMissing, false, SyncReasonCode::PreviouslyFailed];
+        yield 'validation failure, refused to a scheduled claim' => [SyncReasonCode::QboValidation, true, SyncReasonCode::PreviouslyFailed];
+        yield 'no reason, refused to a scheduled claim' => [null, true, SyncReasonCode::PreviouslyFailed];
+    }
+
+    #[Test]
+    #[DataProvider('failedRowRetries')]
+    public function an_unforced_claim_retries_a_failed_row_only_for_a_missing_item_when_the_rules_allow_it(
+        ?SyncReasonCode $lastErrorCode,
+        bool $retryItemMissing,
+        ?SyncReasonCode $reason,
+    ): void {
+        $state = self::state(OrderSyncRowStatus::Failed, lastErrorCode: $lastErrorCode);
+
+        $result = OrderEligibilityResolver::resolve($state, OrderLifecycleStatus::Processing, new OrderSyncClaimRulesDTO(false, false, $retryItemMissing));
+
+        self::assertSame($reason, $result->reason);
+        self::assertSame($reason === null, $result->isClaimable());
+    }
+
+    private static function state(OrderSyncRowStatus $status, bool $leaseLive = false, ?SyncReasonCode $lastErrorCode = null): OrderSyncStateDTO
+    {
+        return new OrderSyncStateDTO($status, $leaseLive, null, null, null, $lastErrorCode);
     }
 }

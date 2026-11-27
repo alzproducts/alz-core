@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Infrastructure\QuickBooks;
 
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\CatchUpCandidateWindowDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderContactDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderDTO;
 use App\Application\QuickBooks\OrderSync\Enums\SourceOrderDefect;
@@ -281,6 +282,78 @@ final class EloquentOrderSyncSourceQueryRepositoryTest extends TestCase
     public function a_range_without_orders_has_no_references(): void
     {
         $this->assertPlacedIn([], '2031-07-15', '2031-07-16');
+    }
+
+    #[Test]
+    public function the_catch_up_candidates_are_the_unsynced_and_recent_item_missing_orders_of_the_window(): void
+    {
+        DB::table('shopwired.orders')
+            ->whereBetween('order_placed_at', ['2031-07-01 00:00:00+00', '2031-07-16 00:00:00+00'])
+            ->update(['order_placed_at' => '1990-01-01 00:00:00+00']);
+        $recent = '2031-07-15 10:00:00+00';
+        $orders = [
+            [$recent, null, null, null],
+            [$recent, 'pending', null, null],
+            [$recent, 'failed', 'item_missing', null],
+            [$recent, 'synced', null, 'other-realm'],
+            ['2031-07-10 23:00:00+00', null, null, null],
+            ['2031-07-10 22:59:59+00', null, null, null],
+            [$recent, 'synced', null, null],
+            [$recent, 'failed', 'qbo_validation', null],
+            ['2031-07-12 12:00:00+00', 'failed', 'item_missing', null],
+            [$recent, null, null, 'cancelled'],
+            ['2031-07-15 11:00:00+00', null, null, null],
+        ];
+        foreach ($orders as $i => [$placedAt, $status, $errorCode, $variant]) {
+            $this->insertOrder([
+                'reference' => self::REFERENCE - $i,
+                'external_id' => self::EXTERNAL_ID - $i,
+                'order_placed_at' => $placedAt,
+                'lifecycle_status' => $variant === 'cancelled' ? 'cancelled' : 'processing',
+            ], [[]]);
+            if ($status !== null) {
+                $this->insertSync(self::REFERENCE - $i, $status, $errorCode, $variant === 'other-realm' ? 'realm-2' : 'realm-1');
+            }
+        }
+
+        $candidates = $this->repository->catchUpCandidates(new CatchUpCandidateWindowDTO(
+            'realm-1',
+            OrderSyncCalendarResolver::startOfDate(new DateTimeImmutable('2031-07-11')),
+            new DateTimeImmutable('2031-07-15 11:00:00+00'),
+            new DateTimeImmutable('2031-07-13 12:00:00+00'),
+        ));
+
+        self::assertSame(\array_map(static fn(int $i): int => self::REFERENCE - $i, [4, 3, 2, 1, 0]), $candidates);
+    }
+
+    #[Test]
+    public function a_failed_item_missing_order_placed_exactly_48_hours_before_is_still_a_candidate(): void
+    {
+        DB::table('shopwired.orders')
+            ->whereBetween('order_placed_at', ['2031-07-01 00:00:00+00', '2031-07-16 00:00:00+00'])
+            ->update(['order_placed_at' => '1990-01-01 00:00:00+00']);
+        $this->insertOrder(['order_placed_at' => '2031-07-13 12:00:00+00'], [[]]);
+        $this->insertSync(self::REFERENCE, 'failed', 'item_missing', 'realm-1');
+        $this->insertOrder(['reference' => self::OTHER_REFERENCE, 'external_id' => self::OTHER_EXTERNAL_ID, 'order_placed_at' => '2031-07-13 11:59:59+00'], [[]]);
+        $this->insertSync(self::OTHER_REFERENCE, 'failed', 'item_missing', 'realm-1');
+
+        self::assertSame([self::REFERENCE], $this->repository->catchUpCandidates(new CatchUpCandidateWindowDTO(
+            'realm-1',
+            new DateTimeImmutable('2031-07-11 00:00:00+00'),
+            new DateTimeImmutable('2031-07-15 11:00:00+00'),
+            new DateTimeImmutable('2031-07-13 12:00:00+00'),
+        )));
+    }
+
+    private function insertSync(int $reference, string $status, ?string $errorCode, string $realmId): void
+    {
+        DB::table('quickbooks.order_syncs')->insert([
+            'reference' => $reference,
+            'order_external_id' => $reference,
+            'realm_id' => $realmId,
+            'status' => $status,
+            'last_error_code' => $errorCode,
+        ]);
     }
 
     /**

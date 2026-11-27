@@ -68,6 +68,37 @@ final class QuickBooksOrderSyncSettingsTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('unsetFloors')]
+    public function an_unset_schedule_start_is_null(?string $value): void
+    {
+        \config(['quickbooks.order_sync_schedule_from' => $value]);
+
+        self::assertNull(self::settings()->scheduleFrom());
+    }
+
+    #[Test]
+    public function the_schedule_start_is_the_configured_date(): void
+    {
+        \config(['quickbooks.order_sync_schedule_from' => '2026-11-20']);
+
+        self::assertSame('2026-11-20 00:00:00', self::settings()->scheduleFrom()?->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    #[DataProvider('malformedFloors')]
+    public function a_malformed_schedule_start_throws(string $value): void
+    {
+        \config(['quickbooks.order_sync_schedule_from' => $value]);
+
+        try {
+            self::settings()->scheduleFrom();
+            self::fail('Expected a configuration failure');
+        } catch (InvalidConfigurationException $e) {
+            self::assertSame('QUICKBOOKS_ORDER_SYNC_SCHEDULE_FROM', $e->configKey);
+        }
+    }
+
+    #[Test]
     public function sandbox_labels_are_read(): void
     {
         \config(['quickbooks.doc_number_prefix' => 'T1-', 'quickbooks.customer_name_suffix' => ' T1']);
