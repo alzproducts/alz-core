@@ -109,6 +109,12 @@ final readonly class WorktreeDbFixture
 
     public function remove(): void
     {
+        if ((new Process(['rm', '-rf', $this->root]))->run() === 0) {
+            return;
+        }
+
+        // intentional: under load a straggling write can refill a directory mid-delete ("Directory not empty"); one retry clears it.
+        \usleep(200_000);
         (new Process(['rm', '-rf', $this->root]))->mustRun();
     }
 
