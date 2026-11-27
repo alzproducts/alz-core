@@ -15,6 +15,7 @@ use App\Domain\Exceptions\Api\InvalidApiResponseException;
 use App\Domain\Exceptions\Api\ResourceNotAvailableException;
 use App\Domain\Exceptions\Api\ResourceNotFoundException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
 use ValueError;
@@ -54,7 +55,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         OrderRepositoryInterface $orderRepository,
     ): int {
         [$from, $to] = $this->parseDateRange();
-        $this->info("Auditing orders from {$from->format('Y-m-d')} to {$to->format('Y-m-d')}...");
+        $this->info("Auditing orders from {$from->format(DateFormat::DEFAULT_DATE_FORMAT)} to {$to->format(DateFormat::DEFAULT_DATE_FORMAT)}...");
 
         [$apiOrders, $apiOrderIds, $apiLineCount] = $this->fetchAndCountApi($orderClient, $from, $to);
         [$dbOrderIds, $dbLineCount] = $this->fetchAndCountDb($orderRepository, $from, $to);
@@ -267,7 +268,7 @@ final class ShopwiredAuditOrderSyncCommand extends Command
         foreach ($ids as $id) {
             $order = $orderMap[$id] ?? null;
             if ($order !== null) {
-                $date = $order->orderPlacedAt->format('Y-m-d');
+                $date = $order->orderPlacedAt->format(DateFormat::DEFAULT_DATE_FORMAT);
                 $total = \number_format($order->total, 2);
                 $this->line("  - {$id} | Ref: {$order->reference} | {$date} | £{$total}");
             } else {

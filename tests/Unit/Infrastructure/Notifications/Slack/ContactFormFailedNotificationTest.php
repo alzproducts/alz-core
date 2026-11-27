@@ -91,6 +91,17 @@ final class ContactFormFailedNotificationTest extends TestCase
         self::assertContains("*Error:*\n```Timeout```", $texts);
     }
 
+    #[Test]
+    public function submitted_text_shows_a_british_date_and_time(): void
+    {
+        $texts = self::allTexts(self::payload(
+            form: self::form(),
+            submittedAt: new DateTimeImmutable('2026-01-05 14:30:09'),
+        ));
+
+        self::assertContains('Submission ID: submission-uuid-123  •  Submitted: 05/01/2026 14:30', $texts);
+    }
+
     /**
      * @param list<string> $texts
      */
@@ -127,6 +138,7 @@ final class ContactFormFailedNotificationTest extends TestCase
         ContactFormData $form,
         ?SelectedProduct $product = null,
         string $errorMessage = 'Processing failed',
+        ?DateTimeImmutable $submittedAt = null,
     ): array {
         $submission = new ContactSubmission(
             form: $form,
@@ -137,6 +149,7 @@ final class ContactFormFailedNotificationTest extends TestCase
                 ipAddress: '127.0.0.1',
             ),
             product: $product,
+            submittedAt: $submittedAt,
         );
 
         return (new ContactFormFailedNotification($submission, 'submission-uuid-123', $errorMessage))

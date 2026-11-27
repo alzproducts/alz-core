@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Slack;
 
+use App\Domain\Shared\ValueObjects\DateFormat;
 use DateTimeImmutable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
@@ -49,7 +50,7 @@ final class AlertNotification extends Notification
 
         $this->appendContextSection($slackMessage);
 
-        $firedAt = $this->firedAt->format('Y-m-d H:i:s T');
+        $firedAt = $this->firedAt->format(DateFormat::DEFAULT_DATE_TIME_SECONDS_FORMAT . ' T');
 
         return $slackMessage->contextBlock(static function (ContextBlock $block) use ($firedAt): void {
             $block->text("Event fired at {$firedAt}");

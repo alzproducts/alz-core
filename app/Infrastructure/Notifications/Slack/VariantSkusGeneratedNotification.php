@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Notifications\Slack;
 
+use App\Domain\Shared\ValueObjects\DateFormat;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
@@ -60,7 +61,7 @@ final class VariantSkusGeneratedNotification extends Notification
         $this->appendVariantsList($message);
 
         return $message->contextBlock(static function (ContextBlock $block): void {
-            $block->text('Generated at ' . \now()->format('Y-m-d H:i:s'));
+            $block->text('Generated at ' . \now()->format(DateFormat::DEFAULT_DATE_TIME_SECONDS_FORMAT));
         });
     }
 

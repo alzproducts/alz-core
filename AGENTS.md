@@ -23,6 +23,7 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 - A cross-layer contract lives with its consumer, normally `Application/Contracts`, not with the implementation.
 - Webhooks respond immediately and process on the queue.
 - Octane: jobs compute timestamps in `handle()`, never the constructor.
+- Presentation dates (CLI and dev command output, human-readable messages and reports) use British `d/m/Y` (`DD/MM/YYYY`) through the `DateFormat` constants; machine formats stay ISO 8601.
 - Date windows: `startOfMonth()->subMonths($n)`, never a bare `subMonths()`, which leaves gaps at month ends.
 - Security controls enforce (fail fast), never only warn.
 - Rate limits use Laravel's `Redis::throttle` / `RateLimiter` wherever they cover the need.

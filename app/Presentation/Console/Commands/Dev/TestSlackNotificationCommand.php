@@ -21,6 +21,7 @@ use App\Domain\ContactSubmission\ValueObjects\SelectedProduct;
 use App\Domain\ContactSubmission\ValueObjects\SubmissionContext;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Shared\Money\ValueObjects\Money;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use App\Domain\ValueObjects\IntId;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
@@ -89,7 +90,7 @@ final class TestSlackNotificationCommand extends Command
         $message = $this->argument('message');
 
         $channel ??= \config('services.slack.notifications.channel');
-        $message ??= 'Test message from alz-core at ' . \now()->toDateTimeString();
+        $message ??= 'Test message from alz-core at ' . \now()->format(DateFormat::DEFAULT_DATE_TIME_SECONDS_FORMAT);
 
         if (! \is_string($channel) || $channel === '') {
             $this->error('No channel specified and SLACK_BOT_USER_DEFAULT_CHANNEL is not set.');

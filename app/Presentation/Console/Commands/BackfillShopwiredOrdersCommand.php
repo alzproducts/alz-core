@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Console\Commands;
 
 use App\Application\Shopwired\UseCases\BackfillShopwiredOrdersUseCase;
+use App\Domain\Shared\ValueObjects\DateFormat;
 use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
@@ -130,6 +131,6 @@ final class BackfillShopwiredOrdersCommand extends Command
             ? $from->format('M Y') . ' (partial)'
             : $from->format('M Y');
 
-        return [$index + 1, $from->format('Y-m-d H:i'), $to->format('Y-m-d H:i'), $period];
+        return [$index + 1, $from->format(DateFormat::DEFAULT_DATE_TIME_FORMAT), $to->format(DateFormat::DEFAULT_DATE_TIME_FORMAT), $period];
     }
 }
