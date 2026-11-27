@@ -18,6 +18,8 @@
             "Bash(*migrate:refresh*)",
             "Bash(*migrate:reset*)",
             "Bash(*db:wipe*)",
+            "Bash(*artisan queue:work*)",
+            "Bash(*artisan queue:listen*)",
             "Bash(gh pr merge*)",
             "Bash(gh api*merge*)",
             "Bash(curl*api.github.com*)",

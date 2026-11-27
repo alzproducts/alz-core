@@ -1,0 +1,441 @@
+#!/usr/bin/env bash
+# The worktree's local dev stack: app, Horizon worker, Redis and its own seeded Postgres, from the prod runtime image.
+# Usage: bin/stack <up|down|port|logs|curl> [args]   (cwd = anywhere in the worktree)
+# Targets macOS /bin/bash 3.2: no associative arrays, no ${x,,}, no mapfile.
+# intentional: SC2016 — single-quoted strings are shell run inside the container; SC2086 — id lists split on purpose.
+# shellcheck disable=SC2016,SC2086
+set -euo pipefail
+
+SERVICES='app worker seed pgsql redis auth-migrate relay'
+
+die() {
+    local code="$1"
+    shift
+    echo "bin/stack: $*" >&2
+    exit "$code"
+}
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: bin/stack <command>
+  up [--shared-supabase] build the images, bring the stack up and print the app's host port;
+                         --shared-supabase runs against the shared local Supabase (never migrated or seeded)
+  down                   remove the stack's containers, volumes, network, images and generated env
+  port                   print the app's host port (exit 1 when the stack is not up)
+  logs [<service>]       follow a service's container log (default app)
+  curl <METHOD> <path>   one request inside the app container as the X-Local-Bypass user; body on stdin
+Env: ALZ_STACK_PORT=<n> pins the app to 127.0.0.1:<n> on the host (default: a free port)
+EOF
+    exit 64
+}
+
+REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || die 64 "run from inside the worktree (cwd is not a git work tree)"
+REPO="$(cd "$REPO" && pwd -P)"
+PROJECT="alz-dev-$(basename "$REPO" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-\n' '-')-$(printf '%s' "$REPO" | shasum -a 256 | cut -c1-8)"
+STATE="$REPO/tmp/stack"
+COMPOSE_ENV="$STATE/compose.env"
+FILL_ENV="$STATE/fill.env"
+ENV_FILE="$REPO/.env"
+# default: the stack's own seeded Postgres; shared: the shared local Supabase through the relay (COR-375 removes it).
+MODE=default
+SHARED_DB_PORT=''
+SHARED_API_PORT=''
+
+dc() {
+    if [ "$MODE" = shared ]; then
+        docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" \
+            -f "$REPO/compose.local.shared-supabase.yaml" --env-file "$COMPOSE_ENV" "$@"
+    else
+        docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" --profile own-postgres \
+            --env-file "$COMPOSE_ENV" "$@"
+    fi
+}
+
+project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
+
+# running_mode: shared when the project has a relay container, else default; read from Docker, never a state file.
+running_mode() {
+    if [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=relay" 2>/dev/null)" ]; then
+        echo shared
+    else
+        echo default
+    fi
+}
+
+mode_label() { if [ "$1" = shared ]; then echo 'shared-Supabase'; else echo 'own-Postgres'; fi; }
+
+# service_state <service> <go template>: one field of a stack container, running or not; blank when there is none.
+service_state() {
+    local id
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1" | head -1)"
+    [ -z "$id" ] || docker inspect -f "$2" "$id" 2>/dev/null || true
+}
+
+require_up() {
+    [ -f "$COMPOSE_ENV" ] && [ "$(service_state app '{{.State.Status}}')" = running ] ||
+        die 1 "the stack is not up (project $PROJECT); run bin/stack up"
+}
+
+# env_file_sets <file> <key>: 0 when the file's last assignment of key is non-blank. Never prints the value.
+env_file_sets() { env_file_value "$1" "$2" >/dev/null; }
+
+# env_file_value <file> <key>: prints the last assignment's value, unquoted; 1 when it is blank or absent.
+# Only for non-secret keys: callers that only need to know a key is set use env_file_sets.
+env_file_value() {
+    [ -f "$1" ] || return 1
+    awk -v k="$2" '
+        {
+            line = $0
+            sub(/^[ \t]*export[ \t]+/, "", line)
+            sub(/^[ \t]+/, "", line)
+            if (index(line, k) != 1) next
+            rest = substr(line, length(k) + 1)
+            if (rest !~ /^[ \t]*=/) next
+            sub(/^[ \t]*=/, "", rest)
+            found = 1
+            val = rest
+        }
+        END {
+            if (!found) exit 1
+            gsub(/^[ \t]+|[ \t\r]+$/, "", val)
+            if (val ~ /^#/) val = ""
+            gsub(/^["\047]|["\047]$/, "", val)
+            gsub(/^[ \t]+|[ \t]+$/, "", val)
+            if (val == "") exit 1
+            print val
+        }' "$1"
+}
+
+# bare_dollar_keys <file>: each key whose value Compose's env_file interpolation would change, one per line; never a value.
+# That is an unquoted or double-quoted value with a $ that starts no ${NAME} reference to a key set on an earlier line.
+bare_dollar_keys() {
+    LC_ALL=C awk '
+        function scan(text, at, name) {
+            while ((at = index(text, "$")) > 0) {
+                text = substr(text, at)
+                if (!match(text, /^[$][{][A-Za-z_][A-Za-z0-9_]*[}]/)) { report(); return }
+                name = substr(text, 3, RLENGTH - 3)
+                if (!(name in set)) { report(); return }
+                text = substr(text, RLENGTH + 1)
+            }
+        }
+        function report() {
+            if (!(key in bad)) print key
+            bad[key] = 1
+        }
+        # The quoted value up to its closing quote, which may sit on a later line; the rest of that line is ignored.
+        function quoted(text, i, c, escaped) {
+            escaped = 0
+            for (i = 1; i <= length(text); i++) {
+                c = substr(text, i, 1)
+                if (c == quote && !escaped) break
+                escaped = (c == "\\" && !escaped)
+            }
+            if (quote == "\"") scan(substr(text, 1, i - 1))
+            if (i <= length(text)) { set[key] = 1; quote = "" }
+        }
+        NR == 1 { sub(/^\357\273\277/, "") }
+        { sub(/\r$/, "") }
+        quote != "" { quoted($0); next }
+        {
+            line = $0
+            sub(/^[ \t]+/, "", line)
+            if (line ~ /^#/) next
+            sub(/^export[ \t]+/, "", line)
+            if (!match(line, /^[A-Za-z0-9_.-]+[ \t]*[=:]/)) next
+            key = substr(line, 1, RLENGTH - 1)
+            sub(/[ \t]+$/, "", key)
+            value = substr(line, RLENGTH + 1)
+            sub(/^[ \t]+/, "", value)
+            if (value ~ /^["\047]/) {
+                quote = substr(value, 1, 1)
+                quoted(substr(value, 2))
+                next
+            }
+            sub(/ #.*/, "", value)
+            scan(value)
+            set[key] = 1
+        }' "$1"
+}
+
+# check_fixed_port: ALZ_STACK_PORT, when set, is a port number nothing on host loopback holds.
+check_fixed_port() {
+    [ -n "${ALZ_STACK_PORT:-}" ] || return 0
+    [[ "$ALZ_STACK_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$ALZ_STACK_PORT" -le 65535 ] ||
+        die 64 "ALZ_STACK_PORT is not a port number: $ALZ_STACK_PORT"
+    if (exec 3<>"/dev/tcp/127.0.0.1/$ALZ_STACK_PORT") 2>/dev/null; then
+        die 75 "port $ALZ_STACK_PORT (ALZ_STACK_PORT) is held by another process; free it or pick another"
+    fi
+}
+
+# check_shared_supabase: the .env's shared Postgres port and loopback SUPABASE_URL, both answering on host loopback.
+check_shared_supabase() {
+    local url
+    SHARED_DB_PORT="$(env_file_value "$ENV_FILE" DB_PORT)" || die 64 "--shared-supabase needs DB_PORT in .env"
+    url="$(env_file_value "$ENV_FILE" SUPABASE_URL)" || die 64 "--shared-supabase needs SUPABASE_URL in .env"
+    [[ "$SHARED_DB_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || die 64 "DB_PORT in .env is not a port number: $SHARED_DB_PORT"
+    [[ "$url" =~ ^http://(127\.0\.0\.1|localhost):([1-9][0-9]{0,4})/?$ ]] ||
+        die 64 "--shared-supabase needs SUPABASE_URL in .env to be http://127.0.0.1:<port>; got $url"
+    SHARED_API_PORT="${BASH_REMATCH[2]}"
+    local port
+    for port in "$SHARED_DB_PORT" "$SHARED_API_PORT"; do
+        (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null ||
+            die 75 "the shared Supabase is not answering on 127.0.0.1:$port; start it without a reset (make supabase-start runs db-reset-full and wipes it)"
+    done
+}
+
+host_port() {
+    local svc=app
+    [ "$MODE" = default ] || svc=relay
+    dc port "$svc" 8000 2>/dev/null | tail -1 | sed 's/.*://'
+}
+
+# write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
+write_env() {
+    local pg auth
+    pg="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$REPO/database/baseline/versions.env")"
+    auth="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$REPO/database/baseline/versions.env")"
+    [ -n "$pg" ] && [ -n "$auth" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
+    mkdir -p "$STATE"
+    (
+        umask 077
+        {
+            echo "STACK_PROJECT=$PROJECT"
+            echo "STACK_IMAGE=alz-dev-local:$PROJECT"
+            echo "STACK_RELAY_IMAGE=alz-dev-relay:$PROJECT"
+            echo "STACK_SHARED_DB_PORT=$SHARED_DB_PORT"
+            echo "STACK_SHARED_API_PORT=$SHARED_API_PORT"
+            echo "STACK_WORKTREE=$REPO"
+            echo "STACK_ENV_FILE=$ENV_FILE"
+            echo "STACK_FILL_ENV=$FILL_ENV"
+            echo "STACK_DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "STACK_REDIS_PASSWORD=$(openssl rand -hex 24)"
+            echo "STACK_PORT=${ALZ_STACK_PORT:-}"
+            echo "SUPABASE_POSTGRES_VERSION=$pg"
+            echo "SUPABASE_AUTH_VERSION=$auth"
+        } >"$COMPOSE_ENV"
+        : >"$FILL_ENV"
+        env_file_sets "$ENV_FILE" APP_KEY || echo "APP_KEY='base64:$(openssl rand -base64 32)'" >>"$FILL_ENV"
+        env_file_sets "$ENV_FILE" API_KEY_ENCRYPTION_SECRET || echo "API_KEY_ENCRYPTION_SECRET='$(openssl rand -hex 32)'" >>"$FILL_ENV"
+        env_file_sets "$ENV_FILE" SUPABASE_LOCAL_BYPASS_SECRET || echo "SUPABASE_LOCAL_BYPASS_SECRET='$(openssl rand -hex 24)'" >>"$FILL_ENV"
+        env_file_sets "$ENV_FILE" SUPABASE_LOCAL_TEST_EMAIL || echo "SUPABASE_LOCAL_TEST_EMAIL='dev@alzadmin.test'" >>"$FILL_ENV"
+        # intentional: the bypass persona's email; TestUserPersonaResolver throws on a blank one.
+        env_file_sets "$ENV_FILE" EMAIL_PRIMARY || echo "EMAIL_PRIMARY='stack@example.invalid'" >>"$FILL_ENV"
+    )
+}
+
+# build_images: the runtime target, then Dockerfile.local FROM it; both labelled so down removes them.
+build_images() {
+    local chokidar label="com.docker.compose.project=$PROJECT"
+    command -v jq >/dev/null 2>&1 || die 75 "up needs jq"
+    chokidar="$(jq -r '.packages["node_modules/chokidar"].version // empty' "$REPO/package-lock.json" 2>/dev/null)" || chokidar=''
+    [ -n "$chokidar" ] || die 1 "package-lock.json locks no chokidar version"
+    echo "bin/stack: building alz-dev-runtime:$PROJECT (log: tmp/stack/build-runtime.log)" >&2
+    docker build --progress plain --target runtime --label "$label" -t "alz-dev-runtime:$PROJECT" "$REPO" \
+        >"$STATE/build-runtime.log" 2>&1 || build_failed runtime
+    echo "bin/stack: building alz-dev-local:$PROJECT (log: tmp/stack/build-local.log)" >&2
+    docker build --progress plain -f "$REPO/Dockerfile.local" --build-arg "RUNTIME_IMAGE=alz-dev-runtime:$PROJECT" \
+        --build-arg "CHOKIDAR_VERSION=$chokidar" --label "$label" -t "alz-dev-local:$PROJECT" "$REPO" \
+        >"$STATE/build-local.log" 2>&1 || build_failed local
+}
+
+build_failed() {
+    tail -n 30 "$STATE/build-$1.log" >&2 || true
+    die 1 "the $1 image build failed: tmp/stack/build-$1.log (run bin/stack down to clean up)"
+}
+
+# report_failed_start: the first service that failed or never became healthy, with its last log lines.
+report_failed_start() {
+    local svc state failed=''
+    for svc in $SERVICES; do
+        state="$(service_state "$svc" '{{.State.Status}} {{.State.ExitCode}} {{if .State.Health}}{{.State.Health.Status}}{{end}}')"
+        case "$state" in
+            '' | 'exited 0 '* | 'running 0 healthy' | 'running 0 ' | 'created '*) ;;
+            *) failed="$svc"; break ;;
+        esac
+    done
+    [ -n "$failed" ] || failed=app
+    echo "bin/stack: $failed did not start; its last log lines:" >&2
+    dc logs --no-color --tail 40 "$failed" >&2 || true
+    die 1 "the stack did not come up; see bin/stack logs $failed (run bin/stack down to clean up)"
+}
+
+print_port() {
+    local port
+    port="$(host_port)"
+    [ -n "$port" ] || die 1 "the app publishes no host port"
+    echo "project=$PROJECT"
+    echo "url=http://127.0.0.1:$port"
+    echo "port=$port"
+}
+
+# print_summary <started|recreated>: what the up booted and the next useful commands, on stderr; stdout stays key=value.
+print_summary() {
+    local db scope='all services'
+    [ "$1" = started ] || scope='app and worker only, database kept'
+    if [ "$MODE" = shared ]; then
+        db='relay to the shared local Supabase, never migrated or seeded'
+    else
+        db='pgsql, its own Postgres seeded by dev:seed-fake'
+    fi
+    cat >&2 <<EOF
+bin/stack: $PROJECT up in $(mode_label "$MODE") mode, $1 $scope
+  app     http://127.0.0.1:$(host_port)   Octane; code and route edits reload without a restart
+  worker  Horizon, runs the queued jobs
+  redis   the stack's own
+  db      $db
+Next:
+  bin/stack curl GET /api/...   consumer API as the X-Local-Bypass user, body on stdin; host curl fails the loopback gate
+  bin/stack logs [<service>]    follow a log (default app; worker for jobs)
+  bin/stack up                  apply .env edits (recreates app and worker)
+  bin/stack down                remove the stack; run it before switching modes
+EOF
+}
+
+prepare_mount() {
+    local dir
+    # intentional: www-data (uid 33) writes logs, sessions and views through the bind mount.
+    for dir in storage/logs storage/framework/cache storage/framework/sessions storage/framework/views; do
+        mkdir -p "$REPO/$dir"
+        chmod 0777 "$REPO/$dir"
+    done
+}
+
+# ping_shared_db: the app reaches the shared database with the .env's credentials, through the relay.
+ping_shared_db() {
+    [ "$MODE" = shared ] || return 0
+    dc exec -T app php artisan db:ping >&2 ||
+        die 1 "the app cannot reach the shared database; check DB_DATABASE, DB_USERNAME and DB_PASSWORD in .env (run bin/stack down to clean up)"
+}
+
+cmd_up() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --shared-supabase) MODE=shared ;;
+            *) die 64 "up: unknown argument: $1" ;;
+        esac
+        shift
+    done
+    command -v docker >/dev/null 2>&1 || die 75 "docker not found"
+    docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
+    [ -f "$REPO/vendor/autoload.php" ] || die 75 "no vendor/autoload.php in this worktree; run make install first"
+
+    if [ -f "$ENV_FILE" ]; then
+        local gap
+        gap="$(bare_dollar_keys "$ENV_FILE")" || die 75 "cannot read $ENV_FILE"
+        [ -z "$gap" ] || die 75 "single-quote these keys in .env, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
+    fi
+
+    if [ -n "$(project_containers)" ]; then
+        local running
+        running="$(running_mode)"
+        [ "$running" = "$MODE" ] ||
+            die 75 "project $PROJECT is up in $(mode_label "$running") mode; run bin/stack down before an up in $(mode_label "$MODE") mode"
+        [ -f "$COMPOSE_ENV" ] || die 75 "project $PROJECT has containers but no tmp/stack/compose.env; run bin/stack down first"
+        if [ "$MODE" = default ]; then
+            case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
+                'exited 0') ;;
+                *) die 75 "the seed of project $PROJECT did not complete; run bin/stack down, then bin/stack up" ;;
+            esac
+        else
+            check_shared_supabase
+        fi
+        # Recreates only app and worker: keeps the seeded database, Redis and generated env, and re-reads the .env.
+        dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker || report_failed_start
+        ping_shared_db
+        print_port
+        print_summary recreated
+        return
+    fi
+
+    check_fixed_port
+    [ "$MODE" = default ] || check_shared_supabase
+
+    write_env
+    prepare_mount
+    build_images
+    echo "bin/stack: starting $PROJECT ($(mode_label "$MODE") mode)" >&2
+    dc up -d --wait --wait-timeout 900 app worker || report_failed_start
+    ping_shared_db
+    print_port
+    print_summary started
+}
+
+# sweep_project: removes everything labelled with this project, never another's.
+sweep_project() {
+    local ids label="label=com.docker.compose.project=$PROJECT"
+    ids="$(project_containers)"
+    [ -z "$ids" ] || docker rm -f -v $ids >/dev/null 2>&1 || true
+    ids="$(docker network ls -q --filter "$label")"
+    [ -z "$ids" ] || docker network rm $ids >/dev/null 2>&1 || true
+    ids="$(docker volume ls -q --filter "$label")"
+    [ -z "$ids" ] || docker volume rm -f $ids >/dev/null 2>&1 || true
+    ids="$(docker image ls -q --filter "$label" | sort -u)"
+    [ -z "$ids" ] || docker image rm -f $ids >/dev/null 2>&1 || true
+}
+
+cmd_down() {
+    [ "$#" -eq 0 ] || die 64 "down takes no arguments"
+    local kind ids fail=0
+    if [ -f "$COMPOSE_ENV" ]; then
+        dc down -v --remove-orphans --timeout 20 >&2 || echo "bin/stack: compose down failed; removing by label" >&2
+    fi
+    sweep_project
+    for kind in 'ps -a' 'volume ls' 'network ls' 'image ls'; do
+        ids="$(docker $kind -q --filter "label=com.docker.compose.project=$PROJECT")"
+        [ -z "$ids" ] || { echo "bin/stack: down left $kind residue: $(printf '%s' "$ids" | tr '\n' ' ')" >&2; fail=1; }
+    done
+    rm -rf "$STATE"
+    [ "$fail" -eq 0 ] || exit 1
+    echo "down ok project=$PROJECT"
+}
+
+cmd_port() {
+    [ "$#" -eq 0 ] || die 64 "port takes no arguments"
+    require_up
+    local port
+    port="$(host_port)"
+    [ -n "$port" ] || die 1 "the app publishes no host port"
+    echo "$port"
+}
+
+cmd_logs() {
+    [ "$#" -le 1 ] || die 64 "logs takes at most one service"
+    local svc="${1:-app}"
+    case " $SERVICES " in *" $svc "*) ;; *) die 64 "unknown service: $svc (one of: $SERVICES)" ;; esac
+    [ -f "$COMPOSE_ENV" ] || die 1 "the stack is not up (project $PROJECT); run bin/stack up"
+    dc logs -f "$svc"
+}
+
+cmd_curl() {
+    [ "$#" -eq 2 ] || die 64 "curl wants <METHOD> <path>"
+    local method="$1" path="$2" body='' has_data=0
+    [[ "$method" =~ ^[A-Z]+$ ]] || die 64 "bad method: $method"
+    case "$path" in /*) ;; *) die 64 "path must start with /: $path" ;; esac
+    require_up
+    [ -t 0 ] || body="$(cat)"
+    [ -z "$body" ] || has_data=1
+    # The bypass secret stays inside the container: curl reads it from the app's own env.
+    printf '%s' "$body" | dc exec -T app sh -c '
+        has_data="$3"
+        set -- -sS --globoff -X "$1" -H "Accept: application/json" -H "X-Local-Bypass: $SUPABASE_LOCAL_BYPASS_SECRET" \
+            -w "\nstatus=%{http_code}\n" "http://127.0.0.1:8000$2"
+        if [ "$has_data" = 1 ]; then exec curl -H "Content-Type: application/json" --data-binary @- "$@"; fi
+        exec curl "$@" </dev/null' sh "$method" "$path" "$has_data"
+}
+
+[ "$#" -ge 1 ] || usage
+verb="$1"
+shift
+case "$verb" in
+    down | port | logs | curl) MODE="$(running_mode)" ;;
+esac
+case "$verb" in
+    up) cmd_up "$@" ;;
+    down) cmd_down "$@" ;;
+    port) cmd_port "$@" ;;
+    logs) cmd_logs "$@" ;;
+    curl) cmd_curl "$@" ;;
+    -h | --help | help) usage ;;
+    *) die 64 "unknown command: $verb" ;;
+esac

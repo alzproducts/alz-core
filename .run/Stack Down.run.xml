@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Octane 8001" type="ShConfigurationType">
-    <option name="SCRIPT_TEXT" value="php artisan octane:start --port=8001 --watch" />
+  <configuration default="false" name="Stack Down" type="ShConfigurationType" activateToolWindowBeforeRun="false">
+    <option name="SCRIPT_TEXT" value="make stack-down" />
     <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
     <option name="SCRIPT_PATH" value="" />
     <option name="SCRIPT_OPTIONS" value="" />

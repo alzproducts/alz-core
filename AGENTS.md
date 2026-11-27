@@ -11,11 +11,11 @@ Linear team: COR. `${FRONTEND_APP}` resolves from the `FRONTEND_APP` env var in 
 
 ## Local environment
 
-- Native PHP 8.4, Octane on Swoole, Redis in Docker, and one local Supabase PostgreSQL shared with the frontend repo and every worktree.
+- Native PHP 8.4 for host tooling (`make test`, `make lint`), Redis in Docker, and one local Supabase PostgreSQL shared with the frontend repo and every worktree.
+- Serve, run queued jobs and call the API through the worktree's `bin/stack` (`bin/stack help`).
 - Fresh worktree: `make install` first, never `composer install` or an `APP_ENV` override by hand ([local setup](docs/guides/local-setup.md)).
 - Start a needed service without asking: `make redis`, `make supabase-start` (including the `make db-reset-full` it runs on a stopped stack). A manual `make db-reset-full` (wipes local data, reseeds via `dev:seed-fake`), `make supabase-reset` or seed needs the user's go-ahead.
-- Consumer API on a local Octane: `curl -H "X-Local-Bypass: $API_BYPASS_SECRET" "http://127.0.0.1:${API_PORT:-8000}/..."`; setup in `.env.example` (Local Development Auth Bypass).
-- Auth rejections log to `storage/logs/security-*.log`, not `laravel.log`. Only `make serve` and the `Octane` run config write `octane.log`.
+- Auth rejections log to `storage/logs/security-*.log`, not `laravel.log`. Only the stack app and the product-list bench write `octane.log`.
 
 ## Decisions
 

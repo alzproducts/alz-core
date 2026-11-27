@@ -12,7 +12,7 @@ use Illuminate\Process\InvokedProcess;
 use RuntimeException;
 
 /**
- * A local Octane (Swoole) server on a free port, its output appended to storage/logs/octane.log like bin/serve does.
+ * A local Octane (Swoole) server on a free port, its output appended to storage/logs/octane.log, as the stack app's is.
  */
 final class OctaneBenchServer
 {

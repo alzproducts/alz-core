@@ -197,6 +197,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | File Watching
+    |--------------------------------------------------------------------------
+    |
+    | Paths horizon:listen restarts Horizon on. intentional: plain directories
+    | and files only; the locked Horizon's watcher ignores globs under
+    | chokidar 5, and .env is left out because a restart cannot re-read it.
+    |
+    */
+
+    'watch' => [
+        'app',
+        'bootstrap/app.php',
+        'bootstrap/providers.php',
+        'config',
+        'database',
+        'routes',
+        'composer.lock',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Worker Configuration
     |--------------------------------------------------------------------------
     |

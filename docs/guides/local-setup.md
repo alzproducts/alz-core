@@ -45,5 +45,5 @@ The main checkout is the first entry of `git worktree list`.
 ## Next steps
 
 - **Synthetic data:** `make db-reset-full` resets Supabase, migrates and seeds the synthetic, production-shaped data (see [`database/AGENTS.md`](../../database/AGENTS.md)). It is destructive on a machine with existing local data. `make supabase-start` runs it whenever it starts a stopped stack, so every fresh boot starts from this seed.
-- **Dev server:** `php artisan octane:start --watch`.
+- **Dev server:** `bin/stack up` (`make serve`), or `bin/stack up --shared-supabase` for real sign-in; it prints what it booted and the next commands, and `bin/stack help` lists the rest.
 - **Integration tests:** `make test-integration`, after `make db-reset-full`.

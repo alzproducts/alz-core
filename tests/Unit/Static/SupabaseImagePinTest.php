@@ -175,6 +175,8 @@ final class SupabaseImagePinTest extends TestCase
             'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\n",
             '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
             '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
+            'compose.local.yaml' => "image: 'supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}'\nimage: 'supabase/auth:\${SUPABASE_AUTH_VERSION:?}'\n",
+            'bin/stack' => "pg=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\nauth=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\n",
         ];
     }
 }
