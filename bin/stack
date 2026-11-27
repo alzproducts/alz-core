@@ -269,6 +269,29 @@ print_port() {
     echo "port=$port"
 }
 
+# print_summary <started|recreated>: what the up booted and the next useful commands, on stderr; stdout stays key=value.
+print_summary() {
+    local db scope='all services'
+    [ "$1" = started ] || scope='app and worker only, database kept'
+    if [ "$MODE" = shared ]; then
+        db='relay to the shared local Supabase, never migrated or seeded'
+    else
+        db='pgsql, its own Postgres seeded by dev:seed-fake'
+    fi
+    cat >&2 <<EOF
+bin/stack: $PROJECT up in $(mode_label "$MODE") mode, $1 $scope
+  app     http://127.0.0.1:$(host_port)   Octane; code and route edits reload without a restart
+  worker  Horizon, runs the queued jobs
+  redis   the stack's own
+  db      $db
+Next:
+  bin/stack curl GET /api/...   consumer API as the X-Local-Bypass user, body on stdin; host curl fails the loopback gate
+  bin/stack logs [<service>]    follow a log (default app; worker for jobs)
+  bin/stack up                  apply .env edits (recreates app and worker)
+  bin/stack down                remove the stack; run it before switching modes
+EOF
+}
+
 prepare_mount() {
     local dir
     # intentional: www-data (uid 33) writes logs, sessions and views through the bind mount.
@@ -321,6 +344,7 @@ cmd_up() {
         dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker || report_failed_start
         ping_shared_db
         print_port
+        print_summary recreated
         return
     fi
 
@@ -334,6 +358,7 @@ cmd_up() {
     dc up -d --wait --wait-timeout 900 app worker || report_failed_start
     ping_shared_db
     print_port
+    print_summary started
 }
 
 # sweep_project: removes everything labelled with this project, never another's.

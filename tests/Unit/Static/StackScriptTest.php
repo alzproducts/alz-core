@@ -71,6 +71,38 @@ final class StackScriptTest extends TestCase
     }
 
     #[Test]
+    public function up_ends_with_what_it_booted_and_the_next_commands_on_stderr(): void
+    {
+        $up = $this->run->stack([], 'up');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $summary = \mb_substr($up->getErrorOutput(), (int) \mb_strpos($up->getErrorOutput(), "bin/stack: {$this->run->project} up"));
+        $this->assertStringStartsWith("bin/stack: {$this->run->project} up in own-Postgres mode, started all services\n", $summary);
+        $this->assertStringContainsString('  app     http://127.0.0.1:5000   Octane;', $summary);
+        $this->assertStringContainsString("  worker  Horizon, runs the queued jobs\n", $summary);
+        $this->assertStringContainsString("  db      pgsql, its own Postgres seeded by dev:seed-fake\n", $summary);
+        foreach (['curl GET /api/...', 'logs [<service>]', 'up   ', 'down   '] as $next) {
+            $this->assertStringContainsString("\n  bin/stack {$next}", $summary);
+        }
+
+        $again = $this->run->stack([], 'up');
+
+        $this->assertStringContainsString('up in own-Postgres mode, recreated app and worker only, database kept', $again->getErrorOutput());
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_names_the_relay_in_its_summary(): void
+    {
+        $this->sharedSupabase();
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertStringContainsString("bin/stack: {$this->run->project} up in shared-Supabase mode, started all services\n", $up->getErrorOutput());
+        $this->assertStringContainsString("  db      relay to the shared local Supabase, never migrated or seeded\n", $up->getErrorOutput());
+    }
+
+    #[Test]
     public function up_fills_only_the_keys_the_env_leaves_blank(): void
     {
         $this->run->write('.env', "APP_KEY=base64:kept\nSUPABASE_LOCAL_BYPASS_SECRET=\nEMAIL_PRIMARY=''\n");
