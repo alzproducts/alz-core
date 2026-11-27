@@ -40,11 +40,13 @@ This runs a preflight and two steps in sequence:
 
 **`make supabase-start` runs this same reset whenever it starts a stopped stack**; on a running stack it resets nothing. A failed start-triggered reset fails `make supabase-start`; recover with `make db-reset-full`.
 
+**In a git worktree, `make db-reset-full` resets only the worktree's own compose Postgres**, never the shared Supabase. It needs that Postgres up (`make db-up` or `make serve`). The preflight and step 2 run through `bin/worktree-db --destructive`, which refuses any connection but that Postgres. Step 1 is `bin/stack db-reset`, which recreates the Postgres empty, re-applies the auth schema, and recreates a running app and worker. Nothing is wiped through `db:wipe`, which would leave the `shopwired` and other app schemas behind.
+
 ### What Gets Wiped
 
 `make db-reset-full` destroys **all local data**: the seeded data, any synced Linnworks/ShopWired data, orders, purchase orders, suppliers — everything — and reruns the synthetic seed.
 
-**Information only — the reset also covers alz-admin (`${FRONTEND_APP}`).** Running `make db-reset-full` is fine; this note just explains its full scope. Both projects use the same local Supabase project, and step 1 runs alz-admin's `supabase db reset`, so alz-admin's local auth users and data are reset as well. Afterwards, only these are re-seeded:
+**Information only — in the main checkout, the reset also covers alz-admin (`${FRONTEND_APP}`).** Running `make db-reset-full` is fine; this note just explains its full scope. Both projects use the same local Supabase project, and step 1 runs alz-admin's `supabase db reset`, so alz-admin's local auth users and data are reset as well. Afterwards, only these are re-seeded:
 - alz-admin's `database.types.ts` (regenerated)
 - alz-admin's test users (`seed-test-users`)
 - alz-core's synthetic seed (`dev:seed-fake`)
