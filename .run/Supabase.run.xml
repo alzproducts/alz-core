@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Supabase" type="ShConfigurationType">
-    <option name="SCRIPT_TEXT" value="make supabase-start &amp;&amp; make supabase-functions" />
+    <option name="SCRIPT_TEXT" value="make supabase-start" />
     <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
     <option name="SCRIPT_PATH" value="" />
     <option name="SCRIPT_OPTIONS" value="" />

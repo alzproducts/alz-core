@@ -21,7 +21,7 @@ final class PHPArkitectPreCommitHook extends AbstractPreCommitProcessHook
 
     protected function getTimeout(): int
     {
-        return 30; // 30 seconds (overkill for 0.1s, but safe)
+        return HookTimeouts::PHPARKITECT_SECONDS;
     }
 
     protected function getSuccessMessage(): string

@@ -32,12 +32,17 @@ final class ValidateSupabaseJwtTest extends TestCase
 
     private const string BYPASS_SECRET = 'local-bypass-secret';
 
+    private const string MFA_FLAG = 'SUPABASE_REQUIRE_MFA';
+
     /** @var array{private_pem: string, jwk: array<string, string>} */
     private array $keyPair;
 
     private MockInterface $securityLogger;
 
     private bool $jwksAvailable = true;
+
+    /** @var array{string|false, mixed, mixed}|null */
+    private ?array $savedMfaFlag = null;
 
     #[Override]
     protected function setUp(): void
@@ -70,6 +75,9 @@ final class ValidateSupabaseJwtTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
+        if ($this->savedMfaFlag !== null) {
+            self::writeMfaFlag(...$this->savedMfaFlag);
+        }
         Mockery::close();
 
         parent::tearDown();
@@ -107,6 +115,50 @@ final class ValidateSupabaseJwtTest extends TestCase
                 && $context['user_id'] === 'd9dd22a9-c3ab-413b-8a93-25b462231a98'
                 && $context['email'] === 'test@example.com'
                 && $context['path'] === 'api/_test/protected-route'),
+        );
+    }
+
+    #[Test]
+    public function it_accepts_an_aal1_token_in_testing_when_the_mfa_flag_is_false(): void
+    {
+        $this->setMfaFlag('false');
+        $token = $this->sign($this->supabaseClaims(['aal' => 'aal1']));
+
+        $this->assertSame('testing', \app()->environment());
+        $this->withToken($token)->getJson(self::ROUTE)
+            ->assertOk()
+            ->assertJson([
+                'auth_user_id' => 'd9dd22a9-c3ab-413b-8a93-25b462231a98',
+                'auth_user_email' => 'test@example.com',
+            ]);
+        $this->securityLogger->shouldNotHaveReceived('warning');
+    }
+
+    /**
+     * @return iterable<string, array{string|null}>
+     */
+    public static function enforcingMfaFlags(): iterable
+    {
+        yield 'unset' => [null];
+        yield 'empty' => [''];
+        yield 'true' => ['true'];
+        yield 'no' => ['no'];
+    }
+
+    #[Test]
+    #[DataProvider('enforcingMfaFlags')]
+    public function it_rejects_an_aal1_token_with_403_for_every_mfa_flag_but_false(?string $flag): void
+    {
+        $this->setMfaFlag($flag);
+        $token = $this->sign($this->supabaseClaims(['aal' => 'aal1']));
+
+        $this->withToken($token)->getJson(self::ROUTE)
+            ->assertForbidden()
+            ->assertJson(['error' => ['type' => 'forbidden', 'message' => 'MFA verification required.']]);
+
+        $this->securityLogger->shouldHaveReceived('warning')->once()->with(
+            'MFA not verified - AAL2 required',
+            Mockery::on(static fn(array $context): bool => $context['event'] === 'api.auth.mfa_required'),
         );
     }
 
@@ -275,6 +327,35 @@ final class ValidateSupabaseJwtTest extends TestCase
         $this->withHeaders(['X-Local-Bypass' => 'wrong-secret'])->getJson(self::ROUTE)
             ->assertUnauthorized()
             ->assertJson(['error' => ['type' => 'unauthorized', 'message' => 'Missing authorization token.']]);
+    }
+
+    /**
+     * Sets SUPABASE_REQUIRE_MFA (null unsets it) and re-reads config/services.php, so the value takes
+     * the real env() → config path rather than being written to config directly.
+     */
+    private function setMfaFlag(?string $value): void
+    {
+        $this->savedMfaFlag ??= [\getenv(self::MFA_FLAG), $_ENV[self::MFA_FLAG] ?? null, $_SERVER[self::MFA_FLAG] ?? null];
+        self::writeMfaFlag($value ?? false, $value, $value);
+
+        /** @var array{supabase: array<string, mixed>} $services */
+        $services = require \config_path('services.php');
+        \config(['services.supabase.require_mfa' => $services['supabase']['require_mfa']]);
+    }
+
+    private static function writeMfaFlag(string|false $putenv, mixed $env, mixed $server): void
+    {
+        \putenv($putenv === false ? self::MFA_FLAG : self::MFA_FLAG . '=' . $putenv);
+        if ($env === null) {
+            unset($_ENV[self::MFA_FLAG]);
+        } else {
+            $_ENV[self::MFA_FLAG] = $env;
+        }
+        if ($server === null) {
+            unset($_SERVER[self::MFA_FLAG]);
+        } else {
+            $_SERVER[self::MFA_FLAG] = $server;
+        }
     }
 
     private function enableLocalBypass(): void

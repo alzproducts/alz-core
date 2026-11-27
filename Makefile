@@ -1,4 +1,4 @@
-.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-changed test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve db-up stack-down stack-logs pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-changed test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-stop supabase-status supabase-reset supabase-seed-users redis serve db-up stack-down stack-logs pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -364,12 +364,6 @@ ifneq ($(CI),true)
 		$(MAKE) db-reset-full; \
 	fi
 endif
-
-supabase-functions: ## Start Supabase Edge Functions dev server (long-running)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
-	cd $(ALZ_ADMIN) && pnpm exec supabase functions serve --no-verify-jwt
 
 supabase-stop: ## Stop Supabase services
 	@$(REFUSE_IN_WORKTREE)

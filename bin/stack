@@ -247,6 +247,18 @@ write_env() {
         # intentional: the bypass persona's email; TestUserPersonaResolver throws on a blank one.
         env_file_sets "$ENV_FILE" EMAIL_PRIMARY || echo "EMAIL_PRIMARY='stack@example.invalid'" >>"$FILL_ENV"
     )
+    fill_mfa_default
+}
+
+# fill_mfa_default: MFA off for a .env that does not set the flag; re-run on every up so a later .env value wins.
+fill_mfa_default() {
+    local kept
+    kept="$(grep -v '^SUPABASE_REQUIRE_MFA=' "$FILL_ENV" 2>/dev/null || true)"
+    (
+        umask 077
+        { [ -z "$kept" ] || printf '%s\n' "$kept"; } >"$FILL_ENV"
+        env_file_sets "$ENV_FILE" SUPABASE_REQUIRE_MFA || echo "SUPABASE_REQUIRE_MFA=false" >>"$FILL_ENV"
+    )
 }
 
 # build_images: the runtime target, then Dockerfile.local FROM it; both labelled so down removes them.
@@ -365,6 +377,7 @@ cmd_up() {
         else
             check_shared_supabase
         fi
+        fill_mfa_default
         # Recreates only app and worker: keeps the seeded database, Redis and generated env, and re-reads the .env.
         dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker || report_failed_start
         ping_shared_db

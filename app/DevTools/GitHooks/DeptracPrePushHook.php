@@ -21,7 +21,7 @@ final class DeptracPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 30;
+        return HookTimeouts::DEPTRAC_SECONDS;
     }
 
     protected function getSuccessMessage(): string
