@@ -49,8 +49,10 @@ final class ChangedTestsSelectionTest extends TestCase
 
         $root = \dirname(__DIR__, 3);
         \mkdir($this->repo . '/bin');
-        \copy($root . '/bin/changed-tests', $this->repo . '/bin/changed-tests');
-        \chmod($this->repo . '/bin/changed-tests', 0o755);
+        foreach (['changed-tests', 'worktree-db'] as $script) {
+            \copy($root . "/bin/{$script}", $this->repo . "/bin/{$script}");
+            \chmod($this->repo . "/bin/{$script}", 0o755);
+        }
         \copy($root . '/Makefile', $this->repo . '/Makefile');
         \copy($root . '/phpunit.xml', $this->repo . '/phpunit.xml');
         $this->write('vendor/bin/pest', <<<'PHP'

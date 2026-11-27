@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Runs a DB-opening command (the Makefile's $(DB_RUN)) against this checkout's database, or refuses before it opens one.
+# Usage: bin/worktree-db [--destructive] <command> [args...]   |   bin/worktree-db --is-worktree   (prints 1 or 0)
+# In a linked worktree, the command gets bin/stack db-env's connection; the main checkout keeps .env's. A caller's
+# DB_URL/DB_HOST/DB_PORT, CI=true and container runs pass through unchanged. --destructive first refuses any run whose
+# connection would not be the worktree's own Postgres. Exit codes follow bin/stack: 64 usage, 75 precondition.
+# Targets macOS /bin/bash 3.2: no associative arrays, no ${x,,}, no mapfile.
+set -euo pipefail
+
+STACK="$(cd "$(dirname "$0")" && pwd -P)/stack"
+NO_DB='no database for this worktree: run make db-up (or make serve)'
+# intentional: a test seam, since a test cannot create /.dockerenv; setting it only widens what CI=true already passes.
+DOCKERENV="${WORKTREE_DB_DOCKERENV:-/.dockerenv}"
+
+die() {
+    local code="$1"
+    shift
+    echo "bin/worktree-db: $*" >&2
+    exit "$code"
+}
+
+usage() { die 64 'usage: bin/worktree-db [--destructive] <command> [args...] | bin/worktree-db --is-worktree'; }
+
+# is_worktree: 0 in a linked worktree, 1 in the main checkout; exits 75 when git cannot tell.
+is_worktree() {
+    local git_dir common_dir
+    if ! git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)" ||
+        ! common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+        die 75 'cannot tell the main checkout from a worktree (git rev-parse failed); run from inside an alz-core checkout'
+    fi
+    [ "$(cd "$git_dir" && pwd -P)" != "$(cd "$common_dir" && pwd -P)" ]
+}
+
+caller_sets() { [ -n "${DB_URL+x}" ] || [ -n "${DB_HOST+x}" ] || [ -n "${DB_PORT+x}" ]; }
+
+passes_through() { [ "${CI:-}" = true ] || [ -f "$DOCKERENV" ] || caller_sets; }
+
+# dotenv_value <key>: the .env assignment's value, unquoted; empty when absent.
+dotenv_value() {
+    [ -f .env ] || return 0
+    awk -v k="$1" '
+        {
+            line = $0
+            sub(/^[ \t]*export[ \t]+/, "", line)
+            sub(/^[ \t]+/, "", line)
+            if (index(line, k) != 1) next
+            rest = substr(line, length(k) + 1)
+            if (rest !~ /^[ \t]*=/) next
+            sub(/^[ \t]*=/, "", rest)
+            val = rest
+        }
+        END {
+            gsub(/^[ \t]+|[ \t\r]+$/, "", val)
+            if (val ~ /^#/) val = ""
+            gsub(/^["\047]|["\047]$/, "", val)
+            print val
+        }' .env
+}
+
+# effective <key>: the value Laravel reads; a key in the process env, even blank, wins over .env.
+effective() {
+    if [ -n "${!1+x}" ]; then printf '%s\n' "${!1}"; else dotenv_value "$1"; fi
+}
+
+db_env() { "$STACK" db-env 2>/dev/null; }
+
+# check_destructive: exit 75 unless the run's connection is the worktree's own Postgres on loopback.
+check_destructive() {
+    local lines own_port url host port
+    lines="$(db_env)" || die 75 "refusing a destructive run: $NO_DB"
+    passes_through || return 0
+    own_port="$(printf '%s\n' "$lines" | sed -n 's/^DB_PORT=//p')"
+    url="$(effective DB_URL)"
+    if [ -n "$url" ]; then
+        [[ "$url" =~ ^[a-z0-9+]+://([^@/]*@)?(\[[^]]*\]|[^:/?]*)(:([0-9]+))? ]] ||
+            die 75 'refusing a destructive run: DB_URL is not a URL this check can read'
+        host="${BASH_REMATCH[2]}"
+        port="${BASH_REMATCH[4]:-5432}"
+    else
+        host="$(effective DB_HOST)"
+        port="$(effective DB_PORT)"
+        [ -n "${DB_HOST+x}" ] || [ -n "$host" ] || host=127.0.0.1
+        [ -n "${DB_PORT+x}" ] || [ -n "$port" ] || port=5432
+    fi
+    case "$host" in
+        127.0.0.1 | localhost | ::1 | '[::1]') ;;
+        *) die 75 "refusing a destructive run: its database host '$host' is not loopback (this worktree's Postgres is 127.0.0.1:$own_port)" ;;
+    esac
+    [ "$port" = "$own_port" ] ||
+        die 75 "refusing a destructive run: its database port '$port' is not this worktree's Postgres ($own_port); unset DB_URL, DB_HOST and DB_PORT, then run make db-up"
+}
+
+destructive=no
+case "${1:-}" in
+    --is-worktree)
+        [ "$#" -eq 1 ] || usage
+        if is_worktree; then echo 1; else echo 0; fi
+        exit 0
+        ;;
+    --destructive) destructive=yes && shift ;;
+esac
+[ "$#" -gt 0 ] || usage
+
+# intentional: the destructive check reads git before the CI and container exemptions; a plain run in the offline dev
+# image (no .git) must pass through without touching git.
+if [ "$destructive" = yes ] && is_worktree; then check_destructive; fi
+
+passes_through && exec "$@"
+is_worktree || exec "$@"
+
+lines="$(db_env)" || die 75 "$NO_DB"
+while IFS= read -r line; do
+    [ -n "$line" ] && export "${line?}"
+done <<EOF
+$lines
+EOF
+exec "$@"

@@ -1,26 +1,92 @@
 #!/usr/bin/env bash
-# Creates a missing .env for `make install` (COR-269/D1, D2). Never overwrites one.
+# Creates a missing .env for `make install` (COR-269/D1, D2). Never overwrites one, except that in a linked worktree it
+# rewrites the DB keys (COR-375/D8): DB_HOST=127.0.0.1, DB_PORT=9 (closed), DB_URL= and SHARED_DB_PORT=<the shared port>,
+# keeping every other line. Raw host `php artisan` then reaches no database; bin/worktree-db supplies the worktree's own.
 set -euo pipefail
 
 ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd -P)"
 ENV_FILE="$ROOT/.env"
+CLOSED_PORT=9
+DEFAULT_SHARED_PORT=54322
+
+# env_value <key>: the last assignment's value, unquoted; empty when blank or absent.
+env_value() {
+    awk -v k="$1" '
+        {
+            line = $0
+            sub(/^[ \t]*export[ \t]+/, "", line)
+            sub(/^[ \t]+/, "", line)
+            if (index(line, k) != 1) next
+            rest = substr(line, length(k) + 1)
+            if (rest !~ /^[ \t]*=/) next
+            sub(/^[ \t]*=/, "", rest)
+            val = rest
+        }
+        END {
+            gsub(/^[ \t]+|[ \t\r]+$/, "", val)
+            if (val ~ /^#/) val = ""
+            gsub(/^["\047]|["\047]$/, "", val)
+            print val
+        }' "$ENV_FILE"
+}
+
+# shared_port: an existing SHARED_DB_PORT, else the DB_PORT the copied .env named, else 54322.
+shared_port() {
+    local port
+    port="$(env_value SHARED_DB_PORT)"
+    [ -n "$port" ] || port="$(env_value DB_PORT)"
+    if [ -z "$port" ] || [ "$port" = "$CLOSED_PORT" ]; then port="$DEFAULT_SHARED_PORT"; fi
+    printf '%s\n' "$port"
+}
+
+# rewrite_db_keys: replaces each DB key's assignments with one line in place, appends a missing key, keeps the rest.
+rewrite_db_keys() {
+    local rewritten
+    rewritten="$(awk -v shared="$(shared_port)" -v closed="$CLOSED_PORT" '
+        BEGIN {
+            n = split("DB_HOST DB_PORT DB_URL SHARED_DB_PORT", keys, " ")
+            want["DB_HOST"] = "127.0.0.1"; want["DB_PORT"] = closed; want["DB_URL"] = ""; want["SHARED_DB_PORT"] = shared
+        }
+        {
+            line = $0
+            sub(/^[ \t]*export[ \t]+/, "", line)
+            sub(/^[ \t]+/, "", line)
+            for (i = 1; i <= n; i++) {
+                k = keys[i]
+                if (index(line, k) == 1 && substr(line, length(k) + 1) ~ /^[ \t]*=/) {
+                    if (!(k in done)) print k "=" want[k]
+                    done[k] = 1
+                    next
+                }
+            }
+            print
+        }
+        END { for (i = 1; i <= n; i++) if (!(keys[i] in done)) print keys[i] "=" want[keys[i]] }
+    ' "$ENV_FILE")"
+    # intentional: write through the existing file, so its permissions and inode survive.
+    printf '%s\n' "$rewritten" >"$ENV_FILE"
+    echo ".env DB keys pointed at no database (DB_PORT=$CLOSED_PORT); this worktree's own comes from make db-up"
+}
+
+is_worktree() { [ "$("$ROOT/bin/worktree-db" --is-worktree)" = 1 ]; }
 
 if [[ -f "$ENV_FILE" ]]; then
     echo ".env already exists; kept"
-    exit 0
-fi
-
-WORKTREES="$(git worktree list --porcelain)"
-MAIN_LINE="${WORKTREES%%$'\n'*}"
-MAIN_CHECKOUT="${MAIN_LINE#worktree }"
-if [[ -d "$MAIN_CHECKOUT" ]]; then
-    MAIN_CHECKOUT="$(cd "$MAIN_CHECKOUT" && pwd -P)"
-fi
-
-if [[ "$MAIN_CHECKOUT" != "$ROOT" && -f "$MAIN_CHECKOUT/.env" ]]; then
-    cp "$MAIN_CHECKOUT/.env" "$ENV_FILE"
-    echo ".env copied from the main checkout ($MAIN_CHECKOUT)"
 else
-    cp "$ROOT/.env.example" "$ENV_FILE"
-    echo ".env created from .env.example"
+    WORKTREES="$(git worktree list --porcelain)"
+    MAIN_LINE="${WORKTREES%%$'\n'*}"
+    MAIN_CHECKOUT="${MAIN_LINE#worktree }"
+    if [[ -d "$MAIN_CHECKOUT" ]]; then
+        MAIN_CHECKOUT="$(cd "$MAIN_CHECKOUT" && pwd -P)"
+    fi
+
+    if [[ "$MAIN_CHECKOUT" != "$ROOT" && -f "$MAIN_CHECKOUT/.env" ]]; then
+        cp "$MAIN_CHECKOUT/.env" "$ENV_FILE"
+        echo ".env copied from the main checkout ($MAIN_CHECKOUT)"
+    else
+        cp "$ROOT/.env.example" "$ENV_FILE"
+        echo ".env created from .env.example"
+    fi
 fi
+
+if is_worktree; then rewrite_db_keys; fi

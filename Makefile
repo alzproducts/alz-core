@@ -1,4 +1,4 @@
-.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-changed test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-changed test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-stop supabase-status supabase-reset supabase-seed-users redis serve db-up stack-down stack-logs pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -22,6 +22,13 @@ endif
 
 # Configuration
 CI ?= false
+ALZ_ADMIN ?=
+DB_RUN := bin/worktree-db
+# intentional: a failed worktree check exits 75 rather than falling through to the main checkout's shared-Supabase branch.
+IN_WORKTREE = { in_worktree="$$($(DB_RUN) --is-worktree)" || exit 75; [ "$$in_worktree" = 1 ]; }
+REFUSE_IN_WORKTREE = if $(IN_WORKTREE); then echo "make $@ acts on the shared Supabase; run it in the main checkout (this worktree's database: make db-up)" >&2; exit 75; fi
+# intentional: a recipe-line check, not $(error), so a worktree's REFUSE_IN_WORKTREE runs first.
+REQUIRE_ALZ_ADMIN = [ -n "$(ALZ_ADMIN)" ] || { echo "ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin" >&2; exit 1; }
 GIT_HOOKS_TEST := tests/Unit/Static/GitHooksInstalledTest.php
 # intentional: the empty-suite flag is added only when TEST_ARGS is set (the offline dev image's `--exclude-group=repo-static`), so a missing guard file still fails a plain `make lint`.
 GIT_HOOKS_ARGS := $(TEST_ARGS)$(if $(TEST_ARGS), --do-not-fail-on-empty-test-suite)
@@ -63,10 +70,8 @@ help: ## Show this help message
 
 # Installation & Setup
 # intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
-install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key, Supabase, Redis, migrate)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
+install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key; main checkout: Supabase, Redis, migrate)
+	@$(IN_WORKTREE) || $(REQUIRE_ALZ_ADMIN)
 	@bin/install-env
 	composer install
 	@bin/install-git-hooks
@@ -75,10 +80,12 @@ endif
 	else \
 		php artisan key:generate; \
 	fi
-	@$(MAKE) supabase-start
-	@$(MAKE) redis
-	php artisan migrate
-	@echo "$(GREEN)Setup complete. Next: make test$(NC)"
+	@if $(IN_WORKTREE); then \
+		echo "$(GREEN)Setup complete. Next: make db-up (this worktree's Postgres), then make test$(NC)"; \
+	else \
+		$(MAKE) supabase-start && $(MAKE) redis && php artisan migrate && \
+		echo "$(GREEN)Setup complete. Next: make test$(NC)"; \
+	fi
 
 # Code Quality Commands
 pint: ## Auto-fix code style with Pint
@@ -196,19 +203,19 @@ refactor: ## Run Rector + Pint combo
 # Testing (layer-based, see tests/TestingStrategy.md)
 test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack, real-Redis and Docker tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker --no-coverage $(TEST_ARGS)
+	$(DB_RUN) $(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker --no-coverage $(TEST_ARGS)
 
 test-changed: ## Run only the tests changed since the merge-base with origin/HEAD, as the pre-push hook does (CI runs the full suite)
 	@echo "$(MODE)"
 	@config="$$(mktemp phpunit-changed.XXXXXX)" && trap 'rm -f "$$config"' EXIT && \
 		bin/changed-tests --phpunit-config "$$config" && \
 		if [ -s "$$config" ]; then \
-			$(EXEC) vendor/bin/pest --configuration="$$config" --parallel --processes=4 --no-coverage --do-not-fail-on-empty-test-suite --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker $(TEST_ARGS); \
+			$(DB_RUN) $(EXEC) vendor/bin/pest --configuration="$$config" --parallel --processes=4 --no-coverage --do-not-fail-on-empty-test-suite --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker $(TEST_ARGS); \
 		fi
 
 test-redis: ## Run the tests that need a live Redis (start it with make redis)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
+	$(DB_RUN) $(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
 
 test-docker: ## Run the tests that need a Docker daemon (verify's bench helpers against throwaway containers)
 	@echo "$(MODE)"
@@ -216,15 +223,15 @@ test-docker: ## Run the tests that need a Docker daemon (verify's bench helpers 
 
 test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack and QuickBooks sandbox tests)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack --exclude-group=quickbooks-sandbox
+	$(DB_RUN) $(EXEC) vendor/bin/pest --parallel --group=integration --exclude-group=slack --exclude-group=quickbooks-sandbox
 
 test-quickbooks-sandbox: ## Run the QuickBooks sandbox tests against the realm in .env (connect first with php artisan quickbooks:connect)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --configuration=phpunit-quickbooks-sandbox.xml --group=quickbooks-sandbox --no-coverage $(TEST_ARGS)
+	$(DB_RUN) $(EXEC) vendor/bin/pest --configuration=phpunit-quickbooks-sandbox.xml --group=quickbooks-sandbox --no-coverage $(TEST_ARGS)
 
 test-seed-command: ## Run the dev:seed-fake command tests (serial; needs local Supabase DB, writes inside a rolled-back transaction)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --group=seed-command --no-coverage
+	$(DB_RUN) $(EXEC) vendor/bin/pest --group=seed-command --no-coverage
 
 test-quick: ## Run Domain tests only (fast, no external deps)
 	@echo "$(MODE)"
@@ -240,11 +247,11 @@ test-domain-coverage: ## Run Domain tests with 90% coverage (Domain code only)
 
 test-app: ## Run Application layer tests (70%+ coverage target)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --testsuite=Application --parallel
+	$(DB_RUN) $(EXEC) vendor/bin/pest --testsuite=Application --parallel
 
 test-app-coverage: ## Run Application tests with 70% coverage (App code only)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
+	$(DB_RUN) $(EXEC) -d xdebug.mode=coverage vendor/bin/pest --configuration=phpunit-app.xml --coverage --min=70
 
 test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parallel - PR gate
 	@echo "$(YELLOW)Running layer coverage checks in parallel...$(NC)"
@@ -253,17 +260,17 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-clover=coverage.xml
+	$(DB_RUN) $(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-html=coverage-report
+	$(DB_RUN) $(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox --exclude-group=list-parity --exclude-group=docker
+	$(DB_RUN) $(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox --exclude-group=list-parity --exclude-group=docker
 
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
 
@@ -277,7 +284,7 @@ mutate-domain: ## Run Pest mutation testing on Domain layer (90%+ min score)
 
 mutate-app: ## Run Pest mutation testing on Application layer (70%+ min score)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
+	$(DB_RUN) $(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate \
 		--path=app/Application \
 		--covered-only --min=70 --parallel --processes=9 \
 		--testsuite=Application --ignore-min-score-on-zero-mutations
@@ -296,7 +303,7 @@ test-mutate: ## Run full mutation testing suite
 # Database
 migrate: ## Run database migrations
 	@echo "$(MODE)"
-	$(EXEC) artisan migrate
+	$(DB_RUN) $(EXEC) artisan migrate
 
 # =============================================================================
 # Database Reset (Coordinated)
@@ -311,18 +318,25 @@ migrate: ## Run database migrations
 # Use this target instead for safe, coordinated resets.
 
 # intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
+# intentional: a worktree recreates only its own compose Postgres, never db:wipe, which leaves the shopwired schemas (database/AGENTS.md).
 db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
 	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic seed.$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Preflight: checking the seed guard and generating the seed (no writes)...$(NC)"
-	@$(EXEC) artisan dev:seed-fake --dry-run
-	@echo ""
-	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
-	@$(MAKE) supabase-reset
-	@echo ""
-	@echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)"
-	@$(EXEC) artisan dev:seed-fake
+	@if $(IN_WORKTREE); then \
+		$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake --dry-run && echo "" && \
+		echo "$(YELLOW)Step 1/2: Recreating this worktree's Postgres empty (auth tables re-applied)...$(NC)" && \
+		bin/stack db-reset && echo "" && \
+		echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)" && \
+		$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake; \
+	else \
+		$(EXEC) artisan dev:seed-fake --dry-run && echo "" && \
+		echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)" && \
+		$(MAKE) supabase-reset && echo "" && \
+		echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)" && \
+		$(EXEC) artisan dev:seed-fake; \
+	fi
 	@echo ""
 	@echo "$(GREEN)Full database reset complete.$(NC)"
 	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
@@ -331,7 +345,7 @@ db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synt
 	@echo "$(GREEN)- Synthetic seed: applied (no sync jobs, no external calls)$(NC)"
 
 seed-fake: ## Seed the synthetic, production-shaped data (add ARGS=--fresh to replace an existing seed)
-	@$(EXEC) artisan dev:seed-fake $(ARGS)
+	@$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake $(ARGS)
 
 # =============================================================================
 # Supabase (Local Development)
@@ -340,9 +354,8 @@ seed-fake: ## Seed the synthetic, production-shaped data (add ARGS=--fresh to re
 # Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin
 
 supabase-start: ## Start Supabase services; a stopped stack is started then reset from empty (make db-reset-full)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
+	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 ifneq ($(CI),true)
 	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
 		echo "Supabase already running"; \
@@ -353,6 +366,7 @@ ifneq ($(CI),true)
 endif
 
 supabase-stop: ## Stop Supabase services
+	@$(REFUSE_IN_WORKTREE)
 ifdef ALZ_ADMIN
 	cd $(ALZ_ADMIN) && pnpm exec supabase stop
 endif
@@ -363,17 +377,15 @@ ifdef ALZ_ADMIN
 endif
 
 supabase-reset: ## Reset Supabase DB, regenerate types, seed test users
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
+	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
 	cd $(ALZ_ADMIN) && ALZ_CORE_PATH="$(CURDIR)" pnpm db:setup-local
 	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
 
 supabase-seed-users: ## Seed test users only (no DB reset)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
+	@$(REFUSE_IN_WORKTREE)
+	@$(REQUIRE_ALZ_ADMIN)
 	@echo "$(YELLOW)Seeding test users...$(NC)"
 	cd $(ALZ_ADMIN) && pnpm tsx scripts/seed-test-users.ts
 	@echo "$(GREEN)Test users seeded.$(NC)"
@@ -389,6 +401,9 @@ redis-recreate: ## Recreate Redis container (fixes dropped host-port bindings)
 serve: ## Bring this worktree's stack up (app, Horizon worker, Redis, own Postgres) and print its port
 	bin/stack up
 
+db-up: ## Start only this worktree's Postgres and migrate it (host Pest, migrate, seed)
+	bin/stack db-up
+
 stack-down: ## Take this worktree's stack down (containers, volumes, network, images)
 	bin/stack down
 
@@ -402,9 +417,9 @@ pail: ## Tail logs (respects LOG_LEVEL from .env, defaults to info)
 # IDE Helper
 ide-helper: ## Generate IDE helper files
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off artisan ide-helper:generate
-	$(EXEC) -d xdebug.mode=off artisan ide-helper:models --nowrite
-	$(EXEC) -d xdebug.mode=off artisan ide-helper:meta
+	$(DB_RUN) $(EXEC) -d xdebug.mode=off artisan ide-helper:generate
+	$(DB_RUN) $(EXEC) -d xdebug.mode=off artisan ide-helper:models --nowrite
+	$(DB_RUN) $(EXEC) -d xdebug.mode=off artisan ide-helper:meta
 
 # Composite Commands
 check: ## Run all quality checks + tests

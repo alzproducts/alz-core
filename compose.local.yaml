@@ -59,6 +59,9 @@ services:
             - own-postgres
         environment:
             POSTGRES_PASSWORD: '${STACK_DB_PASSWORD:?}'
+        # An ephemeral loopback port for host DB routes (bin/stack db-env); the app reaches pgsql on the network.
+        ports:
+            - '127.0.0.1::5432'
         volumes:
             - '${STACK_WORKTREE:?}/database/baseline/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro'
         # intentional: overrides the image's ~20 s healthcheck, which marks a slow first boot unhealthy.
