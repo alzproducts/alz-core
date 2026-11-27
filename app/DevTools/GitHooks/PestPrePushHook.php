@@ -21,7 +21,7 @@ final class PestPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 180;
+        return HookTimeouts::PEST_SECONDS;
     }
 
     protected function getSuccessMessage(): string

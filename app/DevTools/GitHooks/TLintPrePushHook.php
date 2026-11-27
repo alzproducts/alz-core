@@ -23,7 +23,7 @@ final class TLintPrePushHook extends AbstractProcessHook
 
     protected function getTimeout(): int
     {
-        return 90; // 90 seconds: `make tlint` took over 30s on a loaded machine
+        return HookTimeouts::TLINT_SECONDS;
     }
 
     protected function getSuccessMessage(): string
