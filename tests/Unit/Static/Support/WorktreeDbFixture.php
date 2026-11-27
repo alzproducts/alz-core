@@ -10,6 +10,7 @@ use Symfony\Component\Process\Process;
  * A main checkout and a linked worktree holding the real Makefile, bin/worktree-db and bin/stack, run under `env -i` with a
  * stub-only PATH: `docker` answers for the worktree's Postgres while it is up, and `php` logs the connection Laravel would
  * build (a process-env key, even blank, over the checkout's .env). Every .env names the main database, 127.0.0.1:54322.
+ * `composer`, `pnpm` and `psql` log to tool-calls; bin/install-git-hooks is the real one, writing the fixture's own hooks.
  */
 final readonly class WorktreeDbFixture
 {
@@ -21,7 +22,7 @@ final readonly class WorktreeDbFixture
 
     public const string OWN_CONNECTION = 'host=127.0.0.1 port=' . self::PORT . ' user=postgres password=' . self::PASSWORD . ' url=';
 
-    private const string ENV = "APP_ENV=local\nDB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=54322\nDB_DATABASE=postgres\nDB_USERNAME=postgres\nDB_PASSWORD=postgres\nDB_URL=\n";
+    public const string ENV = "APP_ENV=local\nDB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=54322\nDB_DATABASE=postgres\nDB_USERNAME=postgres\nDB_PASSWORD=postgres\nDB_URL=\n";
 
     private const string DOCKER = <<<'SH'
         #!/bin/sh
@@ -87,7 +88,7 @@ final readonly class WorktreeDbFixture
 
         $repo = \dirname(__DIR__, 4);
 
-        foreach (['Makefile', 'bin/worktree-db', 'bin/stack', 'bin/install-env'] as $file) {
+        foreach (['Makefile', 'bin/worktree-db', 'bin/stack', 'bin/install-env', 'bin/install-git-hooks'] as $file) {
             \copy("{$repo}/{$file}", "{$this->main}/{$file}");
             \chmod("{$this->main}/{$file}", (int) \fileperms("{$repo}/{$file}") & 0o777);
         }

@@ -24,6 +24,9 @@ endif
 CI ?= false
 # Every recipe that opens the database runs through it: a worktree gets its own Postgres or a refusal (bin/worktree-db).
 DB_RUN := bin/worktree-db
+IN_WORKTREE = [ "$$($(DB_RUN) --is-worktree)" = 1 ]
+# A worktree runs none of the shared Supabase's targets: they act on alz-admin's main stack (COR-375/D10).
+REFUSE_IN_WORKTREE = if $(IN_WORKTREE); then echo "make $@ acts on the shared Supabase; run it in the main checkout (this worktree's database: make db-up)" >&2; exit 75; fi
 GIT_HOOKS_TEST := tests/Unit/Static/GitHooksInstalledTest.php
 # intentional: the empty-suite flag is added only when TEST_ARGS is set (the offline dev image's `--exclude-group=repo-static`), so a missing guard file still fails a plain `make lint`.
 GIT_HOOKS_ARGS := $(TEST_ARGS)$(if $(TEST_ARGS), --do-not-fail-on-empty-test-suite)
@@ -65,10 +68,11 @@ help: ## Show this help message
 
 # Installation & Setup
 # intentional: plain composer/php, never $(COMPOSER)/$(EXEC), so install stays native whatever the execution mode (COR-269).
-install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key, Supabase, Redis, migrate)
-ifndef ALZ_ADMIN
-	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
-endif
+# A worktree install stops after the key: its database is its own (make db-up), never the shared Supabase (COR-375/D11).
+install: ## Set up a fresh clone or git worktree natively (.env, deps, git hooks, key; main checkout: Supabase, Redis, migrate)
+	@if ! $(IN_WORKTREE) && [ -z "$(ALZ_ADMIN)" ]; then \
+		echo "ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin" >&2; exit 1; \
+	fi
 	@bin/install-env
 	composer install
 	@bin/install-git-hooks
@@ -77,10 +81,12 @@ endif
 	else \
 		php artisan key:generate; \
 	fi
-	@$(MAKE) supabase-start
-	@$(MAKE) redis
-	php artisan migrate
-	@echo "$(GREEN)Setup complete. Next: make test$(NC)"
+	@if $(IN_WORKTREE); then \
+		echo "$(GREEN)Setup complete. Next: make db-up (this worktree's Postgres), then make test$(NC)"; \
+	else \
+		$(MAKE) supabase-start && $(MAKE) redis && php artisan migrate && \
+		echo "$(GREEN)Setup complete. Next: make test$(NC)"; \
+	fi
 
 # Code Quality Commands
 pint: ## Auto-fix code style with Pint
@@ -313,18 +319,25 @@ migrate: ## Run database migrations
 # Use this target instead for safe, coordinated resets.
 
 # intentional: never calls supabase-start, which calls this target on a stopped stack (COR-253 Pitfall 2).
+# intentional: a worktree recreates only its own compose Postgres, never db:wipe, which leaves the shopwired schemas (COR-375/D7).
 db-reset-full: ## Full database reset (Supabase auth + Laravel migrations + synthetic seed); supabase-start also runs it on a stopped stack
 	@echo "$(YELLOW)=== FULL DATABASE RESET ===$(NC)"
 	@echo "$(YELLOW)This resets Supabase auth tables AND re-runs Laravel migrations + the synthetic seed.$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Preflight: checking the seed guard and generating the seed (no writes)...$(NC)"
-	@$(EXEC) artisan dev:seed-fake --dry-run
-	@echo ""
-	@echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)"
-	@$(MAKE) supabase-reset
-	@echo ""
-	@echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)"
-	@$(EXEC) artisan dev:seed-fake
+	@if $(IN_WORKTREE); then \
+		$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake --dry-run && echo "" && \
+		echo "$(YELLOW)Step 1/2: Recreating this worktree's Postgres empty (auth tables re-applied)...$(NC)" && \
+		bin/stack db-reset && echo "" && \
+		echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)" && \
+		$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake; \
+	else \
+		$(EXEC) artisan dev:seed-fake --dry-run && echo "" && \
+		echo "$(YELLOW)Step 1/2: Resetting Supabase (auth tables, test users)...$(NC)" && \
+		$(MAKE) supabase-reset && echo "" && \
+		echo "$(YELLOW)Step 2/2: Migrating + running the synthetic seed...$(NC)" && \
+		$(EXEC) artisan dev:seed-fake; \
+	fi
 	@echo ""
 	@echo "$(GREEN)Full database reset complete.$(NC)"
 	@echo "$(GREEN)- Supabase auth tables: reset$(NC)"
@@ -345,6 +358,7 @@ supabase-start: ## Start Supabase services; a stopped stack is started then rese
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
+	@$(REFUSE_IN_WORKTREE)
 ifneq ($(CI),true)
 	@if (cd $(ALZ_ADMIN) && pnpm exec supabase status >/dev/null 2>&1); then \
 		echo "Supabase already running"; \
@@ -361,6 +375,7 @@ endif
 	cd $(ALZ_ADMIN) && pnpm exec supabase functions serve --no-verify-jwt
 
 supabase-stop: ## Stop Supabase services
+	@$(REFUSE_IN_WORKTREE)
 ifdef ALZ_ADMIN
 	cd $(ALZ_ADMIN) && pnpm exec supabase stop
 endif
@@ -374,6 +389,7 @@ supabase-reset: ## Reset Supabase DB, regenerate types, seed test users
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
+	@$(REFUSE_IN_WORKTREE)
 	@echo "$(YELLOW)Running full Supabase reset...$(NC)"
 	cd $(ALZ_ADMIN) && ALZ_CORE_PATH="$(CURDIR)" pnpm db:setup-local
 	@echo "$(GREEN)Supabase reset complete. Database ready with test users.$(NC)"
@@ -382,6 +398,7 @@ supabase-seed-users: ## Seed test users only (no DB reset)
 ifndef ALZ_ADMIN
 	$(error ALZ_ADMIN not set. Add to ~/.zshrc: export ALZ_ADMIN=/path/to/alz-admin)
 endif
+	@$(REFUSE_IN_WORKTREE)
 	@echo "$(YELLOW)Seeding test users...$(NC)"
 	cd $(ALZ_ADMIN) && pnpm tsx scripts/seed-test-users.ts
 	@echo "$(GREEN)Test users seeded.$(NC)"

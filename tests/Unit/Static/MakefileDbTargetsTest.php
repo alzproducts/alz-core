@@ -36,7 +36,7 @@ final class MakefileDbTargetsTest extends TestCase
         'mutate-domain', 'test-docker', 'pail',
     ];
 
-    /** Targets that branch on bin/worktree-db --is-worktree instead (S3). */
+    /** Targets that branch on bin/worktree-db --is-worktree instead. */
     private const array BRANCHING_TARGETS = ['install', 'db-reset-full'];
 
     private WorktreeDbFixture $fixture;
@@ -76,7 +76,147 @@ final class MakefileDbTargetsTest extends TestCase
         }
 
         $this->assertStringContainsString('$(DB_RUN) --destructive $(EXEC) artisan dev:seed-fake', $recipes['seed-fake']);
-        $this->assertSame(['seed-fake'], \array_keys(\array_filter($recipes, static fn(string $recipe): bool => \str_contains($recipe, '$(DB_RUN) --destructive'))));
+        $this->assertSame(['db-reset-full', 'seed-fake'], \array_keys(\array_filter($recipes, static fn(string $recipe): bool => \str_contains($recipe, '$(DB_RUN) --destructive'))));
+
+        foreach (self::BRANCHING_TARGETS as $target) {
+            $this->assertStringContainsString('$(IN_WORKTREE)', $recipes[$target], $target);
+        }
+    }
+
+    #[Test]
+    public function a_fresh_worktree_install_touches_no_database_and_closes_the_env_db_keys(): void
+    {
+        \unlink("{$this->fixture->worktree}/.env");
+
+        $make = $this->fixture->make($this->fixture->worktree, [], 'install');
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertSame(['composer install'], $this->fixture->calls('tool-calls'), 'no pnpm (Supabase) or psql call');
+        $this->assertSame(['artisan key:generate'], $this->phpCommands(), 'no migrate');
+        $this->assertSame([], $this->composeCalls(), 'no Redis or stack start');
+        $this->assertSame(
+            "APP_ENV=local\nDB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=9\nDB_DATABASE=postgres\nDB_USERNAME=postgres\nDB_PASSWORD=postgres\nDB_URL=\nSHARED_DB_PORT=54322\n",
+            \file_get_contents("{$this->fixture->worktree}/.env"),
+        );
+        $this->assertSame(WorktreeDbFixture::ENV, \file_get_contents("{$this->fixture->main}/.env"), 'the main checkout .env is untouched');
+    }
+
+    #[Test]
+    public function a_worktree_install_rewrites_only_the_db_keys_of_an_existing_env(): void
+    {
+        $env = "APP_KEY=base64:kept\nexport DB_HOST=db.local\nDB_PORT=6000\nFOO=bar\nDB_URL=postgres://u:p@db.local:6000/x\nDB_PORT=6001\n# DB_PORT=1 comment\n";
+        \file_put_contents("{$this->fixture->worktree}/.env", $env);
+
+        foreach ([1, 2] as $run) {
+            $make = $this->fixture->make($this->fixture->worktree, [], 'install');
+
+            $this->assertSame(0, $make->getExitCode(), "install run {$run}: " . $make->getErrorOutput());
+            $this->assertSame(
+                "APP_KEY=base64:kept\nDB_HOST=127.0.0.1\nDB_PORT=9\nFOO=bar\nDB_URL=\n# DB_PORT=1 comment\nSHARED_DB_PORT=6001\n",
+                \file_get_contents("{$this->fixture->worktree}/.env"),
+                "install run {$run} keeps the shared port and every other line",
+            );
+        }
+
+        $this->assertSame([], $this->phpCommands(), 'APP_KEY kept, no migrate');
+        $this->assertSame([], $this->composeCalls());
+    }
+
+    #[Test]
+    public function a_main_checkout_install_still_starts_supabase_redis_and_migrates(): void
+    {
+        $this->fixture->dbUp();
+
+        $make = $this->fixture->make($this->fixture->main, [], 'install');
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertSame(WorktreeDbFixture::ENV, \file_get_contents("{$this->fixture->main}/.env"));
+        $this->assertContains('pnpm exec supabase status', $this->fixture->calls('tool-calls'));
+        $this->assertContains('compose up -d redis', $this->fixture->calls('docker-calls'));
+        $this->assertSame(['artisan key:generate | ' . WorktreeDbFixture::MAIN_CONNECTION, 'artisan migrate | ' . WorktreeDbFixture::MAIN_CONNECTION], $this->fixture->calls('php-calls'));
+    }
+
+    #[Test]
+    public function a_main_checkout_install_without_alz_admin_refuses_before_any_step(): void
+    {
+        $make = $this->fixture->run($this->fixture->main, [], 'make', '--no-print-directory', 'install', "EXEC={$this->fixture->stubs}/php");
+
+        $this->assertNotSame(0, $make->getExitCode());
+        $this->assertStringContainsString('ALZ_ADMIN not set', $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('tool-calls'));
+    }
+
+    #[Test]
+    public function a_worktree_db_reset_full_recreates_its_own_postgres_and_seeds_it(): void
+    {
+        $this->fixture->dbUp();
+
+        $make = $this->fixture->make($this->fixture->worktree, [], 'db-reset-full');
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no supabase-reset (pnpm db:setup-local)');
+        $this->assertSame(
+            ['artisan dev:seed-fake --dry-run | ' . WorktreeDbFixture::OWN_CONNECTION, 'artisan dev:seed-fake | ' . WorktreeDbFixture::OWN_CONNECTION],
+            $this->fixture->calls('php-calls'),
+        );
+        $this->assertNotSame([], \preg_grep('/ up .*--force-recreate.* pgsql auth-migrate/', $this->fixture->calls('docker-calls')), 'bin/stack db-reset recreated pgsql');
+        $this->assertStringContainsString('db-reset ok', $make->getOutput());
+    }
+
+    #[Test]
+    public function a_worktree_db_reset_full_without_its_postgres_refuses_before_resetting(): void
+    {
+        $make = $this->fixture->make($this->fixture->worktree, [], 'db-reset-full');
+
+        $this->assertNotSame(0, $make->getExitCode());
+        $this->assertStringContainsString('refusing a destructive run: no database for this worktree: run make db-up', $make->getErrorOutput());
+        $this->assertSame([], $this->fixture->calls('php-calls'));
+        $this->assertSame([], $this->fixture->calls('tool-calls'));
+        $this->assertSame([], \preg_grep('/ up /', $this->composeCalls()));
+    }
+
+    #[Test]
+    public function a_main_checkout_db_reset_full_still_resets_supabase(): void
+    {
+        $make = $this->fixture->make($this->fixture->main, [], 'db-reset-full');
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertSame(['pnpm db:setup-local'], $this->fixture->calls('tool-calls'));
+        $this->assertSame(['artisan dev:seed-fake --dry-run', 'artisan dev:seed-fake'], $this->phpCommands());
+        $this->assertSame([WorktreeDbFixture::MAIN_CONNECTION, WorktreeDbFixture::MAIN_CONNECTION], $this->fixture->connections());
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function supabaseTargets(): iterable
+    {
+        foreach (['supabase-start', 'supabase-reset', 'supabase-seed-users', 'supabase-stop'] as $target) {
+            yield $target => [$target];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('supabaseTargets')]
+    public function a_worktree_supabase_target_refuses_with_75(string $target): void
+    {
+        $make = $this->fixture->make($this->fixture->worktree, [], $target);
+
+        $this->assertNotSame(0, $make->getExitCode());
+        $this->assertStringContainsString("make {$target} acts on the shared Supabase; run it in the main checkout", $make->getErrorOutput());
+        $this->assertStringContainsString("[{$target}] Error 75", $make->getErrorOutput(), 'the refusing recipe line exits 75');
+        $this->assertSame([], $this->fixture->calls('tool-calls'), 'no pnpm call');
+        $this->assertSame([], $this->fixture->calls('php-calls'));
+    }
+
+    #[Test]
+    #[DataProvider('supabaseTargets')]
+    public function a_main_checkout_supabase_target_still_runs(string $target): void
+    {
+        $make = $this->fixture->make($this->fixture->main, [], $target);
+
+        $this->assertSame(0, $make->getExitCode(), $make->getOutput() . $make->getErrorOutput());
+        $this->assertNotSame([], \preg_grep('/^pnpm /', $this->fixture->calls('tool-calls')));
     }
 
     /**
@@ -177,6 +317,22 @@ final class MakefileDbTargetsTest extends TestCase
         );
 
         return \array_values(\array_map(static fn(string $call): string => \explode(' | ', $call, 2)[1] ?? '', $calls));
+    }
+
+    /**
+     * @return list<string> the docker compose calls; the Makefile's mode check runs `docker info` on every make
+     */
+    private function composeCalls(): array
+    {
+        return \array_values(\preg_grep('/^compose /', $this->fixture->calls('docker-calls')) ?: []);
+    }
+
+    /**
+     * @return list<string> each php call's command, without its connection
+     */
+    private function phpCommands(): array
+    {
+        return \array_map(static fn(string $call): string => \explode(' | ', $call, 2)[0], $this->fixture->calls('php-calls'));
     }
 
     /**
