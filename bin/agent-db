@@ -29,9 +29,18 @@ EOF
 
 [ "$#" -eq 2 ] || usage
 case "$1" in
-    -c) ;;
-    -f) [ -r "$2" ] || die 66 "cannot read SQL file: $2" ;;
+    -c) SQL="$2" ;;
+    -f)
+        [ -r "$2" ] || die 66 "cannot read SQL file: $2"
+        SQL="$(cat "$2")"
+        ;;
     *) usage ;;
+esac
+
+# intentional: psql sends a -c string to the server untouched unless it starts with a backslash, which would make it a
+# meta-command (\! runs a shell that inherits PGPASSWORD); a file is passed through -c for the same reason.
+case "${SQL#"${SQL%%[![:space:]]*}"}" in
+    \\*) die 64 'psql meta-commands are refused: send SQL only' ;;
 esac
 
 PSQL="$(command -v psql || true)"
@@ -58,4 +67,4 @@ PASSWORD="$(security find-generic-password -s "$ITEM" -w 2>/dev/null)" ||
 CONNINFO="host=$DB_HOST port=5432 dbname=postgres user=$DB_USER sslmode=verify-full sslrootcert=$ROOT_CERT connect_timeout=10 application_name=agent-db"
 
 # intentional: the password reaches psql only through its environment, never its arguments or this script's output.
-PGPASSWORD="$PASSWORD" exec "$PSQL" -X -v ON_ERROR_STOP=1 "$CONNINFO" "$1" "$2"
+PGPASSWORD="$PASSWORD" exec "$PSQL" -X -v ON_ERROR_STOP=1 "$CONNINFO" -c "$SQL"

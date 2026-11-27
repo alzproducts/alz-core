@@ -10,6 +10,7 @@ use App\Infrastructure\Database\AgentRead\AgentReadGrantSync;
 use App\Infrastructure\Database\AgentRead\Listeners\SyncAgentReadGrantsListener;
 use Illuminate\Database\Connection;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\WithConsoleEvents;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -24,6 +25,7 @@ use Tests\TestCase;
 final class AgentReadPrivilegesTest extends TestCase
 {
     use DatabaseTransactions;
+    use WithConsoleEvents;
 
     /** @var list<string> */
     protected array $connectionsToTransact = ['pgsql'];
@@ -130,6 +132,21 @@ final class AgentReadPrivilegesTest extends TestCase
         Artisan::call('migrate', ['--database' => 'pgsql', '--force' => true]);
 
         self::assertStringContainsString('Nothing to migrate', Artisan::output());
+        self::assertSame([], $this->privilegeViolations());
+    }
+
+    #[Test]
+    public function a_pretend_migrate_with_nothing_pending_changes_no_grants(): void
+    {
+        $role = self::ROLE;
+        $this->db()->statement("GRANT SELECT (email) ON shopwired.customers TO {$role}");
+
+        Artisan::call('migrate', ['--database' => 'pgsql', '--pretend' => true, '--force' => true]);
+
+        self::assertContains('readable but not allowlisted: shopwired.customers.email', $this->privilegeViolations());
+
+        Artisan::call('migrate', ['--database' => 'pgsql', '--force' => true]);
+
         self::assertSame([], $this->privilegeViolations());
     }
 

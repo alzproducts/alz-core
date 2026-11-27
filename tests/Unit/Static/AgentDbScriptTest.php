@@ -6,6 +6,7 @@ namespace Tests\Unit\Static;
 
 use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Process\Process;
@@ -115,6 +116,44 @@ final class AgentDbScriptTest extends TestCase
         $this->assertSame(64, $run->getExitCode());
         $this->assertStringContainsString('Usage: bin/agent-db', $run->getErrorOutput());
         $this->assertFileDoesNotExist("{$this->root}/security-calls");
+    }
+
+    #[Test]
+    #[DataProvider('metaCommands')]
+    public function a_psql_meta_command_is_refused_without_reading_the_keychain(string $flag, string $sql): void
+    {
+        \file_put_contents("{$this->root}/query.sql", $sql);
+
+        $run = $this->agentDb($flag, $flag === '-f' ? "{$this->root}/query.sql" : $sql);
+
+        $this->assertSame(64, $run->getExitCode());
+        $this->assertStringContainsString('psql meta-commands are refused', $run->getErrorOutput());
+        $this->assertFileDoesNotExist("{$this->root}/security-calls");
+        $this->assertFileDoesNotExist("{$this->root}/psql-args");
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function metaCommands(): array
+    {
+        return [
+            'shell escape' => ['-c', '\! printenv PGPASSWORD'],
+            'after whitespace' => ['-c', "  \n\\copy (SELECT 1) TO PROGRAM 'sh'"],
+            'file' => ['-f', "\\! printenv PGPASSWORD\nSELECT 1;\n"],
+        ];
+    }
+
+    #[Test]
+    public function a_sql_file_reaches_psql_as_one_query_string(): void
+    {
+        \file_put_contents("{$this->root}/query.sql", "SELECT 1 AS answer;\n\\! printenv PGPASSWORD\n");
+
+        $run = $this->agentDb('-f', "{$this->root}/query.sql");
+
+        $this->assertSame(0, $run->getExitCode(), $run->getErrorOutput());
+        $this->assertStringContainsString("-c\nSELECT 1 AS answer;\n\\! printenv PGPASSWORD\n", (string) \file_get_contents("{$this->root}/psql-args"));
+        $this->assertStringNotContainsString("-f\n", (string) \file_get_contents("{$this->root}/psql-args"));
     }
 
     private function agentDb(string ...$args): Process

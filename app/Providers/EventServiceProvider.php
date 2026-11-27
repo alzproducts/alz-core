@@ -21,6 +21,7 @@ use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Log\Logger;
@@ -69,7 +70,7 @@ final class EventServiceProvider extends ServiceProvider
 
     private function registerMigrationListeners(): void
     {
-        Event::listen([MigrationsEnded::class, NoPendingMigrations::class], SyncAgentReadGrantsListener::class);
+        Event::listen([CommandStarting::class, MigrationsEnded::class, NoPendingMigrations::class], SyncAgentReadGrantsListener::class);
     }
 
     private function registerLogFlushListeners(): void

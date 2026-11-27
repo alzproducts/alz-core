@@ -8,8 +8,7 @@
             "Bash(php artisan migrate:*)",
             "Bash(php artisan shopwired:audit-*)",
             "Bash(make supabase-start)",
-            "Bash(bin/agent-db *)",
-            "Bash(*/bin/agent-db *)"
+            "Bash(bin/agent-db *)"
         ],
         "deny": [
             "Bash(railway *)",
