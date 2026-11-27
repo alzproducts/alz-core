@@ -23,6 +23,7 @@ enum SyncReasonCode: string
     case OutcomeUnknown = 'outcome_unknown';
     case InProgress = 'in_progress';
     case DeadlineExceeded = 'deadline_exceeded';
+    case BeforeFloorDate = 'before_floor_date';
 
     public function outcome(): SyncOutcome
     {
@@ -30,7 +31,8 @@ enum SyncReasonCode: string
             self::Cancelled, self::OrderNotFound, self::PreviouslyFailed => SyncOutcome::Skipped,
             self::InProgress, self::DeadlineExceeded => SyncOutcome::NotAttempted,
             self::MappingMissing, self::ItemMissing, self::ZeroLines, self::TaxRateUnsupported,
-            self::ClosedPeriod, self::QboValidation, self::QboUnavailable, self::OutcomeUnknown => SyncOutcome::Failed,
+            self::ClosedPeriod, self::QboValidation, self::QboUnavailable, self::OutcomeUnknown,
+            self::BeforeFloorDate => SyncOutcome::Failed,
         };
     }
 
@@ -40,7 +42,7 @@ enum SyncReasonCode: string
             self::PreviouslyFailed, self::ItemMissing, self::QboUnavailable, self::OutcomeUnknown,
             self::InProgress, self::DeadlineExceeded => true,
             self::Cancelled, self::OrderNotFound, self::MappingMissing, self::ZeroLines,
-            self::TaxRateUnsupported, self::ClosedPeriod, self::QboValidation => false,
+            self::TaxRateUnsupported, self::ClosedPeriod, self::QboValidation, self::BeforeFloorDate => false,
         };
     }
 
@@ -60,6 +62,7 @@ enum SyncReasonCode: string
             self::OutcomeUnknown => 'The post may have reached QuickBooks but no result came back.',
             self::InProgress => 'Another sync is already working on this order.',
             self::DeadlineExceeded => 'The request ran out of time before this order was posted.',
+            self::BeforeFloorDate => 'The order was placed before the QuickBooks backfill floor date.',
         };
     }
 }

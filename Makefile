@@ -1,4 +1,4 @@
-.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -194,13 +194,17 @@ refactor: ## Run Rector + Pint combo
 	@$(MAKE) fix
 
 # Testing (layer-based, see tests/TestingStrategy.md)
-test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack and real-Redis tests; matches CI)
+test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack, real-Redis and Docker tests; matches CI)
 	@echo "$(MODE)"
-	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --no-coverage $(TEST_ARGS)
+	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker --no-coverage $(TEST_ARGS)
 
 test-redis: ## Run the tests that need a live Redis (start it with make redis)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --group=redis --no-coverage $(TEST_ARGS)
+
+test-docker: ## Run the tests that need a Docker daemon (verify's bench helpers against throwaway containers)
+	@echo "$(MODE)"
+	$(EXEC) vendor/bin/pest --group=docker --no-coverage $(TEST_ARGS)
 
 test-integration: ## Run integration tests only (needs local Supabase DB seeded by make db-reset-full; excludes real-Slack and QuickBooks sandbox tests)
 	@echo "$(MODE)"
@@ -241,17 +245,17 @@ test-coverage: ## Run Domain (90%) + Application (70%) coverage checks in parall
 
 test-coverage-ci: ## Generate coverage.xml for CI/Codecov upload (all tests)
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-clover=coverage.xml
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-clover=coverage.xml
 
 coverage-html: ## Generate HTML coverage report (open coverage-report/index.html)
 	@echo "$(MODE)"
 	@mkdir -p coverage-report
-	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --coverage-html=coverage-report
+	$(EXEC) -d xdebug.mode=coverage vendor/bin/pest --exclude-group=list-parity --exclude-group=quickbooks-sandbox --exclude-group=docker --coverage-html=coverage-report
 	@echo "$(GREEN)Coverage report generated: coverage-report/index.html$(NC)"
 
 pest-mutate: ## Run Pest mutation testing
 	@echo "$(MODE)"
-	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox --exclude-group=list-parity
+	$(EXEC) -d xdebug.mode=off vendor/bin/pest --mutate --everything --covered-only --min=85 --parallel --processes=9 --exclude-group=quickbooks-sandbox --exclude-group=list-parity --exclude-group=docker
 
 # Layer-specific mutation testing (see tests/TestingStrategy.md)
 

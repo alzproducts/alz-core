@@ -260,7 +260,7 @@ An active entity of a **mapping key**'s QBO entity type in the connected company
 _Avoid_: offering an inactive entity as a candidate
 
 **Backfill floor date**:
-The earliest ShopWired order date the sync accepts, at both entry points and again when each chunk runs: a date-range sync may not start before it, a sync by **reference** rejects any reference whose order was placed before it, and a chunk records an order placed before it as a failed **order sync** instead of posting it.
+The earliest ShopWired order date the sync accepts: a date-range sync may not start before it, a sync by **reference** rejects any reference whose order was placed before it, and each chunk checks it again as it runs, recording an order placed before it as a failed **order sync** with reason `before_floor_date` instead of posting it. A failed **order sync** already holding `outcome_unknown` keeps that reason, with a message naming the floor refusal, as a marker to check QuickBooks by hand that no request can retry.
 
 **Run labels**:
 The DocNumber prefix (`quickbooks.doc_number_prefix`) and customer-name suffix (`quickbooks.customer_name_suffix`) that keep one verify run's sandbox documents apart from another's; blank by default.

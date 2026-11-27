@@ -55,6 +55,7 @@ final class OrderChunkRunTest extends TestCase
         parent::setUp();
 
         DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         DB::table('quickbooks.order_syncs')->delete();
         DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref-1', 'qbo_ref_name' => 'Ref 1', 'realm_id' => self::REALM]);
         $this->app->instance(QuickBooksOrderPostingInterface::class, $this->posting = new FakeQuickBooksOrderPosting());

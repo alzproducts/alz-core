@@ -38,6 +38,8 @@ final class SyncOutcomeResolverTest extends TestCase
         yield 'unavailable' => [SyncOutcomeResolver::forUnavailable(null), SyncReasonCode::QboUnavailable];
         yield 'unavailable over a stored failure' => [SyncOutcomeResolver::forUnavailable(SyncReasonCode::ItemMissing), SyncReasonCode::QboUnavailable];
         yield 'missing item' => [SyncOutcomeResolver::forMissingItem(), SyncReasonCode::ItemMissing];
+        yield 'before the floor' => [SyncOutcomeResolver::forFloor(null), SyncReasonCode::BeforeFloorDate];
+        yield 'before the floor over a stored failure' => [SyncOutcomeResolver::forFloor(SyncReasonCode::ItemMissing), SyncReasonCode::BeforeFloorDate];
         yield 'no missing refs' => [SyncOutcomeResolver::forMissingRefs([]), null];
         yield 'missing mapping' => [SyncOutcomeResolver::forMissingRefs(['terms']), SyncReasonCode::MappingMissing];
         yield 'missing mapping and item' => [SyncOutcomeResolver::forMissingRefs(['terms', 'item:A']), SyncReasonCode::ItemMissing];
@@ -96,6 +98,7 @@ final class SyncOutcomeResolverTest extends TestCase
             SyncOutcomeResolver::forDefect(SourceOrderDefect::PaymentMethodMissing, SyncReasonCode::OutcomeUnknown),
             SyncOutcomeResolver::forBuildFailure(FailReason::ZeroLines, SyncReasonCode::OutcomeUnknown),
             SyncOutcomeResolver::forUnavailable(SyncReasonCode::OutcomeUnknown),
+            SyncOutcomeResolver::forFloor(SyncReasonCode::OutcomeUnknown),
         ] as $failure) {
             self::assertSame(SyncReasonCode::OutcomeUnknown, $failure->code);
             self::assertNotSame(SyncReasonCode::OutcomeUnknown, $failure->loggedCode);

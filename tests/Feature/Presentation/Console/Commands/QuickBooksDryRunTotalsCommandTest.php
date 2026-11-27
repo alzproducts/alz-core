@@ -282,6 +282,21 @@ final class QuickBooksDryRunTotalsCommandTest extends TestCase
     }
 
     #[Test]
+    public function it_lists_every_order_with_the_floor_after_the_range(): void
+    {
+        \config(['quickbooks.backfill_floor_date' => '2001-02-01']);
+        foreach ([self::FIRST => '10', self::SECOND => '11', self::THIRD => '12'] as $reference => $day) {
+            $this->insertOrder($reference, "2001-01-{$day} 10:00:00+00", self::MATCHING);
+        }
+
+        $this->assertReport([
+            self::FIRST . ',2001-01-10,35.99,35.99,0.00,match',
+            self::SECOND . ',2001-01-11,35.99,35.99,0.00,match',
+            self::THIRD . ',2001-01-12,35.99,35.99,0.00,match',
+        ], $this->report());
+    }
+
+    #[Test]
     public function it_needs_no_floor(): void
     {
         \config(['quickbooks.backfill_floor_date' => null]);

@@ -61,6 +61,7 @@ final class QuickBooksOrderChunkSlotRedisTest extends TestCase
         parent::setUp();
 
         Queue::fake();
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         \config([
             'database.redis.' . QuickBooksRateLimiter::CONNECTION . '.prefix' => 'test-' . Str::uuid()->toString() . ':',
             'quickbooks.order_sync_concurrency' => $this->defaultConcurrency(),
