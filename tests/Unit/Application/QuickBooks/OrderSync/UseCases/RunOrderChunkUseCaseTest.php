@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\QuickBooks\OrderSync\UseCases;
 
+use App\Application\Contracts\QuickBooks\OrderSyncSettingsInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksRealmInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
@@ -13,6 +14,7 @@ use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
+use App\Application\QuickBooks\OrderSync\Services\OrderSyncFloorService;
 use App\Application\QuickBooks\OrderSync\UseCases\RunOrderChunkUseCase;
 use App\Application\QuickBooks\OrderSync\UseCases\SyncOrderChunkUseCase;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
@@ -54,6 +56,8 @@ final class RunOrderChunkUseCaseTest extends TestCase
 
     private Deadline $deadline;
 
+    private ?DateTimeImmutable $floor;
+
     #[Override]
     protected function setUp(): void
     {
@@ -64,6 +68,7 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $this->tokens = $this->createStub(QuickBooksTokenService::class);
         $this->syncChunk = $this->createStub(SyncOrderChunkUseCase::class);
         $this->deadline = Deadline::at(new DateTimeImmutable('2026-11-24 12:00:00+00'));
+        $this->floor = new DateTimeImmutable('2026-07-01');
     }
 
     #[Test]
@@ -258,6 +263,24 @@ final class RunOrderChunkUseCaseTest extends TestCase
         self::assertSame([], $this->dispatcher->chunks);
     }
 
+    #[Test]
+    public function an_unset_floor_fails_before_any_token_and_is_not_re_attempted(): void
+    {
+        $this->floor = null;
+        $this->tokens = $tokens = $this->createMock(QuickBooksTokenService::class);
+        $tokens->expects($this->never())->method('assertConnected');
+        $tokens->expects($this->never())->method('accessToken');
+        $this->syncIsNeverCalled();
+
+        try {
+            $this->runChunk(self::chunkRun());
+            self::fail('The chunk did not fail.');
+        } catch (InvalidConfigurationException $e) {
+            self::assertSame('QUICKBOOKS_BACKFILL_FLOOR_DATE', $e->configKey);
+        }
+        self::assertSame([], $this->dispatcher->chunks);
+    }
+
     private function assertThrowsWithoutReattempt(Throwable $failure, OrderChunkRunDTO $run): void
     {
         try {
@@ -286,7 +309,11 @@ final class RunOrderChunkUseCaseTest extends TestCase
         $realm = $this->createStub(QuickBooksRealmInterface::class);
         $realm->method('realmId')->willReturn($realmId);
 
-        new RunOrderChunkUseCase($realm, $this->tokens, $this->syncChunk, $this->dispatcher, $this->runs, new NullLogger())->execute($run, $this->deadline);
+        $settings = $this->createStub(OrderSyncSettingsInterface::class);
+        $settings->method('backfillFloor')->willReturn($this->floor);
+        $floor = new OrderSyncFloorService($settings);
+
+        new RunOrderChunkUseCase($realm, $this->tokens, $floor, $this->syncChunk, $this->dispatcher, $this->runs, new NullLogger())->execute($run, $this->deadline);
     }
 
     /**

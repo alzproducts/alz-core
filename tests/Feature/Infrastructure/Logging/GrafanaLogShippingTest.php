@@ -477,6 +477,21 @@ final class GrafanaLogShippingTest extends TestCase
     }
 
     #[Test]
+    public function it_redacts_listed_keys_in_any_case_or_separator_style(): void
+    {
+        $this->configure();
+        $keys = [
+            'Authorization', 'clientIp', 'X-Api-Key', 'userPassword',
+            'PASSWORD', 'APIKey', 'clientIP', 'IPAddress', 'oauth2Token', 'client.ip', 'email hash',
+        ];
+
+        Log::channel('grafana')->info('Redacted', \array_fill_keys($keys, 'sensitive'));
+        $this->flush();
+
+        self::assertSame(\array_fill_keys($keys, '[REDACTED]'), $this->sentLines()[0]['context']);
+    }
+
+    #[Test]
     public function it_redacts_arrays_under_listed_keys_and_keys_inside_objects(): void
     {
         $this->configure();
@@ -499,7 +514,8 @@ final class GrafanaLogShippingTest extends TestCase
         $this->configure();
         $context = [
             'email' => 'staff@example.test', 'user_agent' => 'curl', 'user_id' => 1, 'customer_id' => 2,
-            'zip' => 'AB1', 'clientIp' => 'kept', 'tokens' => 3, 'response_code' => 200, 0 => 'list',
+            'zip' => 'AB1', 'description' => 'kept', 'shipping' => 'kept', 'zipCode' => 'AB1',
+            'tokens' => 3, 'response_code' => 200, 'responseCode' => 200, 0 => 'list',
         ];
 
         Log::channel('grafana')->info('Kept', $context);

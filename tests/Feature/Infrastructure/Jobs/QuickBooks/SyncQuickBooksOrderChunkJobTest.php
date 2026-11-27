@@ -73,6 +73,7 @@ final class SyncQuickBooksOrderChunkJobTest extends TestCase
         parent::setUp();
 
         Queue::fake();
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         $this->travelTo(new CarbonImmutable('2026-11-24T12:00:00+00:00'));
         $this->redis = new FakeSlotRedis();
         $this->slotLog = new RecordingLogger();

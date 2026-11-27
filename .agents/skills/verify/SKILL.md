@@ -28,7 +28,7 @@ One run is one private Compose stack per worktree ([ADR-0020](../../../docs/adr/
 | `exec` | `[<service>] [--] <argv>...` | Runs argv in `app` (default), `worker`, `pgsql` or `redis`; stdin passes through |
 | `logs` | `[<service>]` | Container stdout, then the `<evidence>/logs/<service>/` files |
 | `db` | `<sql>` | Read-only psql as `postgres` in the run's Postgres |
-| `test` | `[--all-groups] <paths>...` | Pest in the test sidecar, excluding CI's groups (`integration`, `seed-command`, `list-parity`) and `repo-static`; `--all-groups` excludes only `repo-static`; `--group` and `--exclude-group` exit 64 |
+| `test` | `[--all-groups] <paths>...` | Pest in the test sidecar, excluding CI's groups (`integration`, `seed-command`, `list-parity`, `docker`) and `repo-static`; `--all-groups` excludes only `repo-static` and `docker`; `--group` and `--exclude-group` exit 64 |
 | `baseline` | `[--ref <SHA>] [--time-limit <seconds>]` | Boots the base run; prints `baseline.sha=`, `baseline.evidence=`, `baseline.entry=`, `baseline.cwd=` |
 | `parity` | `[--ignore <field path>]... [--expect <code>] GET <path> [GET <path>]...` | Sends each GET to both runs and compares status and body |
 | `note` | `<text>` | Appends a `run-notes.md` line |
@@ -74,7 +74,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
      - Run artisan commands through `exec -- php artisan <command> --no-interaction`.
    - **Tests:**
      - `test` runs in the `Dockerfile.verify` sidecar (runtime plus dev deps and `tests/`), with the stack's DB and Redis keys, a fresh `APP_KEY` and `API_KEY_ENCRYPTION_SECRET` per call, and no env file, so `phpunit.xml`'s defaults apply.
-     - `repo-static` tests need `.git` and never run here, with or without `--all-groups`.
+     - `repo-static` tests need `.git`, and `docker` tests need the Docker CLI: neither runs here, with or without `--all-groups`.
      - The `run-notes.md` `test` line shows the exclusions applied. An excluded file passed beside selected ones is omitted silently; when nothing is selected Pest exits 1. `--filter` still passes.
      - Never use bare Pest or `make test` for verification: they hit the developer's services.
    - **Journeys:**

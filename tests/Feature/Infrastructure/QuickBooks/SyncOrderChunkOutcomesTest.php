@@ -88,6 +88,7 @@ final class SyncOrderChunkOutcomesTest extends TestCase
     {
         parent::setUp();
 
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         DB::table('quickbooks.order_syncs')->delete();
         DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref-1', 'qbo_ref_name' => 'Ref 1', 'realm_id' => self::REALM]);
         $this->posting = new FakeQuickBooksOrderPosting();

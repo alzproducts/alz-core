@@ -14,6 +14,7 @@ use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
 use App\Application\QuickBooks\OrderSync\Enums\SyncReasonCode;
 use App\Application\QuickBooks\OrderSync\Exceptions\OrderChunkUnfinishedException;
 use App\Application\QuickBooks\OrderSync\Results\OrderSyncResultsResult;
+use App\Application\QuickBooks\OrderSync\Services\OrderSyncFloorService;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
@@ -42,6 +43,7 @@ final readonly class RunOrderChunkUseCase
     public function __construct(
         private QuickBooksRealmInterface $realm,
         private QuickBooksTokenService $tokens,
+        private OrderSyncFloorService $floor,
         private SyncOrderChunkUseCase $syncChunk,
         private OrderSyncDispatcherInterface $dispatcher,
         private OrderSyncRunRepositoryInterface $runs,
@@ -55,7 +57,8 @@ final readonly class RunOrderChunkUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      * @throws InvalidApiResponseException
-     * @throws InvalidConfigurationException when the run's company is no longer the configured one
+     * @throws InvalidConfigurationException when the run's company is no longer the configured one, or the backfill floor
+     *                                       date is unset
      * @throws KeyEncryptionFailedException
      * @throws OrderChunkUnfinishedException when no attempt is left
      * @throws QuickBooksFaultException
@@ -66,7 +69,7 @@ final readonly class RunOrderChunkUseCase
         $this->logger->info('Running QuickBooks order chunk', ['run_id' => $run->chunk->runId, 'attempt' => $run->attempt]);
 
         $this->runs->markStarted($run->chunk->runId);
-        $this->assertSameCompany($run->chunk->realmId);
+        $this->assertConfigured($run->chunk->realmId);
 
         try {
             $accessToken = $this->accessToken();
@@ -126,11 +129,14 @@ final readonly class RunOrderChunkUseCase
     /**
      * @throws InvalidConfigurationException
      */
-    private function assertSameCompany(string $realmId): void
+    private function assertConfigured(string $realmId): void
     {
         if ($this->realm->realmId() !== $realmId) {
             throw new InvalidConfigurationException('QUICKBOOKS_REALM_ID', 'The run was requested for another company');
         }
+
+        // intentional: the attempt reads the floor it uses; this read makes an unset one throw before a token failure re-attempts.
+        $this->floor->floorStart();
     }
 
     /**

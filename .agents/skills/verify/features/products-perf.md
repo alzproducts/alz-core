@@ -26,6 +26,7 @@ Preconditions:
   - The request mix (70% `per_page=1000&page=1&include=stock`, the rest default page, page 2, filtered, sorted, searched) is derived from the seed and probed for `200` with non-empty `data`; the result's `mix_percent` and `shapes` record it.
   - Every writer in `products-perf.php writers` runs in the worker container on its production-shaped schedule; the once-a-day writers fire after warm-up.
   - Latency is server-side: nearest-rank percentiles of the `/api/products` lines the app container's stdout gained during the measured window.
+  - After changing the log follower (`follow_start`, `follow_stop` in `products-perf.sh`), run `make test-docker`.
   - Prints `p50_ms= p95_ms= p99_ms= max_ms=`, request and status counts, one `writer` line per writer, and `result=<evidence>/bench/load-<stamp>.json`.
   - Exit 1 when a writer errored or made no write (a run too short for its schedule), the server logged a non-200, the server line count differs from `--requests`, or any request timed out client-side (`FAIL saturated`).
 - **Reading a load run.** `FAIL saturated` means the commit cannot serve `--rate` on this machine: report it as that, never the percentiles printed beside it, which mix in backlog lines from earlier requests.

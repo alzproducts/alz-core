@@ -69,6 +69,7 @@ final class OrderSyncRunLifecycleTest extends TestCase
         parent::setUp();
 
         Queue::fake();
+        \config(['quickbooks.backfill_floor_date' => '2026-01-01']);
         $this->travelTo(new CarbonImmutable('2026-11-24T12:00:00+00:00'));
         $realm = $this->createStub(QuickBooksRealmInterface::class);
         $realm->method('realmId')->willReturn(self::REALM);
