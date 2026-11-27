@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Contracts\QuickBooks;
 
+use App\Application\QuickBooks\OrderSync\DTOs\CatchUpCandidateWindowDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
@@ -44,4 +45,16 @@ interface OrderSyncSourceQueryRepositoryInterface
      * @throws ExternalServiceUnavailableException
      */
     public function referencesPlacedIn(DateTimeImmutable $from, DateTimeImmutable $before): array;
+
+    /**
+     * Orders not cancelled, placed in the window, with no sync row for the realm, a row neither `synced` nor
+     * `failed`, or a `failed` `item_missing` row placed from the window's `$itemMissingSince`.
+     *
+     * @return list<int> distinct, ascending
+     *
+     * @throws DatabaseOperationFailedException
+     * @throws DuplicateRecordException
+     * @throws ExternalServiceUnavailableException
+     */
+    public function catchUpCandidates(CatchUpCandidateWindowDTO $window): array;
 }

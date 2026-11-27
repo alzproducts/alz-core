@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\QuickBooks\OrderSync\UseCases;
 
 use App\Application\Contracts\QuickBooks\OrderSyncRunRepositoryInterface;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderCatchUpRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderRangeRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncRunCountsDTO;
@@ -23,22 +24,33 @@ final readonly class HandleOrderSyncRunFailureUseCase
         private LoggerInterface $logger,
     ) {}
 
-    public function execute(OrderRangeRunDTO|OrderChunkRunDTO $run, Throwable $exception): void
+    public function execute(OrderRangeRunDTO|OrderChunkRunDTO|OrderCatchUpRunDTO $run, Throwable $exception): void
     {
-        if ($run instanceof OrderRangeRunDTO) {
-            $this->logger->error('QuickBooks order range run failed', [
-                'run_id' => $run->runId,
-                'from' => $run->range->from->format('Y-m-d'),
-                'to' => $run->range->to->format('Y-m-d'),
-                'force_retry' => $run->forceRetry,
-                'exception' => $exception::class,
-            ]);
+        if ($run instanceof OrderCatchUpRunDTO) {
+            $this->logger->error('QuickBooks order catch-up run failed', ['run_id' => $run->runId, 'exception' => $exception::class]);
             $this->endFailed($run->runId);
+
+            return;
+        }
+        if ($run instanceof OrderRangeRunDTO) {
+            $this->rangeFailed($run, $exception);
 
             return;
         }
 
         $this->chunkFailed($run, $exception);
+    }
+
+    private function rangeFailed(OrderRangeRunDTO $run, Throwable $exception): void
+    {
+        $this->logger->error('QuickBooks order range run failed', [
+            'run_id' => $run->runId,
+            'from' => $run->range->from->format('Y-m-d'),
+            'to' => $run->range->to->format('Y-m-d'),
+            'force_retry' => $run->forceRetry,
+            'exception' => $exception::class,
+        ]);
+        $this->endFailed($run->runId);
     }
 
     private function chunkFailed(OrderChunkRunDTO $run, Throwable $exception): void
