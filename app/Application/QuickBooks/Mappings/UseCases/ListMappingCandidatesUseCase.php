@@ -17,6 +17,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use Psr\Log\LoggerInterface;
 
 final readonly class ListMappingCandidatesUseCase
@@ -40,11 +41,11 @@ final readonly class ListMappingCandidatesUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function execute(MappingKey $key): array
+    public function execute(MappingKey $key, Deadline $deadline): array
     {
         $this->logger->info('Listing QuickBooks mapping candidates', ['key' => $key->value]);
         $active = \array_values(\array_filter(
-            $this->candidates->candidates($key->entity()),
+            $this->candidates->candidates($key->entity(), $deadline),
             static fn(MappingCandidateDTO $candidate): bool => $candidate->active,
         ));
         $this->logger->info('Listed QuickBooks mapping candidates', ['count' => \count($active)]);

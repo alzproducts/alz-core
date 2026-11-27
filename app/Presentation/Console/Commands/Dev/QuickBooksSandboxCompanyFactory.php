@@ -108,7 +108,7 @@ final readonly class QuickBooksSandboxCompanyFactory
         }
 
         $account = \array_find(
-            $this->candidates->candidates(MappingEntity::Account),
+            $this->candidates->candidates(MappingEntity::Account, Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS)),
             static fn(MappingCandidateDTO $candidate): bool => $candidate->active && $candidate->detail === 'Income',
         ) ?? throw new UnexpectedApiResultException('QuickBooks', 'No active Income account for the Items');
 

@@ -18,6 +18,7 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\DuplicateRecordException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 
 final readonly class MappingCandidateService
 {
@@ -40,12 +41,12 @@ final readonly class MappingCandidateService
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function candidates(MappingEntity $entity): array
+    public function candidates(MappingEntity $entity, Deadline $deadline): array
     {
         $accessToken = $this->tokens->accessToken();
 
         try {
-            return $this->candidates->candidates($accessToken, $entity);
+            return $this->candidates->candidates($accessToken, $entity, $deadline);
         } catch (AuthenticationExpiredException $e) {
             $this->tokens->forgetAccessToken();
 

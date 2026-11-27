@@ -101,8 +101,8 @@ final class EloquentQuickBooksMappingRepositoryTest extends TestCase
     #[Test]
     public function all_returns_every_row_with_its_snapshot(): void
     {
-        $this->setRow(MappingKey::TaxZero, ['qbo_ref_id' => null, 'qbo_ref_name' => null, 'realm_id' => null]);
-        $this->setRow(MappingKey::SalesClass, ['qbo_ref_id' => '5', 'qbo_ref_name' => 'Web', 'realm_id' => self::OTHER_REALM]);
+        $this->setRow(MappingKey::TaxZero, ['qbo_ref_id' => null, 'qbo_ref_name' => null, 'realm_id' => null, 'resolved_at' => null]);
+        $this->setRow(MappingKey::SalesClass, ['qbo_ref_id' => '5', 'qbo_ref_name' => 'Web', 'realm_id' => self::OTHER_REALM, 'resolved_at' => '2026-11-01 09:30:00+00']);
 
         $rows = \array_column(
             \array_map(static fn(MappingDTO $row): array => ['key' => $row->key->value, 'row' => $row], $this->repository->all()),
@@ -112,7 +112,8 @@ final class EloquentQuickBooksMappingRepositoryTest extends TestCase
 
         $this->assertCount(\count(MappingKey::cases()), $rows);
         $this->assertEquals(new MappingDTO(MappingKey::TaxZero, null, null, null), $rows['tax.zero']);
-        $this->assertEquals(new MappingDTO(MappingKey::SalesClass, '5', 'Web', self::OTHER_REALM), $rows['class']);
+        $this->assertSame('2026-11-01T09:30:00+00:00', $rows['class']->resolvedAt?->format(\DATE_ATOM));
+        $this->assertEquals(new MappingDTO(MappingKey::SalesClass, '5', 'Web', self::OTHER_REALM, $rows['class']->resolvedAt), $rows['class']);
     }
 
     #[Test]

@@ -28,6 +28,8 @@ final readonly class RecordMappingPickUseCase
     ) {}
 
     /**
+     * @param string|null $actorId the user who made the pick; null from the console
+     *
      * @return bool whether the row was written
      *
      * @throws DatabaseOperationFailedException
@@ -35,19 +37,32 @@ final readonly class RecordMappingPickUseCase
      * @throws ExternalServiceUnavailableException
      * @throws RecordNotFoundException             when the key has no row
      */
-    public function execute(MappingKey $key, MappingCandidateDTO $candidate): bool
+    public function execute(MappingKey $key, MappingCandidateDTO $candidate, ?string $actorId = null): bool
     {
         $this->logger->info('Recording QuickBooks mapping pick', ['key' => $key->value]);
         $pick = new MappingPickDTO($key, $candidate->id, $candidate->name, $this->realm->realmId());
-        $written = !$this->holds($pick);
+        $row = $this->row($key);
 
-        if ($written) {
-            $this->mappings->record($pick);
+        if (self::holds($row, $pick)) {
+            $this->logger->info('QuickBooks mapping already holds the pick', ['key' => $key->value]);
+
+            return false;
         }
 
-        $this->logger->info('Recorded QuickBooks mapping pick', ['written' => $written]);
+        $this->mappings->record($pick);
+        $this->logRecorded($row, $pick, $actorId);
 
-        return $written;
+        return true;
+    }
+
+    private function logRecorded(?MappingDTO $row, MappingPickDTO $pick, ?string $actorId): void
+    {
+        $this->logger->info('Recorded QuickBooks mapping pick', [
+            'key' => $pick->key->value,
+            'old_ref_id' => $row?->refId,
+            'new_ref_id' => $pick->refId,
+            'user_id' => $actorId,
+        ]);
     }
 
     /**
@@ -55,14 +70,16 @@ final readonly class RecordMappingPickUseCase
      * @throws DuplicateRecordException
      * @throws ExternalServiceUnavailableException
      */
-    private function holds(MappingPickDTO $pick): bool
+    private function row(MappingKey $key): ?MappingDTO
     {
-        return \array_any(
-            $this->mappings->all(),
-            static fn(MappingDTO $row): bool => $row->key === $pick->key
-                && $row->refId === $pick->refId
-                && $row->refName === $pick->refName
-                && $row->realmId === $pick->realmId,
-        );
+        return \array_find($this->mappings->all(), static fn(MappingDTO $row): bool => $row->key === $key);
+    }
+
+    private static function holds(?MappingDTO $row, MappingPickDTO $pick): bool
+    {
+        return $row !== null
+            && $row->refId === $pick->refId
+            && $row->refName === $pick->refName
+            && $row->realmId === $pick->realmId;
     }
 }

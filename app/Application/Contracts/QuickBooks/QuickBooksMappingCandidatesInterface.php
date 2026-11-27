@@ -11,6 +11,7 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
 use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
 use SensitiveParameter;
 
 /**
@@ -19,6 +20,8 @@ use SensitiveParameter;
 interface QuickBooksMappingCandidatesInterface
 {
     /**
+     * @param Deadline $deadline shared by every call the read makes
+     *
      * @return list<MappingCandidateDTO> active and inactive
      *
      * @throws AuthenticationExpiredException      when the access token is rejected
@@ -26,5 +29,5 @@ interface QuickBooksMappingCandidatesInterface
      * @throws QuickBooksFaultException            when QBO rejects a query
      * @throws UnexpectedApiResultException        when a row lacks a name or id, or Preferences lacks its sales form section
      */
-    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity): array;
+    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, Deadline $deadline): array;
 }

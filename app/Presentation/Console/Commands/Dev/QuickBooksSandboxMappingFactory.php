@@ -49,7 +49,7 @@ final readonly class QuickBooksSandboxMappingFactory
         $candidates = [];
         foreach ($this->unresolved->execute() as $key) {
             $entity = $key->entity();
-            $candidates[$entity->value] ??= $this->candidates->candidates($entity);
+            $candidates[$entity->value] ??= $this->candidates->candidates($entity, Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS));
             $target = $this->target($key, $candidates[$entity->value]);
             if (\is_string($target)) {
                 $left[] = [$key, $target];
