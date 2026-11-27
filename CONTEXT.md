@@ -118,11 +118,11 @@ The class an integration binds in place of its real client when one of its secre
 _Avoid_: "fake", "mock", which name test doubles; a stand-in runs in the app.
 
 **Supabase baseline**:
-The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images at the hosted project's versions, so roles and privileges match production. The one exception is a dependent's verify run that supplies its own Supabase (ADR-0016).
+The database every environment outside production migrates on: hosted Supabase's own Postgres and Auth images, plus Realtime's tenant migrations, at the hosted project's versions, so roles and privileges match production. The one exception is a dependent's verify run that supplies its own Supabase (ADR-0016).
 _Avoid_: "Supabase stack", which names the full Supabase CLI stack in local development.
 
 **Supabase look-alike**:
-An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, or a Supabase role).
+An object a migration creates in a non-Supabase database to imitate one Supabase owns (an `auth` table, type or function, a `realtime` schema object such as `realtime.messages` or `realtime.send`, or a Supabase role).
 _Avoid_: "stand-in", which names the integration class of ADR-0015.
 
 **Response parity**:

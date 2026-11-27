@@ -92,6 +92,7 @@ final class VerifyBaselineTest extends TestCase
     {
         yield 'no Dockerfile.verify' => [['Dockerfile.verify' => null], 'no Dockerfile.verify'];
         yield 'no db:ping' => [['docker-entrypoint.sh' => "php artisan db:show\n"], 'no db:ping in docker-entrypoint.sh'];
+        yield 'no realtime-migrate.sh' => [['database/baseline/realtime-migrate.sh' => null], 'no database/baseline/realtime-migrate.sh'];
     }
 
     /**
@@ -102,7 +103,7 @@ final class VerifyBaselineTest extends TestCase
     public function it_refuses_a_base_commit_that_cannot_boot(array $changes, string $named): void
     {
         $base = $this->run->commit($changes);
-        $this->run->commit(['Dockerfile.verify' => 'x', 'docker-entrypoint.sh' => 'db:ping']);
+        $this->run->commit(['Dockerfile.verify' => 'x', 'docker-entrypoint.sh' => 'db:ping', 'database/baseline/realtime-migrate.sh' => 'exit 0']);
         $this->run->headUp();
 
         $this->assertRefused($this->run->verify('baseline', '--ref', $base), 75, $named);
@@ -179,6 +180,7 @@ final class VerifyBaselineTest extends TestCase
         yield 'boot' => ['boot', 'logs/compose-up.log', ['fail' => 'up'], []];
         yield 'boot, no published port' => ['boot', 'logs/compose-up.log', ['fail' => 'port'], []];
         yield 'migrate, Auth' => ['migrate', 'logs/compose-up.log', ['fail' => 'up', 'state-auth-migrate' => "exited 1\n"], []];
+        yield 'migrate, Realtime' => ['migrate', 'logs/compose-up.log', ['fail' => 'up', 'state-realtime-migrate' => "exited 1\n"], []];
         yield 'migrate, alz-core' => ['migrate', 'logs/seed/seed.log', ['fail' => 'up', 'state-seed' => "exited 1\n", 'seed-log' => "Migrations failed; nothing was seeded.\n"], []];
         yield 'migrate, thrown' => ['migrate', 'logs/seed/seed.log', ['fail' => 'up', 'state-seed' => "exited 1\n", 'seed-log' => "QueryException\n"], []];
         yield 'seed' => ['seed', 'logs/seed/seed.log', ['fail' => 'up', 'state-seed' => "exited 1\n", 'seed-log' => "Seeding failed: x\n"], []];

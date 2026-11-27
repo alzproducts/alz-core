@@ -65,7 +65,7 @@ final class StackScriptTest extends TestCase
         $env = $this->run->read('tmp/stack/compose.env');
         $this->assertStringContainsString("STACK_IMAGE=alz-dev-local:{$this->run->project}\n", $env);
         $this->assertStringContainsString("STACK_PORT=\n", $env);
-        $this->assertStringContainsString("SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\n", $env);
+        $this->assertStringContainsString("SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\nSUPABASE_REALTIME_VERSION=v1.0.0\n", $env);
         $this->assertMatchesRegularExpression('/^STACK_DB_PASSWORD=[0-9a-f]{48}$/m', $env);
         $this->assertSame('0777', \mb_substr(\sprintf('%o', \fileperms("{$this->run->repo}/storage/logs")), -4));
     }
@@ -165,6 +165,19 @@ final class StackScriptTest extends TestCase
         $this->assertSame($env, $this->run->read('tmp/stack/compose.env'));
         $this->assertStringContainsString('up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker', $this->run->calls());
         $this->assertStringNotContainsString('build ', $this->run->calls());
+    }
+
+    #[Test]
+    public function up_on_a_stack_minted_before_a_pin_appends_only_that_pin(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+        $older = \str_replace("SUPABASE_REALTIME_VERSION=v1.0.0\n", '', $this->run->read('tmp/stack/compose.env'));
+        $this->run->write('tmp/stack/compose.env', $older);
+
+        $again = $this->run->stack([], 'up');
+
+        $this->assertSame(0, $again->getExitCode(), $again->getErrorOutput());
+        $this->assertSame($older . "SUPABASE_REALTIME_VERSION=v1.0.0\n", $this->run->read('tmp/stack/compose.env'));
     }
 
     #[Test]
@@ -674,7 +687,7 @@ final class StackScriptTest extends TestCase
             $this->assertSame($expected, $environment);
         }
 
-        foreach (['seed', 'pgsql', 'auth-migrate'] as $service) {
+        foreach (['seed', 'pgsql', 'auth-migrate', 'realtime-migrate'] as $service) {
             $this->assertArrayNotHasKey($service, $shared['services']);
             $this->assertSame(['own-postgres'], $base['services'][$service]['profiles']);
         }

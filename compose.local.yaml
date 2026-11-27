@@ -94,6 +94,23 @@ services:
             API_EXTERNAL_URL: 'http://localhost:9999'
             GOTRUE_SITE_URL: 'http://localhost:3000'
 
+    realtime-migrate:
+        image: 'supabase/realtime:${SUPABASE_REALTIME_VERSION:?}'
+        profiles:
+            - own-postgres
+        entrypoint:
+            - bash
+            - /baseline/realtime-migrate.sh
+        restart: 'no'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        environment:
+            DB_HOST: pgsql
+            DB_PASSWORD: '${STACK_DB_PASSWORD:?}'
+        volumes:
+            - '${STACK_WORKTREE:?}/database/baseline/realtime-migrate.sh:/baseline/realtime-migrate.sh:ro'
+
     redis:
         image: 'redis:alpine'
         command:
@@ -127,6 +144,8 @@ services:
             disable: true
         depends_on:
             auth-migrate:
+                condition: service_completed_successfully
+            realtime-migrate:
                 condition: service_completed_successfully
             redis:
                 condition: service_healthy

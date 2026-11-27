@@ -81,7 +81,7 @@ final readonly class StackStubRun
             up)
                 for s in app worker redis; do : >"$S/resources/container/${project}__$s"; done
                 if [ "$shared" = yes ]; then : >"$S/resources/container/${project}__relay"
-                else for s in seed pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done; fi
+                else for s in seed pgsql auth-migrate realtime-migrate; do : >"$S/resources/container/${project}__$s"; done; fi
                 : >"$S/resources/network/${project}__default"
                 : >"$S/resources/volume/${project}__data"
                 [ "$(knob fail)" = up ] && exit 1
@@ -136,7 +136,7 @@ final readonly class StackStubRun
 
         (new Process(['git', 'init', '-q'], $this->repo, GitHooksInstalledCheck::cleanGitEnv()))->mustRun();
         $this->write('vendor/autoload.php', "<?php\n");
-        $this->write('database/baseline/versions.env', "SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\n");
+        $this->write('database/baseline/versions.env', "SUPABASE_POSTGRES_VERSION=1.0.0\nSUPABASE_AUTH_VERSION=v1.0.0\nSUPABASE_REALTIME_VERSION=v1.0.0\n");
         $this->write('package-lock.json', '{"packages": {"node_modules/chokidar": {"version": "' . self::CHOKIDAR . '"}}}');
     }
 

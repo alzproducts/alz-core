@@ -59,7 +59,7 @@ final readonly class VerifyStubRun
                 [ "$(knob fail)" = build ] && exit 1
                 ;;
             up)
-                for s in app worker seed auth-migrate; do : >"$S/resources/container/${project}__$s"; done
+                for s in app worker seed auth-migrate realtime-migrate; do : >"$S/resources/container/${project}__$s"; done
                 : >"$S/resources/network/${project}__default"
                 : >"$S/resources/volume/${project}__data"
                 [ "$(knob fail)" = up ] && exit 1
@@ -81,7 +81,8 @@ final readonly class VerifyStubRun
     private const array FILES = [
         'Dockerfile.verify' => "FROM scratch\n",
         'docker-entrypoint.sh' => "php artisan db:ping\n",
-        'database/baseline/versions.env' => "SUPABASE_POSTGRES_VERSION=1\nSUPABASE_AUTH_VERSION=1\n",
+        'database/baseline/versions.env' => "SUPABASE_POSTGRES_VERSION=1\nSUPABASE_AUTH_VERSION=1\nSUPABASE_REALTIME_VERSION=1\n",
+        'database/baseline/realtime-migrate.sh' => "exit 0\n",
         'database/seeders/Seeder.php' => "one\n",
         'database/factories/Factory.php' => "one\n",
         'database/seed-profile/profile.json' => "one\n",

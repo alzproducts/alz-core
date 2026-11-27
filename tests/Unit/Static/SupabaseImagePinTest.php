@@ -19,7 +19,7 @@ use Tests\Unit\Static\Support\TrackedFiles;
 #[Group('repo-static')]
 final class SupabaseImagePinTest extends TestCase
 {
-    private const string VALID_PIN = "SUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_AUTH_VERSION=v2.188.1\n";
+    private const string VALID_PIN = "SUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_AUTH_VERSION=v2.188.1\nSUPABASE_REALTIME_VERSION=v2.178.1\n";
 
     #[Test]
     public function the_tree_names_supabase_versions_only_in_the_pin_file(): void
@@ -40,12 +40,13 @@ final class SupabaseImagePinTest extends TestCase
      */
     public static function badPins(): iterable
     {
-        yield 'extra key' => [self::VALID_PIN . "SUPABASE_STORAGE_VERSION=v1.0.0\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION'];
-        yield 'missing key' => ["SUPABASE_POSTGRES_VERSION=17.6.1.063\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION'];
-        yield 'keys reordered' => ["SUPABASE_AUTH_VERSION=v2.188.1\nSUPABASE_POSTGRES_VERSION=17.6.1.063\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION'];
+        yield 'extra key' => [self::VALID_PIN . "SUPABASE_STORAGE_VERSION=v1.0.0\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION, SUPABASE_REALTIME_VERSION'];
+        yield 'missing key' => ["SUPABASE_POSTGRES_VERSION=17.6.1.063\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION, SUPABASE_REALTIME_VERSION'];
+        yield 'keys reordered' => ["SUPABASE_AUTH_VERSION=v2.188.1\nSUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_REALTIME_VERSION=v2.178.1\n", 'pin file must hold exactly: SUPABASE_POSTGRES_VERSION, SUPABASE_AUTH_VERSION, SUPABASE_REALTIME_VERSION'];
         yield 'comment line' => ["# pins\n" . self::VALID_PIN, 'pin file line is not KEY=VALUE: # pins'];
-        yield 'postgres tag not version-shaped' => ["SUPABASE_POSTGRES_VERSION=latest\nSUPABASE_AUTH_VERSION=v2.188.1\n", 'SUPABASE_POSTGRES_VERSION is not version-shaped: latest'];
-        yield 'auth tag without v' => ["SUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_AUTH_VERSION=2.188.1\n", 'SUPABASE_AUTH_VERSION is not version-shaped: 2.188.1'];
+        yield 'postgres tag not version-shaped' => ["SUPABASE_POSTGRES_VERSION=latest\nSUPABASE_AUTH_VERSION=v2.188.1\nSUPABASE_REALTIME_VERSION=v2.178.1\n", 'SUPABASE_POSTGRES_VERSION is not version-shaped: latest'];
+        yield 'auth tag without v' => ["SUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_AUTH_VERSION=2.188.1\nSUPABASE_REALTIME_VERSION=v2.178.1\n", 'SUPABASE_AUTH_VERSION is not version-shaped: 2.188.1'];
+        yield 'realtime tag without v' => ["SUPABASE_POSTGRES_VERSION=17.6.1.063\nSUPABASE_AUTH_VERSION=v2.188.1\nSUPABASE_REALTIME_VERSION=2.178.1\n", 'SUPABASE_REALTIME_VERSION is not version-shaped: 2.178.1'];
     }
 
     #[Test]
@@ -62,6 +63,7 @@ final class SupabaseImagePinTest extends TestCase
     {
         yield 'image tag' => ['image: supabase/postgres:17.6.1.063'];
         yield 'auth image tag' => ['FROM supabase/auth:v2.188.1 AS auth'];
+        yield 'realtime image tag' => ['image: supabase/realtime:v2.178.1'];
         yield 'gotrue prose' => ['local auth runs gotrue v2.188.1'];
         yield 'gotrue key' => ['gotrue=v2.188.1'];
     }
@@ -90,7 +92,7 @@ final class SupabaseImagePinTest extends TestCase
     {
         $this->assertSame(
             ['Dockerfile.dev does not read the pin: supabase/auth:${SUPABASE_AUTH_VERSION}'],
-            self::check(['Dockerfile.dev' => "ARG SUPABASE_POSTGRES_VERSION\nFROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:latest\n"]),
+            self::check(['Dockerfile.dev' => "ARG SUPABASE_POSTGRES_VERSION\nFROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:latest\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION}\n"]),
         );
     }
 
@@ -101,13 +103,13 @@ final class SupabaseImagePinTest extends TestCase
     {
         yield 'verify' => [
             '.agents/skills/verify/verify',
-            "PG_VERSION=1\nAUTH_VERSION=1\nSOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'\n",
-            ['s/^SUPABASE_POSTGRES_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_AUTH_VERSION=//p\' "$src/database/baseline/versions.env'],
+            "PG_VERSION=1\nAUTH_VERSION=1\nREALTIME_VERSION=1\nSOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'\n",
+            ['s/^SUPABASE_POSTGRES_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_AUTH_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_REALTIME_VERSION=//p\' "$src/database/baseline/versions.env'],
         ];
         yield 'compose.yaml' => [
             '.agents/skills/verify/compose.yaml',
-            "FROM supabase/postgres:latest\nimage: supabase/auth:latest\n",
-            ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
+            "FROM supabase/postgres:latest\nimage: supabase/auth:latest\nFROM supabase/realtime:latest\n",
+            ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
         ];
     }
 
@@ -170,13 +172,13 @@ final class SupabaseImagePinTest extends TestCase
     {
         return [
             SupabaseImagePinCheck::PIN_FILE => self::VALID_PIN,
-            '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\n",
-            'database/baseline/compose.yaml' => "image: supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
-            'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\n",
-            '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
-            '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
-            'compose.local.yaml' => "image: 'supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}'\nimage: 'supabase/auth:\${SUPABASE_AUTH_VERSION:?}'\n",
-            'bin/stack' => "pg=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\nauth=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\n",
+            '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\nSUPABASE_REALTIME_VERSION\n",
+            'database/baseline/compose.yaml' => "image: supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\nimage: supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}\n",
+            'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION}\n",
+            '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nREALTIME_VERSION=\"\$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
+            '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}\n",
+            'compose.local.yaml' => "image: 'supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}'\nimage: 'supabase/auth:\${SUPABASE_AUTH_VERSION:?}'\nimage: 'supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}'\n",
+            'bin/stack' => "pg=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\nauth=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\nrealtime=\"\$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\n",
         ];
     }
 }

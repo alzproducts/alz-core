@@ -17,24 +17,27 @@ final class SupabaseImagePinCheck
     public const array PIN_SHAPES = [
         'SUPABASE_POSTGRES_VERSION' => '/^\d+(?:\.\d+){2,3}$/',
         'SUPABASE_AUTH_VERSION' => '/^v\d+\.\d+\.\d+$/',
+        'SUPABASE_REALTIME_VERSION' => '/^v\d+\.\d+\.\d+$/',
     ];
 
     /**
      * @var array<string, list<string>> consumer => text it must contain to read the pin
      */
     public const array CONSUMERS = [
-        '.github/workflows/ci.yml' => [self::PIN_FILE, 'SUPABASE_POSTGRES_VERSION', 'SUPABASE_AUTH_VERSION'],
-        'database/baseline/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
-        'Dockerfile.dev' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION}', 'supabase/auth:${SUPABASE_AUTH_VERSION}'],
+        '.github/workflows/ci.yml' => [self::PIN_FILE, 'SUPABASE_POSTGRES_VERSION', 'SUPABASE_AUTH_VERSION', 'SUPABASE_REALTIME_VERSION'],
+        'database/baseline/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
+        'Dockerfile.dev' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION}', 'supabase/auth:${SUPABASE_AUTH_VERSION}', 'supabase/realtime:${SUPABASE_REALTIME_VERSION}'],
         '.agents/skills/verify/verify' => [
             's/^SUPABASE_POSTGRES_VERSION=//p\' "$src/' . self::PIN_FILE,
             's/^SUPABASE_AUTH_VERSION=//p\' "$src/' . self::PIN_FILE,
+            's/^SUPABASE_REALTIME_VERSION=//p\' "$src/' . self::PIN_FILE,
         ],
-        '.agents/skills/verify/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
-        'compose.local.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
+        '.agents/skills/verify/compose.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
+        'compose.local.yaml' => ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
         'bin/stack' => [
             's/^SUPABASE_POSTGRES_VERSION=//p\' "$REPO/' . self::PIN_FILE,
             's/^SUPABASE_AUTH_VERSION=//p\' "$REPO/' . self::PIN_FILE,
+            's/^SUPABASE_REALTIME_VERSION=//p\' "$REPO/' . self::PIN_FILE,
         ],
     ];
 
@@ -43,7 +46,7 @@ final class SupabaseImagePinCheck
      */
     public const array EXEMPT_PREFIXES = ['.ai/', '.claude/worktrees/', '.idea/', 'tests/Unit/Static/SupabaseImagePinTest.php'];
 
-    private const string LITERAL_VERSION = '/(?:supabase\/(?:postgres|auth)|gotrue)(?:\s*[:@=]\s*|\s+)v?\d+\.\d+/i';
+    private const string LITERAL_VERSION = '/(?:supabase\/(?:postgres|auth|realtime)|gotrue)(?:\s*[:@=]\s*|\s+)v?\d+\.\d+/i';
 
     /**
      * @param list<string> $paths repo-relative paths to scan

@@ -8,7 +8,7 @@ set -euo pipefail
 umask 077
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-SERVICES='app worker seed pgsql redis auth-migrate test'
+SERVICES='app worker seed pgsql redis auth-migrate realtime-migrate test'
 TRUNK=develop
 
 # The base run's boot limit in seconds, also the most `baseline --time-limit` accepts (COR-262 D8).
@@ -75,7 +75,7 @@ HELP='up --evidence <abs dir> [--env-override KEY=VALUE]... [--supabase-url <ori
 down --evidence <dir>   remove the run stack and images, its base run included; keeps the evidence
 doctor --evidence <dir>   pass/FAIL report: SHA, Compose project, relay health in caller-supabase mode, image digest, DB/Redis hosts, drivers, credential defaults and names
 http --evidence <dir> <METHOD> <path> [--data <json>] [--expect <code>]   one request from inside the app container, as the X-Local-Bypass test user
-exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql or auth-migrate in caller-supabase mode)
+exec --evidence <dir> [<service>] [--] <argv>...   run argv in a service container (default app; no pgsql, auth-migrate or realtime-migrate in caller-supabase mode)
 logs --evidence <dir> [<service>]   container stdout, then <evidence>/logs/<service>/ files
 db --evidence <dir> <sql>   read-only SQL against the run Postgres (in caller-supabase mode, the Postgres up was given)
 test --evidence <dir> [--all-groups] <paths>...   Pest in the test sidecar, excluding the groups CI excludes (integration, seed-command, list-parity, docker) and repo-static; --all-groups excludes only repo-static and docker (the sidecar has no Docker); --group/--exclude-group exit 64; an excluded file beside selected ones is omitted silently (exit 69 in caller-supabase mode)
@@ -441,6 +441,7 @@ make_run_dirs() {
 SOURCE_ERROR=''
 PG_VERSION=''
 AUTH_VERSION=''
+REALTIME_VERSION=''
 # extract_source <commit>: that commit's files in $STATE/src, and its Supabase pins; 1 with SOURCE_ERROR set.
 extract_source() {
     local src="$STATE/src"
@@ -451,7 +452,8 @@ extract_source() {
     fi
     PG_VERSION="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$src/database/baseline/versions.env")" || PG_VERSION=''
     AUTH_VERSION="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$src/database/baseline/versions.env")" || AUTH_VERSION=''
-    if [ -z "$PG_VERSION" ] || [ -z "$AUTH_VERSION" ]; then
+    REALTIME_VERSION="$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' "$src/database/baseline/versions.env")" || REALTIME_VERSION=''
+    if [ -z "$PG_VERSION" ] || [ -z "$AUTH_VERSION" ] || [ -z "$REALTIME_VERSION" ]; then
         SOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'
         return 1
     fi
@@ -463,6 +465,7 @@ write_compose_env() {
         echo "VERIFY_RUNTIME_IMAGE=$PROJECT-runtime:run"
         echo "VERIFY_TEST_IMAGE=$PROJECT-test:run"
         echo "VERIFY_PGSQL_IMAGE=$PROJECT-pgsql:run"
+        echo "VERIFY_REALTIME_IMAGE=$PROJECT-realtime:run"
         if [ "$MODE" = own-postgres ]; then
             echo "VERIFY_DB_PASSWORD=$(openssl rand -hex 24)"
         else
@@ -478,6 +481,7 @@ write_compose_env() {
         echo "VERIFY_LOGS=$EVIDENCE/logs"
         echo "SUPABASE_POSTGRES_VERSION=$PG_VERSION"
         echo "SUPABASE_AUTH_VERSION=$AUTH_VERSION"
+        echo "SUPABASE_REALTIME_VERSION=$REALTIME_VERSION"
     } >"$STATE/compose.env"
 }
 
@@ -502,6 +506,8 @@ boot_gap() {
         echo 'no Dockerfile.verify'
     elif ! git -C "$REPO" grep -q 'db:ping' "$1" -- docker-entrypoint.sh; then
         echo 'no db:ping in docker-entrypoint.sh'
+    elif ! git -C "$REPO" cat-file -e "$1:database/baseline/realtime-migrate.sh" 2>/dev/null; then
+        echo 'no database/baseline/realtime-migrate.sh'
     fi
 }
 
@@ -614,7 +620,7 @@ cmd_up() {
     write_compose_env "$env_file"
 
     # compose.yaml's build: sections; seed's test image builds FROM the runtime image, so the order matters.
-    local t0 pair pairs='app:runtime seed:test pgsql:pgsql' front=app
+    local t0 pair pairs='app:runtime seed:test pgsql:pgsql realtime-migrate:realtime' front=app
     if [ "$MODE" != own-postgres ]; then
         pairs='app:runtime seed:test relay:relay'
         front=relay
@@ -628,7 +634,7 @@ cmd_up() {
     rm -rf "$STATE/src"
 
     t0="$(date +%s)"
-    local up_rc=0 seed_logs='seed auth-migrate'
+    local up_rc=0 seed_logs='seed auth-migrate realtime-migrate'
     start_stack || up_rc=1
     if [ "$MODE" != own-postgres ]; then
         seed_logs='seed relay'
@@ -883,7 +889,7 @@ cmd_exec() {
     [ "$#" -gt 0 ] && [ "$1" = -- ] && shift
     [ "$#" -gt 0 ] || die 64 "exec wants [<service>] [--] <argv>"
     set_evidence "$EVIDENCE_ARG" existing
-    case "$svc" in pgsql | auth-migrate) refuse_in_mode "exec $svc" ;; esac
+    case "$svc" in pgsql | auth-migrate | realtime-migrate) refuse_in_mode "exec $svc" ;; esac
     require_run
     note "exec $svc $*"
     capture exec "$svc.txt" "\$ [$svc] $*" "exec $svc" dc exec -T "$svc" "$@"
@@ -897,7 +903,7 @@ cmd_logs() {
         in_list "$svc" "$SERVICES" || die 64 "unknown service: $svc (one of: $SERVICES)"
     fi
     set_evidence "$EVIDENCE_ARG" existing
-    case "$svc" in pgsql | auth-migrate) refuse_in_mode "logs $svc" ;; esac
+    case "$svc" in pgsql | auth-migrate | realtime-migrate) refuse_in_mode "logs $svc" ;; esac
     [ -f "$STATE/compose.env" ] || die 75 "no run in this evidence dir (run up first): $EVIDENCE"
     out="$(unique_file "$EVIDENCE/logs" "${svc:-all}.txt")"
     note "logs ${svc:-all}"
@@ -1056,19 +1062,22 @@ boot_base() {
     base_stage archive "$EVIDENCE/build/archive.log"
     extract_source "$sha" >"$EVIDENCE/build/archive.log" 2>&1 || { echo "$SOURCE_ERROR" >>"$EVIDENCE/build/archive.log"; return 1; }
     write_compose_env "$env_file"
-    for pair in app:runtime seed:test pgsql:pgsql; do
+    for pair in app:runtime seed:test pgsql:pgsql realtime-migrate:realtime; do
         base_stage build "$EVIDENCE/build/${pair#*:}.log"
         build_image "$pair" || return 1
     done
     rm -rf "$STATE/src"
     base_stage boot "$compose_log"
     start_stack && return 0
-    log_failed_start seed auth-migrate
+    log_failed_start seed auth-migrate realtime-migrate
     dc logs --no-color --no-log-prefix seed >"$seed_log" 2>&1 || true
-    case "$(service_state auth-migrate '{{.State.Status}} {{.State.ExitCode}}')" in
-        'exited 0' | 'created '* | 'running '* | '') ;;
-        *) base_stage migrate "$compose_log"; return 1 ;;
-    esac
+    local migrate
+    for migrate in auth-migrate realtime-migrate; do
+        case "$(service_state "$migrate" '{{.State.Status}} {{.State.ExitCode}}')" in
+            'exited 0' | 'created '* | 'running '* | '') ;;
+            *) base_stage migrate "$compose_log"; return 1 ;;
+        esac
+    done
     case "$(service_state seed '{{.State.Status}} {{.State.ExitCode}}')" in
         'exited 0' | 'created '* | 'running '* | '') return 1 ;;
     esac

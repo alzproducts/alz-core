@@ -253,7 +253,7 @@ OCTANE_MAX_REQUESTS=500
 
 Local production-like testing environment:
 - Laravel app (built from `Dockerfile`)
-- The Supabase baseline (`database/baseline/compose.yaml`, [ADR-0016](../adr/0016-migrate-on-the-supabase-baseline.md)): Supabase Postgres plus the Auth migrations, migrated as `postgres`
+- The Supabase baseline (`database/baseline/compose.yaml`, [ADR-0016](../adr/0016-migrate-on-the-supabase-baseline.md)): Supabase Postgres plus the Auth migrations and Realtime's tenant migrations (`realtime-migrate`, which `app` waits on), migrated as `postgres`
 - Redis 7
 - Health checks for all services
 

@@ -50,7 +50,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
    - Exit 75: Docker is down, or this worktree already has a run up. Run `down` on that run; when its evidence dir is lost, `down --evidence <any new dir>` still removes it, because `down` finds the run's resources by the project label.
    - Exit 75, before any build:
      - The env file the run loads has an unquoted or double-quoted value with a `$` that is not a `${NAME}` reference to a key an earlier line sets. The message lists every such key. Only a human edits that file.
-     - HEAD has no `Dockerfile.verify`, or no `db:ping` in its `docker-entrypoint.sh`: merge `develop` into the branch.
+     - HEAD has no `Dockerfile.verify`, no `db:ping` in its `docker-entrypoint.sh`, or no `database/baseline/realtime-migrate.sh`: merge `develop` into the branch.
    - Exit 1: a build log under `build/` or `logs/compose-up.log` names the failure. Run `down` to clean up.
 
    Done when: `up` exits 0 and prints `base_url=http://127.0.0.1:<port>`: migrated, seeded, the app's `/up` healthy and `horizon:status` passing.
@@ -103,7 +103,7 @@ Exit codes: 0 ok; 1 check failed (doctor, residue, journey, test, `http` status 
 | 64 | The ref is HEAD, is not an ancestor of HEAD, or resolves to no commit; or the evidence dir is the base run's |
 | 69 | The run is on a caller-supplied Supabase |
 | 75 | No run is up, or `origin/develop` cannot be fetched |
-| 75 | The base commit has no `Dockerfile.verify`, or no `db:ping` in its `docker-entrypoint.sh` |
+| 75 | The base commit has no `Dockerfile.verify`, no `db:ping` in its `docker-entrypoint.sh`, or no `database/baseline/realtime-migrate.sh` |
 | 75 | The seed code differs between the commits; the message names it |
 | 75 | A base run is up at another SHA, which is left up |
 | 75 | A boot stage (archive, build, boot, migrate, seed) failed, or the time limit expired. The message names the stage and its log, or the limit, and the base run is removed |
@@ -126,7 +126,7 @@ For a dependent that boots alz-core beside its own local Supabase, so both share
   --supabase-db-url postgresql://postgres:<password>@127.0.0.1:<db port>/postgres
 ```
 
-`up` starts no Postgres and no `auth-migrate`. A `relay` container forwards the caller's two ports, and `up` migrates and seeds the caller's Postgres.
+`up` starts no Postgres, no `auth-migrate` and no `realtime-migrate`. A `relay` container forwards the caller's two ports, and `up` migrates and seeds the caller's Postgres.
 
 **The caller provides:**
 - A running Supabase with its own migrations applied and its users created before `up`.
@@ -157,7 +157,7 @@ Both probes connect to `127.0.0.1` whichever spelling was passed. After the buil
 | `db` | Read-only `psql` in the relay, against the caller's Postgres |
 | `test` | Exits 69 |
 | `baseline`, `parity` | Exit 69 |
-| `exec`, `logs` | Exit 69 for `pgsql` and `auth-migrate`; accept `relay` |
+| `exec`, `logs` | Exit 69 for `pgsql`, `auth-migrate` and `realtime-migrate`; accept `relay` |
 | `down` | Removes this run's own resources only; the caller's Supabase keeps running |
 
 Every verb that needs the app running also needs the relay running, and exits 75 naming it when it is gone. `http` keeps the X-Local-Bypass persona.

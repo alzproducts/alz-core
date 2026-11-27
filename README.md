@@ -260,7 +260,7 @@ docker run --rm --network none alz-core-dev make test TEST_ARGS=--exclude-group=
 
 Swap `make test` for `make lint TEST_ARGS=--exclude-group=repo-static` (the git hooks guard needs git), or drop into a shell with `docker run --rm -it --network none alz-core-dev bash`. The image has no `.git`, so the `repo-static` tests, which list files through git, are excluded.
 
-- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and the Supabase baseline (`database/baseline/`) already migrated on database `postgres` as role `postgres`, started automatically by the container entrypoint.
+- **Baked in:** `vendor/` with dev dependencies, CI's PHP extensions, a `.env`, and the Supabase baseline (`database/baseline/`, Realtime's tenant schema included) already migrated on database `postgres` as role `postgres`, started automatically by the container entrypoint, which re-runs Realtime's tenant set-up so a `realtime.messages` partition covers today.
 - **Not included:** Redis, Swoole/Octane, and the integration test group.
 - **Snapshot of the source:** the image holds the source as it was at build time, so rebuild after changes. Bind-mounting the source is not supported, because it would hide the image's baked `vendor/`.
 - **BuildKit required:** it is the default since Docker 23, and it is what honours `Dockerfile.dev.dockerignore`.
