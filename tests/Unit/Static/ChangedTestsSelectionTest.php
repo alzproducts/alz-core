@@ -35,6 +35,7 @@ final class ChangedTestsSelectionTest extends TestCase
         $this->git('init', '--quiet', '--initial-branch=feature');
         $this->git('config', 'user.email', 'test@example.invalid');
         $this->git('config', 'user.name', 'Test');
+        $this->git('config', 'commit.gpgsign', 'false');
         $this->git('remote', 'add', 'origin', $this->sandbox . '/origin.git');
 
         $this->write('README.md', "base\n");
