@@ -78,7 +78,8 @@ final readonly class ValidateSupabaseJwtMiddleware
      */
     private function enforceMfaAndAuthenticate(Request $request, Closure $next, AccessTokenClaims $claims): Response
     {
-        if (!$claims->isMfaVerified()) {
+        // intentional: strict false, so an empty or mistyped SUPABASE_REQUIRE_MFA keeps MFA enforced.
+        if ((\config('services.supabase.require_mfa') !== false) && !$claims->isMfaVerified()) {
             return $this->rejectMfaRequired($request, $claims);
         }
 
