@@ -42,7 +42,8 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
             updated_at = now()
         WHERE (s.status = 'pending'
                OR (s.status = 'processing' AND s.lease_expires_at <= now())
-               OR (s.status = 'failed' AND ?::boolean))
+               OR (s.status = 'failed' AND ?::boolean)
+               OR (s.status = 'failed' AND ?::boolean AND s.last_error_code = 'item_missing'))
           AND NOT (?::boolean AND s.last_error_code IS NOT DISTINCT FROM 'outcome_unknown')
         RETURNING s.*
         SQL;
@@ -67,7 +68,7 @@ final readonly class EloquentOrderSyncRepository implements OrderSyncRepositoryI
         /** @var Collection<int, OrderSyncModel> $rows */
         $rows = $this->eloquentGateway->query(static fn(): Collection => OrderSyncModel::query()->fromQuery(
             self::CLAIM_SQL,
-            [$realmId, $reference, $orderExternalId, $token, self::flag($rules->forceRetry), self::flag($rules->refuseUnknownOutcome)],
+            [$realmId, $reference, $orderExternalId, $token, self::flag($rules->forceRetry), self::flag($rules->retryItemMissing), self::flag($rules->refuseUnknownOutcome)],
         ));
         $row = $rows->first();
         if ($row?->lease_expires_at === null) {

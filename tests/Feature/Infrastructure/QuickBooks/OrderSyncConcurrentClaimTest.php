@@ -79,7 +79,7 @@ final class OrderSyncConcurrentClaimTest extends TestCase
         for ($round = 0; $round < self::ROUNDS; $round++) {
             self::assertSame("ready:{$round}\n", \fgets($parentSocket), 'The child did not reach the barrier');
             \fwrite($parentSocket, "go:{$round}\n");
-            $parentWins[] = $repository->claim(self::REALM, self::REFERENCE + $round, self::REFERENCE + $round, new OrderSyncClaimRulesDTO(false, false)) !== null;
+            $parentWins[] = $repository->claim(self::REALM, self::REFERENCE + $round, self::REFERENCE + $round, new OrderSyncClaimRulesDTO(false, false, false)) !== null;
         }
 
         $report = \stream_get_contents($parentSocket);
@@ -118,7 +118,7 @@ final class OrderSyncConcurrentClaimTest extends TestCase
                 if (\fgets($socket) !== "go:{$round}\n") {
                     throw new RuntimeException("No go signal for round {$round}");
                 }
-                $wins .= $repository->claim(self::REALM, self::REFERENCE + $round, self::REFERENCE + $round, new OrderSyncClaimRulesDTO(false, false)) !== null ? '1' : '0';
+                $wins .= $repository->claim(self::REALM, self::REFERENCE + $round, self::REFERENCE + $round, new OrderSyncClaimRulesDTO(false, false, false)) !== null ? '1' : '0';
             }
             \fwrite($socket, "ok:{$wins}");
         } catch (Throwable $e) {

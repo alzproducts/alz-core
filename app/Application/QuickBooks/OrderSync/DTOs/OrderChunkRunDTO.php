@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\QuickBooks\OrderSync\DTOs;
 
+use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use Webmozart\Assert\Assert;
 
 /**
@@ -30,7 +31,7 @@ final readonly class OrderChunkRunDTO
      */
     public function claimRules(): OrderSyncClaimRulesDTO
     {
-        return new OrderSyncClaimRulesDTO($this->chunk->forceRetry, $this->attempt > 1);
+        return new OrderSyncClaimRulesDTO($this->chunk->forceRetry, $this->attempt > 1, $this->chunk->trigger === OrderSyncTrigger::Schedule);
     }
 
     /**

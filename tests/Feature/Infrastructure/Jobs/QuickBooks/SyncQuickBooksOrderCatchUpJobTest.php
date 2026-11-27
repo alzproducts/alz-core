@@ -13,6 +13,7 @@ use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderRangeRunDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncChunkDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\PostableDocumentDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\RequestedOrderSyncRunDTO;
 use App\Application\QuickBooks\OrderSync\Enums\OrderSyncTrigger;
 use App\Application\QuickBooks\OrderSync\Enums\SyncOutcome;
@@ -157,6 +158,22 @@ final class SyncQuickBooksOrderCatchUpJobTest extends TestCase
             [['trigger' => 'schedule', 'run_id' => $runId]],
             DB::table('quickbooks.order_sync_errors')->get(['trigger', 'run_id'])->map(static fn(object $row): array => (array) $row)->all(),
         );
+    }
+
+    #[Test]
+    public function a_schedule_chunk_posts_the_failed_item_missing_candidate_once_its_item_exists(): void
+    {
+        $this->connect();
+        $this->insertFixture();
+
+        $this->handle();
+        self::assertFalse($this->work($this->chunkJobs()[0])->hasFailed());
+
+        $row = DB::table('quickbooks.order_syncs')->where('realm_id', self::REALM)->where('reference', 890000003)->sole();
+        self::assertInstanceOf(stdClass::class, $row);
+        self::assertSame('synced', $row->status);
+        self::assertNotNull($row->qbo_txn_id);
+        self::assertContains($row->qbo_doc_number, \array_map(static fn(PostableDocumentDTO $document): string => $document->draft->core->docNumber, $this->posting->documents));
     }
 
     #[Test]

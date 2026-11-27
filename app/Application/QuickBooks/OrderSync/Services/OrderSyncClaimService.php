@@ -9,6 +9,7 @@ use App\Application\Contracts\QuickBooks\OrderSyncRepositoryInterface;
 use App\Application\Contracts\QuickBooks\OrderSyncSourceQueryRepositoryInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ClaimedOrderDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderChunkRunDTO;
+use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncClaimRulesDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncResultDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\OrderSyncStateDTO;
 use App\Application\QuickBooks\OrderSync\DTOs\SourceOrderRowDTO;
@@ -50,7 +51,7 @@ final readonly class OrderSyncClaimService
         try {
             foreach ($chunk->references as $reference) {
                 $row = $rows[$reference] ?? null;
-                $orders[] = self::refusal($reference, $states[$reference] ?? null, $row, $chunk->forceRetry)
+                $orders[] = self::refusal($reference, $states[$reference] ?? null, $row, $run->claimRules())
                     ?? $this->claimInTime($run, $reference, $row, $deadline);
             }
         } catch (Throwable $e) {
@@ -96,16 +97,16 @@ final readonly class OrderSyncClaimService
         // Another worker changed the row between the read and the claim, or a re-attempt refused its unknown outcome.
         $state = $this->orderSyncStates->statesFor($chunk->realmId, [$reference])[$reference] ?? null;
 
-        return self::refusal($reference, $state, $row, $chunk->forceRetry)
+        return self::refusal($reference, $state, $row, $run->claimRules())
             ?? OrderSyncResultDTO::refused($reference, SyncReasonCode::InProgress);
     }
 
     /**
      * Null when the reference is claimable.
      */
-    private static function refusal(int $reference, ?OrderSyncStateDTO $state, ?SourceOrderRowDTO $row, bool $forceRetry): ?OrderSyncResultDTO
+    private static function refusal(int $reference, ?OrderSyncStateDTO $state, ?SourceOrderRowDTO $row, OrderSyncClaimRulesDTO $rules): ?OrderSyncResultDTO
     {
-        $eligibility = OrderEligibilityResolver::resolve($state, $row?->status, $forceRetry);
+        $eligibility = OrderEligibilityResolver::resolve($state, $row?->status, $rules);
         if ($eligibility->outcome === SyncOutcome::AlreadySynced) {
             return OrderSyncResultDTO::alreadySynced($reference, $state?->docType, $state?->qboDocNumber, $state?->qboTxnId);
         }

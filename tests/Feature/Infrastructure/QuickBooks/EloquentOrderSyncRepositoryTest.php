@@ -122,7 +122,7 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         $this->seedRow([...$state, 'attempts' => 1]);
         $before = self::row();
 
-        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, false)));
+        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, false, false)));
         self::assertEquals($before, self::row());
     }
 
@@ -145,7 +145,7 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         $this->seedRow([...$state, 'attempts' => 1, 'last_error_code' => 'outcome_unknown', 'last_error_message' => 'Timed out']);
         $before = self::row();
 
-        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(true, true)));
+        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(true, true, false)));
         self::assertEquals($before, self::row());
     }
 
@@ -170,6 +170,35 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
 
         self::assertSame(2, $this->claim(forceRetry: true, refuseUnknownOutcome: true)->attempts);
         self::assertSame('processing', self::row()->status);
+    }
+
+    #[Test]
+    public function an_unforced_claim_that_retries_a_missing_item_claims_a_row_failed_for_one(): void
+    {
+        $this->seedRow(['status' => 'failed', 'attempts' => 1, 'last_error_code' => 'item_missing']);
+
+        self::assertSame(2, $this->claim(retryItemMissing: true)->attempts);
+        self::assertSame('processing', self::row()->status);
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function failedRowsAnUnforcedClaimRefuses(): iterable
+    {
+        yield 'item missing, without the retry rule' => ['item_missing', false];
+        yield 'validation failure, with the retry rule' => ['qbo_validation', true];
+    }
+
+    #[Test]
+    #[DataProvider('failedRowsAnUnforcedClaimRefuses')]
+    public function an_unforced_claim_takes_no_other_failed_row(string $lastErrorCode, bool $retryItemMissing): void
+    {
+        $this->seedRow(['status' => 'failed', 'attempts' => 1, 'last_error_code' => $lastErrorCode]);
+        $before = self::row();
+
+        self::assertNull($this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(false, false, $retryItemMissing)));
+        self::assertEquals($before, self::row());
     }
 
     #[Test]
@@ -386,7 +415,7 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
     {
         $this->seedRow(['status' => 'synced']);
 
-        $other = $this->repository->claim('realm-repository-other', self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(false, false));
+        $other = $this->repository->claim('realm-repository-other', self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO(false, false, false));
 
         self::assertNotNull($other);
         self::assertSame('synced', self::row()->status);
@@ -421,9 +450,9 @@ final class EloquentOrderSyncRepositoryTest extends TestCase
         return \array_values(DB::table('quickbooks.order_sync_errors')->where('order_sync_id', self::row()->id)->get()->all());
     }
 
-    private function claim(bool $forceRetry = false, bool $refuseUnknownOutcome = false): OrderSyncClaimDTO
+    private function claim(bool $forceRetry = false, bool $refuseUnknownOutcome = false, bool $retryItemMissing = false): OrderSyncClaimDTO
     {
-        $claim = $this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, $refuseUnknownOutcome));
+        $claim = $this->repository->claim(self::REALM, self::REFERENCE, self::EXTERNAL_ID, new OrderSyncClaimRulesDTO($forceRetry, $refuseUnknownOutcome, $retryItemMissing));
         self::assertNotNull($claim);
 
         return $claim;
