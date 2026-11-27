@@ -203,7 +203,7 @@ The dev-image CI job has no `.git` and excludes the `repo-static` group; a test 
 
 ### Pre-push hook says "Tests failed!" but all tests look like they pass
 
-The pre-push hook runs only the changed tests, through `make test-changed`: the `tests/**/*Test.php` files changed since the merge-base with `origin/HEAD`, plus `<Class>Test.php` matches for changed `app/` classes. It skips Pest when it selects none or more than 100. CI runs the full suite. Reproduce the hook's run with `make test-changed`; it fails naming `git remote set-head origin --auto` when `origin/HEAD` is unset.
+The pre-push hook runs only the changed tests (`make test-changed`, selection in `bin/changed-tests`), skipping Pest for none or over 100; CI runs the full suite. Reproduce its run with `make test-changed`.
 
 **Check Redis first**: `make redis` — if Redis is down, cache-dependent tests fail silently in `--parallel` mode.
 
