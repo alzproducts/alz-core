@@ -38,10 +38,12 @@ fi
 /app/bin/realtime eval "$connect"'
 migrations = case Postgrex.query(c, "select count(*) from realtime.schema_migrations", []) do
   {:ok, %{rows: [[n]]}} -> n
-  _ -> 0
+  {:error, e} ->
+    IO.puts(:stderr, "realtime-migrate: count query failed: " <> String.replace(Exception.message(e), ~r/\s*\n\s*/, " "))
+    System.halt(1)
 end
 if migrations == 0 do
-  IO.puts(:stderr, "realtime-migrate: realtime.schema_migrations is missing or empty")
+  IO.puts(:stderr, "realtime-migrate: realtime.schema_migrations is empty")
   System.halt(1)
 end
 probe = Postgrex.transaction(c, fn conn ->
