@@ -13,7 +13,7 @@ use ValueError;
 
 final readonly class QuickBooksOrderSyncSettings implements OrderSyncSettingsInterface
 {
-    private const string FLOOR_FORMAT = 'Y-m-d';
+    private const string DATE_FORMAT = 'Y-m-d';
 
     public function __construct(
         private QuickBooksConfig $config,
@@ -25,23 +25,16 @@ final readonly class QuickBooksOrderSyncSettings implements OrderSyncSettingsInt
     #[Override]
     public function backfillFloor(): ?DateTimeImmutable
     {
-        $value = self::text('quickbooks.backfill_floor_date', 'QUICKBOOKS_BACKFILL_FLOOR_DATE');
-        if ($value === '') {
-            return null;
-        }
+        return self::date('quickbooks.backfill_floor_date', 'QUICKBOOKS_BACKFILL_FLOOR_DATE');
+    }
 
-        try {
-            $date = DateTimeImmutable::createFromFormat('!' . self::FLOOR_FORMAT, $value);
-        } catch (ValueError $e) {
-            throw new InvalidConfigurationException('QUICKBOOKS_BACKFILL_FLOOR_DATE', 'Expected YYYY-MM-DD', $e);
-        }
-
-        // intentional: createFromFormat rolls 2026-02-30 over to March instead of failing.
-        if ($date === false || $date->format(self::FLOOR_FORMAT) !== $value) {
-            throw new InvalidConfigurationException('QUICKBOOKS_BACKFILL_FLOOR_DATE', 'Expected YYYY-MM-DD');
-        }
-
-        return $date;
+    /**
+     * @throws InvalidConfigurationException when the date is malformed
+     */
+    #[Override]
+    public function scheduleFrom(): ?DateTimeImmutable
+    {
+        return self::date('quickbooks.order_sync_schedule_from', 'QUICKBOOKS_ORDER_SYNC_SCHEDULE_FROM');
     }
 
     /**
@@ -67,6 +60,30 @@ final readonly class QuickBooksOrderSyncSettings implements OrderSyncSettingsInt
         }
 
         return $value;
+    }
+
+    /**
+     * @throws InvalidConfigurationException when the date is malformed
+     */
+    private static function date(string $configKey, string $envVar): ?DateTimeImmutable
+    {
+        $value = self::text($configKey, $envVar);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            $date = DateTimeImmutable::createFromFormat('!' . self::DATE_FORMAT, $value);
+        } catch (ValueError $e) {
+            throw new InvalidConfigurationException($envVar, 'Expected YYYY-MM-DD', $e);
+        }
+
+        // intentional: createFromFormat rolls 2026-02-30 over to March instead of failing.
+        if ($date === false || $date->format(self::DATE_FORMAT) !== $value) {
+            throw new InvalidConfigurationException($envVar, 'Expected YYYY-MM-DD');
+        }
+
+        return $date;
     }
 
     /**
