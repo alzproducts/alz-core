@@ -207,9 +207,11 @@ final class SyncQuickBooksOrderCatchUpJobTest extends TestCase
         $chunks = $this->chunkJobs();
         self::assertCount(2, $chunks);
         self::assertSame($references, [...$chunks[0]->run->chunk->references, ...$chunks[1]->run->chunk->references]);
+        self::assertSame(['queued', false, 2], $this->runState());
 
         $this->work($chunks[0]);
         self::assertSame(['running', false, 1], $this->runState());
+        self::assertNotNull($this->runRow()->started_at);
 
         $this->work($chunks[1]);
         self::assertSame(['completed', true, 0], $this->runState());
@@ -233,7 +235,7 @@ final class SyncQuickBooksOrderCatchUpJobTest extends TestCase
         });
 
         self::assertTrue($this->handle()->hasFailed());
-        self::assertSame(['running', false, 1], $this->runState());
+        self::assertSame(['queued', false, 1], $this->runState());
 
         $this->work($this->chunkJobs()[0]);
 
