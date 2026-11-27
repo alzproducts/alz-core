@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Read-only production SQL as the agent_readonly role, with the credential read from the macOS Keychain.
+# Usage: bin/agent-db -c '<SQL>' | -f <file.sql> | help
+# Set-up and revoke: docs/guides/agent-production-reads.md. The role's grants are the boundary; this script only keeps
+# the password out of arguments, output and agent-readable files.
+set -euo pipefail
+
+ITEM='alz-core-agent-db'
+ROOT_CERT="${AGENT_DB_ROOT_CERT:-$HOME/.config/alz-core/supabase-root.crt}"
+GUIDE='docs/guides/agent-production-reads.md'
+
+die() {
+    local code="$1"
+    shift
+    echo "bin/agent-db: $*" >&2
+    exit "$code"
+}
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: bin/agent-db <command>
+  -c '<SQL>'     run one query against production as agent_readonly (name columns: SELECT * is denied)
+  -f <file.sql>  run a SQL file, e.g. database/agent-read/privilege-audit.sql
+  help           print this help
+Reads the Keychain item alz-core-agent-db (account = pooler user, comment = pooler host, password).
+EOF
+    exit 64
+}
+
+[ "$#" -eq 2 ] || usage
+case "$1" in
+    -c) ;;
+    -f) [ -r "$2" ] || die 66 "cannot read SQL file: $2" ;;
+    *) usage ;;
+esac
+
+PSQL="$(command -v psql || true)"
+[ -n "$PSQL" ] || [ ! -x /opt/homebrew/opt/libpq/bin/psql ] || PSQL=/opt/homebrew/opt/libpq/bin/psql
+[ -n "$PSQL" ] || die 69 "psql not found: brew install libpq (see $GUIDE)"
+[ -r "$ROOT_CERT" ] || die 66 "Supabase root certificate not found at $ROOT_CERT (see $GUIDE)"
+
+if ! ATTRS="$(security find-generic-password -s "$ITEM" 2>/dev/null)"; then
+    die 69 "Keychain item '$ITEM' (generic password) not found in the login keychain (see $GUIDE)"
+fi
+
+attr() {
+    printf '%s\n' "$ATTRS" | sed -n "s/^ *\"$1\"<blob>=\"\\(.*\\)\"\$/\\1/p" | head -n 1
+}
+
+DB_USER="$(attr acct)"
+DB_HOST="$(attr icmt)"
+[ -n "$DB_USER" ] || die 65 "Keychain item '$ITEM' has no account (the pooler user) (see $GUIDE)"
+[ -n "$DB_HOST" ] || die 65 "Keychain item '$ITEM' has no comment (the pooler host) (see $GUIDE)"
+
+PASSWORD="$(security find-generic-password -s "$ITEM" -w 2>/dev/null)" ||
+    die 69 "Keychain item '$ITEM' password could not be read (see $GUIDE)"
+
+CONNINFO="host=$DB_HOST port=5432 dbname=postgres user=$DB_USER sslmode=verify-full sslrootcert=$ROOT_CERT connect_timeout=10 application_name=agent-db"
+
+# intentional: the password reaches psql only through its environment, never its arguments or this script's output.
+PGPASSWORD="$PASSWORD" exec "$PSQL" -X -v ON_ERROR_STOP=1 "$CONNINFO" "$1" "$2"

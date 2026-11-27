@@ -7,7 +7,9 @@
         "allow": [
             "Bash(php artisan migrate:*)",
             "Bash(php artisan shopwired:audit-*)",
-            "Bash(make supabase-start)"
+            "Bash(make supabase-start)",
+            "Bash(bin/agent-db *)",
+            "Bash(*/bin/agent-db *)"
         ],
         "deny": [
             "Bash(railway *)",
@@ -35,7 +37,9 @@
             "Read(storage/framework/**)",
             "Read(public/build/**)",
             "Read(public/hot/**)",
-            "Read(public/storage/**)"
+            "Read(public/storage/**)",
+            "Bash(*security find-generic-password*)",
+            "Bash(*security dump-keychain*)"
         ]
     }
 }
