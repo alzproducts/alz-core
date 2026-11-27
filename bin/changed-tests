@@ -31,12 +31,13 @@ if ! base="$(git merge-base HEAD "$base_ref" 2>/dev/null)"; then
     exit 1
 fi
 
-select_tests() {
-    local changed all_tests path name
-    # intentional: diffed from the merge-base, never from origin/HEAD itself, which would pull in every unmerged trunk commit.
-    changed="$(git diff --name-only -M --diff-filter=AMR "$base" HEAD)"
-    all_tests="$(find tests -type f -name '*Test.php' 2>/dev/null || true)"
+# intentional: top-level assignments, not inside select_tests, whose command substitution would drop set -e and turn a failed diff into an empty selection.
+# intentional: diffed from the merge-base, never from origin/HEAD itself, which would pull in every unmerged trunk commit.
+changed="$(git diff --name-only -M --diff-filter=AMR "$base" HEAD)"
+all_tests="$(find tests -type f -name '*Test.php')"
 
+select_tests() {
+    local path name
     while IFS= read -r path; do
         [ -n "$path" ] || continue
         case "$path" in

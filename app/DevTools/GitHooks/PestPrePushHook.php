@@ -26,7 +26,7 @@ final class PestPrePushHook extends AbstractProcessHook
 
     protected function getSuccessMessage(): string
     {
-        return 'Changed tests passed! CI runs the full suite.';
+        return 'Changed-test step passed (Pest is skipped when no or over 100 test files changed). CI runs the full suite.';
     }
 
     protected function getFailureMessage(): string
