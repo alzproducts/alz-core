@@ -11,6 +11,7 @@ use App\Domain\ContactSubmission\Events\ContactFormProcessingFailedEvent;
 use App\Domain\Inventory\Events\VariantSkusGeneratedEvent;
 use App\Domain\Notifications\Events\AdminAlertEvent;
 use App\Domain\Notifications\Events\ManagerAlertEvent;
+use App\Infrastructure\Database\AgentRead\Listeners\SyncAgentReadGrantsListener;
 use App\Infrastructure\Linnworks\Listeners\UpdateLinnworksSellingPriceEpsListener;
 use App\Infrastructure\Notifications\Listeners\AdminAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ContactFormFailedSlackListener;
@@ -20,6 +21,9 @@ use App\Infrastructure\Notifications\Listeners\ManagerAlertSlackListener;
 use App\Infrastructure\Notifications\Listeners\ProductPricingUpdatedSlackListener;
 use App\Infrastructure\Notifications\Listeners\VariantSkusGeneratedSlackListener;
 use App\Infrastructure\Operations\Listeners\RecordPricePeriodListener;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Log\Logger;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
@@ -44,6 +48,7 @@ final class EventServiceProvider extends ServiceProvider
         $this->registerDomainEventListeners();
         $this->registerAlertListeners();
         $this->registerLogFlushListeners();
+        $this->registerMigrationListeners();
     }
 
     private function registerDomainEventListeners(): void
@@ -61,6 +66,11 @@ final class EventServiceProvider extends ServiceProvider
         Event::listen(AdminAlertEvent::class, AdminAlertSlackListener::class);
         Event::listen(ManagerAlertEvent::class, ManagerAlertSlackListener::class);
         Event::listen(LongWaitDetected::class, HorizonLongWaitSlackListener::class);
+    }
+
+    private function registerMigrationListeners(): void
+    {
+        Event::listen([CommandStarting::class, MigrationsEnded::class, NoPendingMigrations::class], SyncAgentReadGrantsListener::class);
     }
 
     private function registerLogFlushListeners(): void
