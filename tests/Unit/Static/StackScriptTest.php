@@ -563,7 +563,8 @@ final class StackScriptTest extends TestCase
      */
     public static function sharedEnvRefusals(): iterable
     {
-        yield 'no DB_PORT' => ["SUPABASE_URL=http://127.0.0.1:54321\n", '--shared-supabase needs DB_PORT in .env'];
+        yield 'no DB_PORT' => ["SUPABASE_URL=http://127.0.0.1:54321\n", '--shared-supabase needs SHARED_DB_PORT or DB_PORT in .env'];
+        yield 'SHARED_DB_PORT not a port' => ["SHARED_DB_PORT=pg\nSUPABASE_URL=http://127.0.0.1:54321\n", 'SHARED_DB_PORT in .env is not a port number: pg'];
         yield 'no SUPABASE_URL' => ["DB_PORT=54322\n", '--shared-supabase needs SUPABASE_URL in .env'];
         yield 'DB_PORT not a port' => ["DB_PORT=pg\nSUPABASE_URL=http://127.0.0.1:54321\n", 'DB_PORT in .env is not a port number: pg'];
         yield 'remote SUPABASE_URL' => ["DB_PORT=54322\nSUPABASE_URL=https://example.supabase.co\n", 'to be http://127.0.0.1:<port>; got https://example.supabase.co'];
@@ -621,9 +622,10 @@ final class StackScriptTest extends TestCase
         $shared = Yaml::parseFile("{$root}/compose.local.shared-supabase.yaml", Yaml::PARSE_CUSTOM_TAGS);
         $this->assertIsArray($base);
         $this->assertIsArray($shared);
-        $fromEnv = ['DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'DB_PORT', 'SUPABASE_URL', 'SHOPWIRED_SALE_CATEGORY_ID'];
+        $fromEnv = ['DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'SUPABASE_URL', 'SHOPWIRED_SALE_CATEGORY_ID'];
         $expected = \array_diff_key($base['x-stack-env'], \array_flip($fromEnv));
         $expected['DB_HOST'] = '127.0.0.1';
+        $expected['DB_PORT'] = '${STACK_SHARED_DB_PORT:?}';
 
         foreach (['app', 'worker'] as $service) {
             $definition = $shared['services'][$service];
@@ -643,6 +645,226 @@ final class StackScriptTest extends TestCase
             $this->assertArrayNotHasKey($service, $shared['services']);
             $this->assertSame(['own-postgres'], $base['services'][$service]['profiles']);
         }
+    }
+
+    #[Test]
+    public function db_up_starts_only_the_stack_postgres_migrates_it_from_the_host_and_never_prints_the_password(): void
+    {
+        $this->run->knob('port-pgsql', "127.0.0.1:55001\n");
+
+        $up = $this->run->stack([], 'db-up');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertSame("project={$this->run->project}\ndb_port=55001\n", $up->getOutput());
+        $calls = $this->run->calls();
+        $this->assertMatchesRegularExpression('/^compose -p \S+ .*-f \S+\/compose\.local\.yaml --profile own-postgres .*up -d --wait --wait-timeout 300 pgsql auth-migrate$/m', $calls);
+        $this->assertStringNotContainsString('build ', $calls);
+        $this->assertStringNotContainsString(' app worker', $calls);
+        $this->assertSame(
+            "artisan migrate --force --no-interaction | DB_HOST=127.0.0.1 DB_PORT=55001 DB_URL= DB_PASSWORD=set\n",
+            $this->run->phpCalls(),
+        );
+        $this->assertStringNotContainsString($this->dbPassword(), $up->getOutput() . $up->getErrorOutput());
+        $this->assertSame(["container/{$this->run->project}__auth-migrate", "container/{$this->run->project}__pgsql"], $this->containers());
+    }
+
+    #[Test]
+    public function db_up_migrates_the_stack_postgres_even_when_the_caller_names_another_database(): void
+    {
+        $this->run->knob('port-pgsql', "127.0.0.1:55001\n");
+
+        $up = $this->run->stack(['DB_HOST' => '127.0.0.1', 'DB_PORT' => '54322', 'DB_URL' => 'postgresql://postgres:x@127.0.0.1:54322/postgres'], 'db-up');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertStringContainsString('DB_HOST=127.0.0.1 DB_PORT=55001 DB_URL= DB_PASSWORD=set', $this->run->phpCalls());
+    }
+
+    #[Test]
+    public function db_up_on_a_running_database_only_migrates_again(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+        $env = $this->run->read('tmp/stack/compose.env');
+        $this->run->clearCalls();
+
+        $again = $this->run->stack([], 'db-up');
+
+        $this->assertSame(0, $again->getExitCode(), $again->getErrorOutput());
+        $this->assertStringNotContainsString(' up ', $this->run->calls());
+        $this->assertSame($env, $this->run->read('tmp/stack/compose.env'));
+        $this->assertSame(2, \mb_substr_count($this->run->phpCalls(), 'artisan migrate'));
+    }
+
+    #[Test]
+    public function db_up_refuses_an_auth_migrate_that_did_not_complete_and_migrates_nothing(): void
+    {
+        $this->run->knob('state-auth-migrate', 'exited 1');
+
+        $this->assertRefusal($this->run->stack([], 'db-up'), 75, 'auth-migrate did not complete');
+        $this->assertSame('', $this->run->phpCalls());
+    }
+
+    #[Test]
+    public function db_up_fails_when_the_host_migrate_fails(): void
+    {
+        $this->run->knob('fail', 'php');
+
+        $this->assertRefusal($this->run->stack([], 'db-up'), 1, "php artisan migrate failed against {$this->run->project}'s Postgres");
+    }
+
+    #[Test]
+    public function db_env_prints_the_stack_postgres_as_host_connection_keys(): void
+    {
+        $this->run->knob('port-pgsql', "127.0.0.1:55001\n");
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+
+        $env = $this->run->stack([], 'db-env');
+
+        $this->assertSame(0, $env->getExitCode(), $env->getErrorOutput());
+        $this->assertSame(
+            "DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=55001\nDB_DATABASE=postgres\nDB_USERNAME=postgres\n"
+            . "DB_PASSWORD={$this->dbPassword()}\nDB_SSLMODE=disable\nDB_URL=\n",
+            $env->getOutput(),
+        );
+        $this->assertStringContainsString('--profile own-postgres --env-file', $this->run->calls());
+        $this->assertStringContainsString('port pgsql 5432', $this->run->calls());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>, string}>
+     */
+    public static function dbEnvRefusals(): iterable
+    {
+        yield 'stopped pgsql' => [['state-pgsql' => 'exited'], 'pgsql is not running'];
+        yield 'auth-migrate not done' => [['state-auth-migrate' => 'running'], 'auth-migrate has not completed'];
+        yield 'blank port' => [['port-pgsql' => ''], "pgsql publishes no loopback port (got '')"];
+        yield 'non-loopback port' => [['port-pgsql' => "0.0.0.0:55001\n"], "pgsql publishes no loopback port (got '0.0.0.0:55001')"];
+        yield 'Supabase DB port' => [['port-pgsql' => "127.0.0.1:54322\n"], "pgsql is published on 54322, the developer's Supabase port"];
+        yield 'Supabase API port' => [['port-pgsql' => "127.0.0.1:54321\n"], 'pgsql is published on 54321'];
+    }
+
+    /**
+     * @param array<string, string> $knobs
+     */
+    #[Test]
+    #[DataProvider('dbEnvRefusals')]
+    public function db_env_refuses_a_database_it_cannot_vouch_for_and_names_db_up(array $knobs, string $message): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+
+        foreach ($knobs as $name => $value) {
+            $this->run->knob($name, $value);
+        }
+
+        $env = $this->run->stack([], 'db-env');
+
+        $this->assertRefusal($env, 75, $message);
+        $this->assertStringContainsString('make db-up', $env->getErrorOutput());
+    }
+
+    #[Test]
+    public function db_env_refuses_a_worktree_without_the_generated_env(): void
+    {
+        $this->assertRefusal($this->run->stack([], 'db-env'), 75, 'no database for this worktree (no tmp/stack/compose.env');
+    }
+
+    #[Test]
+    public function db_reset_recreates_the_postgres_under_the_same_password_and_recreates_a_running_app(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+        $env = $this->run->read('tmp/stack/compose.env');
+        $this->run->clearCalls();
+
+        $reset = $this->run->stack([], 'db-reset');
+
+        $this->assertSame(0, $reset->getExitCode(), $reset->getErrorOutput());
+        $this->assertSame("db-reset ok project={$this->run->project}\n", $reset->getOutput());
+        $this->assertSame($env, $this->run->read('tmp/stack/compose.env'));
+        $ups = \array_values(\array_filter(\explode("\n", $this->run->calls()), static fn(string $call): bool => \str_contains($call, ' up ')));
+        $this->assertCount(2, $ups);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 300 --force-recreate pgsql auth-migrate', $ups[0]);
+        $this->assertStringEndsWith('up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker', $ups[1]);
+    }
+
+    #[Test]
+    public function db_reset_after_a_db_only_start_starts_no_app(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+        $this->run->clearCalls();
+
+        $this->assertSame(0, $this->run->stack([], 'db-reset')->getExitCode());
+
+        $this->assertStringNotContainsString('app worker', $this->run->calls());
+        $this->assertSame(["container/{$this->run->project}__auth-migrate", "container/{$this->run->project}__pgsql"], $this->containers());
+    }
+
+    #[Test]
+    public function db_reset_refuses_a_worktree_with_no_database(): void
+    {
+        $this->assertRefusal($this->run->stack([], 'db-reset'), 75, 'no database for this worktree');
+        $this->assertStringNotContainsString(' up ', $this->run->calls());
+    }
+
+    #[Test]
+    public function up_after_a_db_only_start_takes_the_fresh_up_and_keeps_the_database_password(): void
+    {
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+        $password = $this->dbPassword();
+        $this->run->clearCalls();
+
+        $up = $this->run->stack([], 'up');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertStringContainsString('build ', $this->run->calls());
+        $this->assertStringContainsString('up -d --wait --wait-timeout 900 app worker', $this->run->calls());
+        $this->assertSame($password, $this->dbPassword());
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_after_a_db_only_start_is_not_a_mode_switch(): void
+    {
+        $this->sharedSupabase();
+        $this->assertSame(0, $this->run->stack([], 'db-up')->getExitCode());
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertStringContainsString('up in shared-Supabase mode, started all services', $up->getErrorOutput());
+    }
+
+    #[Test]
+    public function up_with_shared_supabase_takes_the_shared_port_from_shared_db_port_over_a_closed_db_port(): void
+    {
+        [$db, $api] = $this->sharedSupabase();
+        $this->run->write('.env', "DB_PORT=9\nSHARED_DB_PORT={$db}\nSUPABASE_URL=http://127.0.0.1:{$api}\n");
+
+        $up = $this->run->stack([], 'up', '--shared-supabase');
+
+        $this->assertSame(0, $up->getExitCode(), $up->getErrorOutput());
+        $this->assertStringContainsString("STACK_SHARED_DB_PORT={$db}\n", $this->run->read('tmp/stack/compose.env'));
+    }
+
+    #[Test]
+    public function the_stack_postgres_publishes_an_ephemeral_loopback_port(): void
+    {
+        $base = Yaml::parseFile(\dirname(__DIR__, 3) . '/compose.local.yaml');
+        $this->assertIsArray($base);
+
+        $this->assertSame(['127.0.0.1::5432'], $base['services']['pgsql']['ports']);
+    }
+
+    private function dbPassword(): string
+    {
+        $this->assertSame(1, \preg_match('/^STACK_DB_PASSWORD=([0-9a-f]{48})$/m', $this->run->read('tmp/stack/compose.env'), $match));
+
+        return $match[1];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function containers(): array
+    {
+        return \array_values(\array_filter($this->run->resources($this->run->project), static fn(string $resource): bool => \str_starts_with($resource, 'container/')));
     }
 
     /**

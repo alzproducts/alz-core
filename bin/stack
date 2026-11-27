@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The worktree's local dev stack: app, Horizon worker, Redis and its own seeded Postgres, from the prod runtime image.
-# Usage: bin/stack <up|down|port|logs|curl> [args]   (cwd = anywhere in the worktree)
+# Usage: bin/stack <up|down|port|logs|curl|db-up|db-env|db-reset> [args]   (cwd = anywhere in the worktree)
 # Targets macOS /bin/bash 3.2: no associative arrays, no ${x,,}, no mapfile.
 # intentional: SC2016 — single-quoted strings are shell run inside the container; SC2086 — id lists split on purpose.
 # shellcheck disable=SC2016,SC2086
@@ -24,6 +24,9 @@ Usage: bin/stack <command>
   port                   print the app's host port (exit 1 when the stack is not up)
   logs [<service>]       follow a service's container log (default app)
   curl <METHOD> <path>   one request inside the app container as the X-Local-Bypass user; body on stdin
+  db-up                  start only the stack's Postgres (no images, app or seed) and migrate it from the host
+  db-env                 print the stack's Postgres as host connection keys (DB_HOST, DB_PORT, ...) for bin/worktree-db
+  db-reset               recreate the stack's Postgres empty under the same password; recreates a running app and worker
 Env: ALZ_STACK_PORT=<n> pins the app to 127.0.0.1:<n> on the host (default: a free port)
 EOF
     exit 64
@@ -36,7 +39,7 @@ STATE="$REPO/tmp/stack"
 COMPOSE_ENV="$STATE/compose.env"
 FILL_ENV="$STATE/fill.env"
 ENV_FILE="$REPO/.env"
-# default: the stack's own seeded Postgres; shared: the shared local Supabase through the relay (COR-375 removes it).
+# default: the stack's own seeded Postgres; shared: the shared local Supabase through the relay (COR-390 removes it).
 MODE=default
 SHARED_DB_PORT=''
 SHARED_API_PORT=''
@@ -51,7 +54,21 @@ dc() {
     fi
 }
 
+# db_dc: the stack's own Postgres alone, whatever mode a running app is in; the shared overlay never touches pgsql.
+db_dc() {
+    docker compose -p "$PROJECT" --project-directory "$REPO" -f "$REPO/compose.local.yaml" --profile own-postgres \
+        --env-file "$COMPOSE_ENV" "$@"
+}
+
 project_containers() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT"; }
+
+# app_containers: the containers that make the stack up; a DB-only start leaves only pgsql and auth-migrate.
+app_containers() {
+    local svc
+    for svc in app worker relay; do
+        docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$svc"
+    done
+}
 
 # running_mode: shared when the project has a relay container, else default; read from Docker, never a state file.
 running_mode() {
@@ -171,9 +188,14 @@ check_fixed_port() {
 # check_shared_supabase: the .env's shared Postgres port and loopback SUPABASE_URL, both answering on host loopback.
 check_shared_supabase() {
     local url
-    SHARED_DB_PORT="$(env_file_value "$ENV_FILE" DB_PORT)" || die 64 "--shared-supabase needs DB_PORT in .env"
+    local key=SHARED_DB_PORT
+    # A worktree's .env names a closed DB_PORT (bin/install-env); SHARED_DB_PORT keeps the shared one.
+    SHARED_DB_PORT="$(env_file_value "$ENV_FILE" SHARED_DB_PORT)" || {
+        key=DB_PORT
+        SHARED_DB_PORT="$(env_file_value "$ENV_FILE" DB_PORT)"
+    } || die 64 "--shared-supabase needs SHARED_DB_PORT or DB_PORT in .env"
     url="$(env_file_value "$ENV_FILE" SUPABASE_URL)" || die 64 "--shared-supabase needs SUPABASE_URL in .env"
-    [[ "$SHARED_DB_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || die 64 "DB_PORT in .env is not a port number: $SHARED_DB_PORT"
+    [[ "$SHARED_DB_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || die 64 "$key in .env is not a port number: $SHARED_DB_PORT"
     [[ "$url" =~ ^http://(127\.0\.0\.1|localhost):([1-9][0-9]{0,4})/?$ ]] ||
         die 64 "--shared-supabase needs SUPABASE_URL in .env to be http://127.0.0.1:<port>; got $url"
     SHARED_API_PORT="${BASH_REMATCH[2]}"
@@ -191,12 +213,15 @@ host_port() {
 }
 
 # write_env: the generated compose env and the fill-if-blank keys; minted once per stack.
+# Keeps an existing STACK_DB_PASSWORD, so a pgsql from a DB-only start keeps its credentials.
 write_env() {
-    local pg auth
+    local pg auth db_password
     pg="$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' "$REPO/database/baseline/versions.env")"
     auth="$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' "$REPO/database/baseline/versions.env")"
     [ -n "$pg" ] && [ -n "$auth" ] || die 1 "database/baseline/versions.env lacks the Supabase pins"
     mkdir -p "$STATE"
+    db_password="$(sed -n 's/^STACK_DB_PASSWORD=\([0-9a-f]\{48\}\)$/\1/p' "$COMPOSE_ENV" 2>/dev/null | tail -1)" || db_password=''
+    [ -n "$db_password" ] || db_password="$(openssl rand -hex 24)"
     (
         umask 077
         {
@@ -208,7 +233,7 @@ write_env() {
             echo "STACK_WORKTREE=$REPO"
             echo "STACK_ENV_FILE=$ENV_FILE"
             echo "STACK_FILL_ENV=$FILL_ENV"
-            echo "STACK_DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "STACK_DB_PASSWORD=$db_password"
             echo "STACK_REDIS_PASSWORD=$(openssl rand -hex 24)"
             echo "STACK_PORT=${ALZ_STACK_PORT:-}"
             echo "SUPABASE_POSTGRES_VERSION=$pg"
@@ -326,7 +351,7 @@ cmd_up() {
         [ -z "$gap" ] || die 75 "single-quote these keys in .env, whose values hold a \$ that Compose would interpolate: $(printf '%s' "$gap" | tr '\n' ' ')"
     fi
 
-    if [ -n "$(project_containers)" ]; then
+    if [ -n "$(app_containers)" ]; then
         local running
         running="$(running_mode)"
         [ "$running" = "$MODE" ] ||
@@ -359,6 +384,100 @@ cmd_up() {
     ping_shared_db
     print_port
     print_summary started
+}
+
+# db_ready: 0 when pgsql runs and auth-migrate has applied; the reason on stdout otherwise.
+db_ready() {
+    [ -f "$COMPOSE_ENV" ] || { echo "no tmp/stack/compose.env"; return 1; }
+    [ "$(service_state pgsql '{{.State.Status}}')" = running ] || { echo "pgsql is not running"; return 1; }
+    [ "$(service_state auth-migrate '{{.State.Status}} {{.State.ExitCode}}')" = 'exited 0' ] ||
+        { echo "auth-migrate has not completed"; return 1; }
+}
+
+# db_port: pgsql's published loopback port, validated; never the developer's Supabase ports.
+db_port() {
+    local published port
+    published="$(db_dc port pgsql 5432 2>/dev/null | tail -1)" || published=''
+    port="${published#127.0.0.1:}"
+    [ "$port" != "$published" ] && [[ "$port" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ] ||
+        die 75 "pgsql publishes no loopback port (got '$published'); run bin/stack down, then make db-up"
+    case "$port" in
+        54321 | 54322) die 75 "pgsql is published on $port, the developer's Supabase port; run bin/stack down, then make db-up" ;;
+    esac
+    echo "$port"
+}
+
+cmd_db_env() {
+    [ "$#" -eq 0 ] || die 64 "db-env takes no arguments"
+    local reason port password
+    reason="$(db_ready)" || die 75 "no database for this worktree ($reason, project $PROJECT); run make db-up"
+    port="$(db_port)"
+    password="$(sed -n 's/^STACK_DB_PASSWORD=//p' "$COMPOSE_ENV" | tail -1)"
+    [ -n "$password" ] || die 75 "tmp/stack/compose.env holds no STACK_DB_PASSWORD; run bin/stack down, then make db-up"
+    printf '%s\n' DB_CONNECTION=pgsql DB_HOST=127.0.0.1 "DB_PORT=$port" DB_DATABASE=postgres DB_USERNAME=postgres \
+        "DB_PASSWORD=$password" DB_SSLMODE=disable DB_URL=
+}
+
+db_logs_tail() { db_dc logs --no-color --tail 40 "$1" >&2 || true; }
+
+# start_db [--force-recreate]: pgsql and auth-migrate, then waits for auth-migrate to exit 0.
+start_db() {
+    local id
+    db_dc up -d --wait --wait-timeout 300 "$@" pgsql auth-migrate >&2 || {
+        db_logs_tail pgsql
+        die 75 "pgsql did not start; see bin/stack logs pgsql (run bin/stack down to clean up)"
+    }
+    # intentional: up --wait counts a running one-shot as ready, so it returns before the migrations finish.
+    id="$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=auth-migrate" | head -1)"
+    [ -z "$id" ] || docker wait "$id" >/dev/null 2>&1 || true
+    [ "$(service_state auth-migrate '{{.State.Status}} {{.State.ExitCode}}')" = 'exited 0' ] || {
+        db_logs_tail auth-migrate
+        die 75 "auth-migrate did not complete; see bin/stack logs auth-migrate (run bin/stack down to clean up)"
+    }
+}
+
+# host_migrate: the host's php artisan migrate against the stack's Postgres only, never .env's or the caller's database.
+host_migrate() {
+    local lines line
+    lines="$(cmd_db_env)"
+    echo "bin/stack: migrating $PROJECT's Postgres from the host (php artisan migrate)" >&2
+    (
+        while IFS= read -r line; do export "${line?}"; done <<<"$lines"
+        cd "$REPO"
+        php artisan migrate --force --no-interaction >&2
+    ) || die 1 "php artisan migrate failed against $PROJECT's Postgres"
+}
+
+cmd_db_up() {
+    [ "$#" -eq 0 ] || die 64 "db-up takes no arguments"
+    command -v docker >/dev/null 2>&1 || die 75 "docker not found"
+    docker info >/dev/null 2>&1 || die 75 "docker daemon not reachable"
+    [ -f "$REPO/vendor/autoload.php" ] || die 75 "no vendor/autoload.php in this worktree; run make install first"
+    command -v php >/dev/null 2>&1 || die 75 "db-up migrates from the host and needs php"
+    if ! db_ready >/dev/null; then
+        [ -f "$COMPOSE_ENV" ] || write_env
+        echo "bin/stack: starting $PROJECT's Postgres only (pgsql, auth-migrate)" >&2
+        start_db
+    fi
+    host_migrate
+    local port
+    port="$(db_port)"
+    echo "project=$PROJECT"
+    echo "db_port=$port"
+}
+
+cmd_db_reset() {
+    [ "$#" -eq 0 ] || die 64 "db-reset takes no arguments"
+    [ -f "$COMPOSE_ENV" ] && [ -n "$(service_state pgsql '{{.State.Status}}')" ] ||
+        die 75 "no database for this worktree (project $PROJECT); run make db-up"
+    echo "bin/stack: recreating $PROJECT's Postgres empty (pgsql, auth-migrate)" >&2
+    start_db --force-recreate
+    if [ -n "$(app_containers)" ]; then
+        # No Octane or Horizon process keeps a connection to the removed container.
+        MODE="$(running_mode)"
+        dc up -d --wait --wait-timeout 900 --force-recreate --no-deps app worker >&2 || report_failed_start
+    fi
+    echo "db-reset ok project=$PROJECT"
 }
 
 # sweep_project: removes everything labelled with this project, never another's.
@@ -436,6 +555,9 @@ case "$verb" in
     port) cmd_port "$@" ;;
     logs) cmd_logs "$@" ;;
     curl) cmd_curl "$@" ;;
+    db-env) cmd_db_env "$@" ;;
+    db-up) cmd_db_up "$@" ;;
+    db-reset) cmd_db_reset "$@" ;;
     -h | --help | help) usage ;;
     *) die 64 "unknown command: $verb" ;;
 esac

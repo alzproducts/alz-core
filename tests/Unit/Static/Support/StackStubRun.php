@@ -43,6 +43,7 @@ final readonly class StackStubRun
         remove() { kind="$1"; shift; [ "$(knob sticky)" = "$kind" ] && exit 0; for a in "$@"; do case "$a" in -*) ;; *) rm -f "$S/resources/$kind/$a" ;; esac; done; exit 0; }
         case "$1 $2" in
             "info "*) [ "$(knob fail)" = info ] && exit 1; exit 0 ;;
+            "wait "*) echo 0; exit 0 ;;
             "ps "*) list container "$@" ;;
             "rm "*) shift; remove container "$@" ;;
             "network ls" | "volume ls" | "image ls") list "$@" ;;
@@ -50,7 +51,7 @@ final readonly class StackStubRun
             "inspect "*)
                 svc="${4##*__}"
                 knob "state-$svc" && exit 0
-                [ "$svc" = seed ] && [ "$3" = '{{.State.Status}} {{.State.ExitCode}}' ] && echo 'exited 0' && exit 0
+                case "$svc" in seed | auth-migrate) [ "$3" = '{{.State.Status}} {{.State.ExitCode}}' ] && echo 'exited 0' && exit 0 ;; esac
                 [ "$3" = '{{.State.Status}}' ] && echo running || echo 'running 0 healthy'
                 exit 0
                 ;;
@@ -79,15 +80,20 @@ final readonly class StackStubRun
         verb="$1"; shift
         case "$verb" in
             up)
-                for s in app worker redis; do : >"$S/resources/container/${project}__$s"; done
-                if [ "$shared" = yes ]; then : >"$S/resources/container/${project}__relay"
-                else for s in seed pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done; fi
+                case " $* " in
+                    *' app '* | *' worker '*)
+                        for s in app worker redis; do : >"$S/resources/container/${project}__$s"; done
+                        if [ "$shared" = yes ]; then : >"$S/resources/container/${project}__relay"
+                        else for s in seed pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done; fi
+                        ;;
+                    *) for s in pgsql auth-migrate; do : >"$S/resources/container/${project}__$s"; done ;;
+                esac
                 : >"$S/resources/network/${project}__default"
                 : >"$S/resources/volume/${project}__data"
                 [ "$(knob fail)" = up ] && exit 1
                 ;;
             down) for k in container network volume; do [ "$(knob sticky)" = "$k" ] || rm -f "$S/resources/$k/${project}__"*; done ;;
-            port) [ "$(knob fail)" = port ] || echo 127.0.0.1:5000 ;;
+            port) [ "$(knob fail)" = port ] || knob "port-$1" || echo 127.0.0.1:5000 ;;
             logs) echo "stub log of $*" ;;
             exec)
                 case " $* " in
@@ -100,6 +106,15 @@ final readonly class StackStubRun
                 echo "stub exec $*"
                 ;;
         esac
+        exit 0
+        SH;
+
+    /** Logs its argv and the DB keys it was handed, the password as set or unset only. */
+    private const string PHP = <<<'SH'
+        #!/bin/sh
+        S="$(cd "$(dirname "$0")/.." && pwd -P)"
+        echo "$* | DB_HOST=${DB_HOST-unset} DB_PORT=${DB_PORT-unset} DB_URL=${DB_URL-unset} DB_PASSWORD=${DB_PASSWORD:+set}" >>"$S/php-calls"
+        [ "$(cat "$S/knobs/fail" 2>/dev/null)" = php ] && echo 'stub php error' >&2 && exit 1
         exit 0
         SH;
 
@@ -129,7 +144,7 @@ final readonly class StackStubRun
             \mkdir("{$this->root}/{$dir}", 0o700, true);
         }
 
-        foreach (['docker' => self::DOCKER, 'curl' => self::CURL] as $name => $script) {
+        foreach (['docker' => self::DOCKER, 'curl' => self::CURL, 'php' => self::PHP] as $name => $script) {
             \file_put_contents("{$this->root}/bin/{$name}", $script);
             \chmod("{$this->root}/bin/{$name}", 0o755);
         }
@@ -237,6 +252,11 @@ final readonly class StackStubRun
     public function calls(): string
     {
         return \is_file("{$this->root}/docker-calls") ? (string) \file_get_contents("{$this->root}/docker-calls") : '';
+    }
+
+    public function phpCalls(): string
+    {
+        return \is_file("{$this->root}/php-calls") ? (string) \file_get_contents("{$this->root}/php-calls") : '';
     }
 
     public function clearCalls(): void
