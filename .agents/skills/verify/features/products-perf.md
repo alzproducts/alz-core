@@ -34,7 +34,7 @@ Preconditions:
 - **Writer timing.** `.agents/skills/verify/features/products-perf.sh writers --evidence <dir> [--runs 5] [--baseline <baseline evidence dir>]`.
   - Times `EloquentProductRepository::save` of every product with variations (catalogue loaded untimed) and `EloquentProductStockRepository::updateStockLevels`.
   - Prints `<writer> median_ms= runs_ms=` and `result=<evidence>/bench/writers-<stamp>.json`; with `--baseline`, also `<writer> ratio=<head/base> head_median_ms= base_median_ms=` against that dir's latest `bench/writers-*.json`.
-- **Baseline at an earlier commit.** f1bfc5aa (it adds `db:ping` to `docker-entrypoint.sh`) is the earliest base commit a baseline run supports; `up` on an older one exits 75. The base must also have the repository methods `products-perf.php` calls.
+- **Baseline at an earlier commit.** The commit that adds `database/baseline/realtime-migrate.sh` (COR-381's merge into `develop`) is the earliest base commit a baseline run supports; `up` on an older one exits 75. The base must also have the repository methods `products-perf.php` calls.
   1. `git worktree add --detach <abs base worktree> <base sha>` (for an issue, the PR's merge-base).
   2. With cwd = that worktree, run this worktree's `verify` and `products-perf.sh` by absolute path: `up --evidence <base dir>`, `writers --evidence <base dir>`, `down --evidence <base dir>`.
   3. With cwd = the head worktree: `up --evidence <head dir>`, `writers --evidence <head dir> --baseline <base dir>`, `down --evidence <head dir>`.

@@ -103,13 +103,13 @@ final class SupabaseImagePinTest extends TestCase
     {
         yield 'verify' => [
             '.agents/skills/verify/verify',
-            "PG_VERSION=1\nAUTH_VERSION=1\nSOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'\n",
-            ['s/^SUPABASE_POSTGRES_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_AUTH_VERSION=//p\' "$src/database/baseline/versions.env'],
+            "PG_VERSION=1\nAUTH_VERSION=1\nREALTIME_VERSION=1\nSOURCE_ERROR='database/baseline/versions.env lacks the Supabase pins'\n",
+            ['s/^SUPABASE_POSTGRES_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_AUTH_VERSION=//p\' "$src/database/baseline/versions.env', 's/^SUPABASE_REALTIME_VERSION=//p\' "$src/database/baseline/versions.env'],
         ];
         yield 'compose.yaml' => [
             '.agents/skills/verify/compose.yaml',
-            "FROM supabase/postgres:latest\nimage: supabase/auth:latest\n",
-            ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION'],
+            "FROM supabase/postgres:latest\nimage: supabase/auth:latest\nFROM supabase/realtime:latest\n",
+            ['supabase/postgres:${SUPABASE_POSTGRES_VERSION', 'supabase/auth:${SUPABASE_AUTH_VERSION', 'supabase/realtime:${SUPABASE_REALTIME_VERSION'],
         ];
     }
 
@@ -175,8 +175,8 @@ final class SupabaseImagePinTest extends TestCase
             '.github/workflows/ci.yml' => "env-file: database/baseline/versions.env\nSUPABASE_POSTGRES_VERSION\nSUPABASE_AUTH_VERSION\nSUPABASE_REALTIME_VERSION\n",
             'database/baseline/compose.yaml' => "image: supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\nimage: supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}\n",
             'Dockerfile.dev' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION}\nFROM supabase/auth:\${SUPABASE_AUTH_VERSION}\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION}\n",
-            '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
-            '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\n",
+            '.agents/skills/verify/verify' => "PG_VERSION=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nAUTH_VERSION=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\nREALTIME_VERSION=\"\$(sed -n 's/^SUPABASE_REALTIME_VERSION=//p' \"\$src/database/baseline/versions.env\")\"\n",
+            '.agents/skills/verify/compose.yaml' => "FROM supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}\nimage: supabase/auth:\${SUPABASE_AUTH_VERSION:?}\nFROM supabase/realtime:\${SUPABASE_REALTIME_VERSION:?}\n",
             'compose.local.yaml' => "image: 'supabase/postgres:\${SUPABASE_POSTGRES_VERSION:?}'\nimage: 'supabase/auth:\${SUPABASE_AUTH_VERSION:?}'\n",
             'bin/stack' => "pg=\"\$(sed -n 's/^SUPABASE_POSTGRES_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\nauth=\"\$(sed -n 's/^SUPABASE_AUTH_VERSION=//p' \"\$REPO/database/baseline/versions.env\")\"\n",
         ];

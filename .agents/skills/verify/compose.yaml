@@ -81,6 +81,25 @@ services:
             API_EXTERNAL_URL: 'http://localhost:9999'
             GOTRUE_SITE_URL: 'http://localhost:3000'
 
+    realtime-migrate:
+        image: '${VERIFY_REALTIME_IMAGE:?}'
+        # intentional: the script is baked in, not bind-mounted, as pgsql bakes roles.sql (COR-320 AC16).
+        build:
+            context: ./src/database/baseline
+            dockerfile_inline: |
+                FROM supabase/realtime:${SUPABASE_REALTIME_VERSION:?}
+                COPY realtime-migrate.sh /usr/local/bin/realtime-migrate
+                ENTRYPOINT ["bash", "/usr/local/bin/realtime-migrate"]
+        profiles:
+            - own-postgres
+        restart: 'no'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        environment:
+            DB_HOST: pgsql
+            DB_PASSWORD: '${VERIFY_DB_PASSWORD:?}'
+
     redis:
         image: 'redis:alpine'
         command:
@@ -115,6 +134,8 @@ services:
         restart: 'no'
         depends_on:
             auth-migrate:
+                condition: service_completed_successfully
+            realtime-migrate:
                 condition: service_completed_successfully
             redis:
                 condition: service_healthy
