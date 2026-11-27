@@ -219,6 +219,7 @@ write_env() {
         env_file_sets "$ENV_FILE" API_KEY_ENCRYPTION_SECRET || echo "API_KEY_ENCRYPTION_SECRET='$(openssl rand -hex 32)'" >>"$FILL_ENV"
         env_file_sets "$ENV_FILE" SUPABASE_LOCAL_BYPASS_SECRET || echo "SUPABASE_LOCAL_BYPASS_SECRET='$(openssl rand -hex 24)'" >>"$FILL_ENV"
         env_file_sets "$ENV_FILE" SUPABASE_LOCAL_TEST_EMAIL || echo "SUPABASE_LOCAL_TEST_EMAIL='dev@alzadmin.test'" >>"$FILL_ENV"
+        env_file_sets "$ENV_FILE" SUPABASE_REQUIRE_MFA || echo "SUPABASE_REQUIRE_MFA=false" >>"$FILL_ENV"
         # intentional: the bypass persona's email; TestUserPersonaResolver throws on a blank one.
         env_file_sets "$ENV_FILE" EMAIL_PRIMARY || echo "EMAIL_PRIMARY='stack@example.invalid'" >>"$FILL_ENV"
     )

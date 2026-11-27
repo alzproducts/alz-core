@@ -49,6 +49,9 @@ return [
         // Persona configuration: config/local-development.php
         'local_bypass_secret' => env('SUPABASE_LOCAL_BYPASS_SECRET'),
         'local_test_email' => env('SUPABASE_LOCAL_TEST_EMAIL'),
+
+        // Only boolean false accepts AAL1 tokens; AppServiceProvider refuses to boot with it outside local and testing
+        'require_mfa' => env('SUPABASE_REQUIRE_MFA', true),
     ],
 
     'ad_spend_sync' => [

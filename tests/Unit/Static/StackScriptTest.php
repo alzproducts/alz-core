@@ -118,6 +118,26 @@ final class StackScriptTest extends TestCase
     }
 
     #[Test]
+    public function up_fills_the_mfa_flag_off_when_the_env_does_not_set_it(): void
+    {
+        $this->run->write('.env', "APP_KEY=base64:kept\n");
+
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+
+        $this->assertMatchesRegularExpression('/^SUPABASE_REQUIRE_MFA=false$/m', $this->run->read('tmp/stack/fill.env'));
+    }
+
+    #[Test]
+    public function up_leaves_the_mfa_flag_to_an_env_that_sets_it(): void
+    {
+        $this->run->write('.env', "APP_KEY=base64:kept\nSUPABASE_REQUIRE_MFA=true\n");
+
+        $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());
+
+        $this->assertStringNotContainsString('SUPABASE_REQUIRE_MFA', $this->run->read('tmp/stack/fill.env'));
+    }
+
+    #[Test]
     public function up_on_a_running_stack_recreates_only_app_and_worker_and_keeps_its_env(): void
     {
         $this->assertSame(0, $this->run->stack([], 'up')->getExitCode());

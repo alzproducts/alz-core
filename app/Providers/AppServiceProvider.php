@@ -60,6 +60,9 @@ final class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // intentional: before the CI skip and in every environment — staging and CI must refuse too.
+        $this->refuseMfaSwitchOutsideLocal();
+
         // Skip validation in CI environments (GitHub Actions, etc.)
         $isCi = (\getenv('CI') !== false) || (\getenv('GITHUB_ACTIONS') !== false);
 
@@ -87,6 +90,18 @@ final class AppServiceProvider extends ServiceProvider
         'sentry.dsn' => 'Sentry DSN (SENTRY_LARAVEL_DSN)',
         ...IntegrationCredentials::ALL,
     ];
+
+    private function refuseMfaSwitchOutsideLocal(): void
+    {
+        if ((\config('services.supabase.require_mfa') !== false) || $this->app->environment('local', 'testing')) {
+            return;
+        }
+
+        throw new InvalidConfigurationException(
+            'services.supabase.require_mfa',
+            'SECURITY: SUPABASE_REQUIRE_MFA=false accepts password-only tokens and is refused outside the local and testing environments. Unset it or set it to true.',
+        );
+    }
 
     private static function validateProductionEnvironment(): void
     {
