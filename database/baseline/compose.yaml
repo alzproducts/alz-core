@@ -1,4 +1,4 @@
-# Supabase baseline: hosted Supabase's Postgres and Auth images at the versions in versions.env (ADR-0016).
+# Supabase baseline: hosted Supabase's Postgres, Auth and Realtime images at the versions in versions.env (ADR-0016).
 # Callers pass versions.env's lines, BASELINE_DB_PASSWORD and BASELINE_DIR; see database/AGENTS.md.
 # intentional: no .env interpolation and no fixed host ports (COR-255 P13).
 services:
@@ -39,3 +39,17 @@ services:
             GOTRUE_JWT_SECRET: baseline-migrate-placeholder-secret-not-used
             API_EXTERNAL_URL: 'http://localhost:9999'
             GOTRUE_SITE_URL: 'http://localhost:3000'
+    realtime-migrate:
+        image: 'supabase/realtime:${SUPABASE_REALTIME_VERSION:?}'
+        entrypoint:
+            - bash
+            - /baseline/realtime-migrate.sh
+        restart: 'no'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        environment:
+            DB_HOST: pgsql
+            DB_PASSWORD: '${BASELINE_DB_PASSWORD:?}'
+        volumes:
+            - '${BASELINE_DIR:-.}/realtime-migrate.sh:/baseline/realtime-migrate.sh:ro'

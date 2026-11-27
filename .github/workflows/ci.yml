@@ -138,6 +138,7 @@ jobs:
           dc=(docker compose -p baseline -f database/baseline/compose.yaml --env-file database/baseline/versions.env)
           "${dc[@]}" up -d --wait pgsql
           "${dc[@]}" run --rm auth-migrate
+          "${dc[@]}" run --rm realtime-migrate
           published="$("${dc[@]}" port pgsql 5432)"
           port="${published##*:}"
           if [[ ! "$port" =~ ^[0-9]+$ ]]; then
