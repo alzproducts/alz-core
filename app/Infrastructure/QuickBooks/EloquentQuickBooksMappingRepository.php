@@ -71,6 +71,7 @@ final readonly class EloquentQuickBooksMappingRepository implements QuickBooksMa
                 refId: $row->qbo_ref_id,
                 refName: $row->qbo_ref_name,
                 realmId: $row->realm_id,
+                resolvedAt: $row->resolved_at,
             ),
             $this->rowsWhere('TRUE', []),
         );

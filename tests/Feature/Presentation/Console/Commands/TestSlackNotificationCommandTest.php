@@ -6,6 +6,7 @@ namespace Tests\Feature\Presentation\Console\Commands;
 
 use App\Application\Contracts\ChatNotificationInterface;
 use App\Presentation\Console\Commands\Dev\TestSlackNotificationCommand;
+use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -24,6 +25,18 @@ final class TestSlackNotificationCommandTest extends TestCase
         $this->app->detectEnvironment(static fn(): string => 'production');
 
         $this->assertInstanceOf(TestSlackNotificationCommand::class, $this->app->make(TestSlackNotificationCommand::class));
+    }
+
+    #[Test]
+    public function the_default_message_shows_a_british_date_and_time(): void
+    {
+        \config(['services.slack.notifications.bot_user_oauth_token' => 'xoxb-test-token']);
+        $this->travelTo('2026-01-05 14:30:09');
+        $this->mock(NotificationDispatcher::class)->shouldReceive('send')->once();
+
+        $this->artisan('slack:test', ['channel' => '#test'])
+            ->expectsOutput('  Message: Test message from alz-core at 05/01/2026 14:30:09')
+            ->assertSuccessful();
     }
 
     #[Test]

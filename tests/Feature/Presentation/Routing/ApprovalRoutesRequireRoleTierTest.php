@@ -23,6 +23,7 @@ final class ApprovalRoutesRequireRoleTierTest extends TestCase
     private const array ADMIN_AREA_ROUTES = [
         'PUT api/catalog/custom-field-definitions/{definitionUuid}/general-settings',
         'PUT api/catalog/custom-field-definitions/{definitionUuid}/product-settings',
+        'PUT api/quickbooks/mappings/{key}',
     ];
 
     #[Test]

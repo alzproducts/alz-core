@@ -15,6 +15,8 @@ use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\RecordNotFoundException;
 use App\Domain\Exceptions\DomainException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
 use Illuminate\Console\Command;
 
 final class QuickBooksMappingsResolveCommand extends Command
@@ -26,6 +28,9 @@ final class QuickBooksMappingsResolveCommand extends Command
     private const string NO_CANDIDATE = 'no active candidate';
 
     private const string CANNOT_PROMPT = 'a pick is needed but this run cannot prompt';
+
+    // intentional: --check runs all its queries under one such deadline, not one each.
+    private const int CALL_SECONDS = 60;
 
     protected $signature = 'quickbooks:mappings:resolve
                             {--key= : Prompt for this key alone, even when it is resolved}
@@ -58,7 +63,7 @@ final class QuickBooksMappingsResolveCommand extends Command
      */
     private function check(CheckMappingsUseCase $check): int
     {
-        $findings = $check->execute()->findings;
+        $findings = $check->execute(self::deadline())->findings;
         if ($findings === []) {
             $this->info('Every mapping matches QuickBooks');
 
@@ -130,7 +135,7 @@ final class QuickBooksMappingsResolveCommand extends Command
      */
     private function settle(MappingKey $key, ListMappingCandidatesUseCase $candidates, RecordMappingPickUseCase $record): ?string
     {
-        $active = $candidates->execute($key);
+        $active = $candidates->execute($key, self::deadline());
         if ($active === []) {
             return self::NO_CANDIDATE;
         }
@@ -167,6 +172,11 @@ final class QuickBooksMappingsResolveCommand extends Command
     }
 
     // intentional: never starts with a digit, or the prompt's autocomplete turns a typed index into the name it prefixes.
+    private static function deadline(): Deadline
+    {
+        return Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS);
+    }
+
     private static function label(MappingCandidateDTO $candidate): string
     {
         $name = $candidate->name === '' ? '(unnamed)' : $candidate->name;

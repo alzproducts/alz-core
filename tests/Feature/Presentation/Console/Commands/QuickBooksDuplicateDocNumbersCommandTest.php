@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Presentation\Console\Commands;
 
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
+use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
 use App\Application\QuickBooks\OrderSync\DTOs\ExistingDocumentDTO;
 use App\Application\QuickBooks\OrderSync\Results\DuplicateDocNumbersResult;
@@ -12,10 +13,12 @@ use App\Application\QuickBooks\OrderSync\UseCases\AuditDuplicateDocNumbersUseCas
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\QuickBooks\OrderSync\Enums\DocType;
+use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Presentation\Console\Commands\QuickBooksDuplicateDocNumbersCommand;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -52,6 +55,12 @@ final class QuickBooksDuplicateDocNumbersCommandTest extends TestCase
 
         \config(['quickbooks.doc_number_prefix' => '']);
         $this->app->instance(QuickBooksOrderPostingInterface::class, $this->posting = new FakeQuickBooksOrderPosting());
+        DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
+        $this->app->make(QuickBooksConnectionRepositoryInterface::class)->save(new QuickBooksConnection(
+            refreshToken: new ApiKeyToken('test-refresh-token'),
+            refreshTokenExpiresAt: CarbonImmutable::now()->addDays(100),
+            refreshTokenHardExpiresAt: null,
+        ));
         $this->app->make(QuickBooksAccessTokenCacheInterface::class)
             ->put(new ApiKeyToken('test-access-token'), CarbonImmutable::now()->addHour());
     }

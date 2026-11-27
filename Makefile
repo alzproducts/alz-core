@@ -1,4 +1,4 @@
-.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
+.PHONY: git-hooks-check help install migrate db-reset-full seed-fake pint pint-test test test-changed test-integration test-seed-command test-redis test-docker test-quickbooks-sandbox test-quick test-coverage coverage-html pest-mutate test-ai test-mutate lint lint-sequential lint-full fix analyse phparkitect deptrac tlint tlint-full psalm psalm-ci psalm-baseline stan rector rector-dry-run refactor check ide-helper test-domain test-domain-coverage test-app test-app-coverage mutate-domain mutate-app supabase-start supabase-functions supabase-stop supabase-status supabase-reset supabase-seed-users redis serve stack-down stack-logs pail
 
 # Enable strict shell mode for robust error handling
 SHELL := bash
@@ -197,6 +197,14 @@ refactor: ## Run Rector + Pint combo
 test: ## Run Pest test suite (all layers, excludes integration, seed-command, list-parity, real-Slack, real-Redis and Docker tests; matches CI)
 	@echo "$(MODE)"
 	$(EXEC) vendor/bin/pest --parallel --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker --no-coverage $(TEST_ARGS)
+
+test-changed: ## Run only the tests changed since the merge-base with origin/HEAD, as the pre-push hook does (CI runs the full suite)
+	@echo "$(MODE)"
+	@config="$$(mktemp phpunit-changed.XXXXXX)" && trap 'rm -f "$$config"' EXIT && \
+		bin/changed-tests --phpunit-config "$$config" && \
+		if [ -s "$$config" ]; then \
+			$(EXEC) vendor/bin/pest --configuration="$$config" --parallel --processes=4 --no-coverage --do-not-fail-on-empty-test-suite --exclude-group=integration --exclude-group=seed-command --exclude-group=list-parity --exclude-group=slack --exclude-group=redis --exclude-group=docker $(TEST_ARGS); \
+		fi
 
 test-redis: ## Run the tests that need a live Redis (start it with make redis)
 	@echo "$(MODE)"

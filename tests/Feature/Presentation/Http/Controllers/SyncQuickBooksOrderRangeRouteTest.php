@@ -24,8 +24,10 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Feature\Concerns\InsertsSourceOrders;
+use Tests\Feature\Concerns\ReadsOrderSyncRuns;
 use Tests\Feature\Concerns\SendsRoleTokens;
 use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
 use Tests\Fixtures\QuickBooks\SpyOrderSyncDispatcher;
@@ -39,6 +41,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
 {
     use DatabaseTransactions;
     use InsertsSourceOrders;
+    use ReadsOrderSyncRuns;
     use SendsRoleTokens;
 
     private const string URL = '/api/quickbooks/orders/sync-range';
@@ -61,6 +64,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         $this->fakeSupabaseJwks();
         DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
         DB::table('quickbooks.order_syncs')->delete();
+        DB::table('quickbooks.order_sync_runs')->delete();
         DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref-1', 'qbo_ref_name' => 'Ref 1', 'realm_id' => self::REALM]);
         \config(['quickbooks.backfill_floor_date' => '2031-06-01']);
         $this->app->instance(OrderSyncDispatcherInterface::class, $this->dispatcher = new SpyOrderSyncDispatcher());
@@ -98,8 +102,34 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         $run = $this->dispatcher->ranges[0];
         self::assertSame(
             [self::REALM, '2031-07-10', '2031-07-15', $forceRetry, $runId],
-            [$run->realmId, $run->from->format('Y-m-d'), $run->to->format('Y-m-d'), $run->forceRetry, $run->runId],
+            [$run->realmId, $run->range->from->format('Y-m-d'), $run->range->to->format('Y-m-d'), $run->forceRetry, $run->runId],
         );
+        self::assertSame([[
+            'id' => $runId,
+            'trigger' => 'range',
+            'force_retry' => $forceRetry,
+            'range_from' => '2031-07-10',
+            'range_to' => '2031-07-15',
+            'order_references' => null,
+            'status' => 'queued',
+            'candidate_count' => 1,
+            'finished_at' => null,
+        ]], $this->runRows());
+    }
+
+    #[Test]
+    public function a_request_whose_first_dispatch_throws_errors_and_ends_its_run_failed(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE, '2031-07-12 10:00:00+00');
+        $this->dispatcher->throws = new RuntimeException('test');
+
+        $this->sync(self::RANGE)->assertServerError();
+
+        $runs = $this->runRows();
+        self::assertCount(1, $runs);
+        self::assertSame('failed', $runs[0]['status']);
+        self::assertNotNull($runs[0]['finished_at']);
     }
 
     #[Test]
@@ -123,6 +153,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         $this->sync(self::RANGE)->assertStatus(202)
             ->assertExactJson(['message' => 'QuickBooks order sync queued.', 'run_id' => null, 'candidate_count' => 0]);
         $this->assertDispatched(0);
+        self::assertSame([], $this->runRows());
     }
 
     #[Test]
@@ -157,7 +188,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         foreach ($jobs as $job) {
             self::assertSame(
                 [self::REALM, '2031-07-10', '2031-07-15', true],
-                [$job->run->realmId, $job->run->from->format('Y-m-d'), $job->run->to->format('Y-m-d'), $job->run->forceRetry],
+                [$job->run->realmId, $job->run->range->from->format('Y-m-d'), $job->run->range->to->format('Y-m-d'), $job->run->forceRetry],
             );
         }
     }
@@ -214,7 +245,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         yield 'force_retry absent' => [self::RANGE];
         yield 'force_retry false' => [[...self::RANGE, 'force_retry' => false]];
         yield 'force_retry true' => [[...self::RANGE, 'force_retry' => true]];
-        yield 'past another limit too' => [['from' => '2031-07-10', 'to' => '2031-07-09', 'force_retry' => false]];
+        yield 'past another limit too' => [['from' => '2031-05-01', 'to' => '2031-07-15', 'force_retry' => false]];
     }
 
     /**
@@ -275,6 +306,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
             ->assertJsonPath('error.errors.missing_mapping_keys', [$key]);
         Http::assertNotSent(static fn(Request $request): bool => \str_contains($request->url(), 'intuit.com'));
         $this->assertDispatched(0);
+        self::assertSame([], $this->runRows());
     }
 
     #[Test]
@@ -305,6 +337,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
 
         $this->sync(self::RANGE)->assertStatus(503);
         $this->assertDispatched(0);
+        self::assertSame([], $this->runRows());
     }
 
     #[Test]
@@ -342,6 +375,7 @@ final class SyncQuickBooksOrderRangeRouteTest extends TestCase
         self::assertIsArray($errors);
         self::assertSame([$key], \array_keys($errors));
         $this->assertDispatched(0);
+        self::assertSame([], $this->runRows());
     }
 
     /**

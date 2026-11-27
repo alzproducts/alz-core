@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Presentation\Http\Controllers;
 
+use App\Application\Contracts\QuickBooks\OrderSyncDispatcherInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksAccessTokenCacheInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksConnectionRepositoryInterface;
 use App\Application\Contracts\QuickBooks\QuickBooksOrderPostingInterface;
@@ -33,12 +34,15 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Feature\Concerns\InsertsSourceOrders;
+use Tests\Feature\Concerns\ReadsOrderSyncRuns;
 use Tests\Feature\Concerns\RunsQueuedJobs;
 use Tests\Feature\Concerns\SendsRoleTokens;
 use Tests\Fixtures\QuickBooks\FakeQuickBooksOrderPosting;
 use Tests\Fixtures\QuickBooks\FakeSlotRedis;
+use Tests\Fixtures\QuickBooks\SpyOrderSyncDispatcher;
 use Tests\TestCase;
 
 #[CoversNothing]
@@ -46,6 +50,7 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
 {
     use DatabaseTransactions;
     use InsertsSourceOrders;
+    use ReadsOrderSyncRuns;
     use RunsQueuedJobs;
     use SendsRoleTokens;
 
@@ -67,6 +72,7 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         $this->fakeSupabaseJwks();
         DB::table('public.quickbooks_connections')->where('environment', 'sandbox')->delete();
         DB::table('quickbooks.order_syncs')->delete();
+        DB::table('quickbooks.order_sync_runs')->delete();
         DB::table('quickbooks.mappings')->update(['qbo_ref_id' => 'ref-1', 'qbo_ref_name' => 'Ref 1', 'realm_id' => self::REALM]);
         \config(['quickbooks.backfill_floor_date' => '2026-07-01']);
         Queue::fake();
@@ -108,6 +114,34 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
         );
         self::assertSame('low', $jobs[0]->queue);
         $this->assertNothingSynced();
+        self::assertSame([[
+            'id' => $runId,
+            'trigger' => 'manual',
+            'force_retry' => $forceRetry,
+            'range_from' => null,
+            'range_to' => null,
+            'order_references' => '{' . \implode(',', $references) . '}',
+            'status' => 'queued',
+            'candidate_count' => 10,
+            'finished_at' => null,
+        ]], $this->runRows());
+    }
+
+    #[Test]
+    public function a_request_whose_first_dispatch_throws_errors_and_ends_its_run_failed(): void
+    {
+        $this->connect();
+        $this->insertOrder(self::REFERENCE);
+        $dispatcher = new SpyOrderSyncDispatcher();
+        $dispatcher->throws = new RuntimeException('test');
+        $this->app->instance(OrderSyncDispatcherInterface::class, $dispatcher);
+
+        $this->sync(['references' => [self::REFERENCE]])->assertServerError();
+
+        $runs = $this->runRows();
+        self::assertCount(1, $runs);
+        self::assertSame('failed', $runs[0]['status']);
+        self::assertNotNull($runs[0]['finished_at']);
     }
 
     /**
@@ -327,6 +361,7 @@ final class SyncQuickBooksOrdersRouteTest extends TestCase
             ->assertStatus(412)
             ->assertJsonPath('error.errors.missing_mapping_keys', [$key]);
         $this->assertNothingQueued();
+        self::assertSame([], $this->runRows());
     }
 
     #[Test]

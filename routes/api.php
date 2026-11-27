@@ -20,12 +20,15 @@ use App\Presentation\Http\Api\Controllers\CustomFieldGeneralSettingsController;
 use App\Presentation\Http\Api\Controllers\CustomFieldProductSettingsController;
 use App\Presentation\Http\Api\Controllers\FilterGroupController;
 use App\Presentation\Http\Api\Controllers\ListFailedQuickBooksOrdersController;
+use App\Presentation\Http\Api\Controllers\ListQuickBooksOrderSyncRunsController;
 use App\Presentation\Http\Api\Controllers\OrderStatusSummaryController;
 use App\Presentation\Http\Api\Controllers\ProductController;
 use App\Presentation\Http\Api\Controllers\ProductInventoryUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductPricingUpdateController;
 use App\Presentation\Http\Api\Controllers\ProductRefreshController;
 use App\Presentation\Http\Api\Controllers\ProductUpdateController;
+use App\Presentation\Http\Api\Controllers\QuickBooksMappingController;
+use App\Presentation\Http\Api\Controllers\QuickBooksMappingUpdateController;
 use App\Presentation\Http\Api\Controllers\SyncQuickBooksOrderRangeController;
 use App\Presentation\Http\Api\Controllers\SyncQuickBooksOrdersController;
 use App\Presentation\Http\Api\Controllers\VariationController;
@@ -304,10 +307,23 @@ Route::middleware([
         // QuickBooks order sync
         Route::get('quickbooks/orders/failed', ListFailedQuickBooksOrdersController::class)
             ->name('quickbooks.orders.failed');
+        Route::get('quickbooks/orders/runs', ListQuickBooksOrderSyncRunsController::class)
+            ->name('quickbooks.orders.runs');
         Route::post('quickbooks/orders/sync', SyncQuickBooksOrdersController::class)
             ->name('quickbooks.orders.sync');
         Route::post('quickbooks/orders/sync-range', SyncQuickBooksOrderRangeController::class)
             ->name('quickbooks.orders.sync-range');
+
+        // QuickBooks mappings: check stays above the {key} routes so it is never read as a key.
+        Route::get('quickbooks/mappings', [QuickBooksMappingController::class, 'index'])
+            ->name('quickbooks.mappings.index');
+        Route::get('quickbooks/mappings/check', [QuickBooksMappingController::class, 'check'])
+            ->name('quickbooks.mappings.check');
+        Route::get('quickbooks/mappings/{key}/candidates', [QuickBooksMappingController::class, 'candidates'])
+            ->name('quickbooks.mappings.candidates');
+        Route::put('quickbooks/mappings/{key}', QuickBooksMappingUpdateController::class)
+            ->middleware(EnsureRoleTierMiddleware::using(RoleTier::AdminArea))
+            ->name('quickbooks.mappings.update');
 
         // Contact submissions dashboard — staff-only, requires admin approval.
         Route::get('contact-submissions/triage', [ContactSubmissionDashboardController::class, 'triage']);

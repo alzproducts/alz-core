@@ -53,6 +53,7 @@ final class QuickBooksDryRunTotalsCommandTest extends TestCase
         yield 'summer' => ['2001-06-10', '2001-06-11', ['2001-06-09 22:59:59+00', '2001-06-09 23:00:00+00', '2001-06-11 22:59:59+00', '2001-06-11 23:00:00+00']];
         yield 'winter' => ['2001-01-10', '2001-01-11', ['2001-01-09 23:59:59+00', '2001-01-10 00:00:00+00', '2001-01-11 23:59:59+00', '2001-01-12 00:00:00+00']];
         yield 'across the spring clock change' => ['2001-03-24', '2001-03-25', ['2001-03-23 23:59:59+00', '2001-03-24 00:00:00+00', '2001-03-25 22:59:59+00', '2001-03-25 23:00:00+00']];
+        yield 'the BST change fixture' => ['2026-10-24', '2026-10-25', ['2026-10-23 22:30:00+00', '2026-10-23 23:30:00+00', '2026-10-25 23:30:00+00', '2026-10-26 00:30:00+00']];
     }
 
     /**
@@ -62,6 +63,9 @@ final class QuickBooksDryRunTotalsCommandTest extends TestCase
     #[DataProvider('londonRanges')]
     public function it_reports_the_london_days_of_the_range_inclusive(string $from, string $to, array $placedAt): void
     {
+        DB::table('shopwired.orders')
+            ->whereBetween('order_placed_at', ["{$from} 00:00:00+12", "{$to} 23:59:59-12"])
+            ->update(['order_placed_at' => '1990-01-01 00:00:00+00']);
         foreach ([self::FIRST, self::SECOND, self::THIRD, self::FOURTH] as $index => $reference) {
             $this->insertOrder($reference, $placedAt[$index], self::MATCHING);
         }

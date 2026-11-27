@@ -4,6 +4,7 @@
 # match below) skip lint and tests.
 code:
   - 'app/**'
+  - 'bin/**'
   - 'config/**'
   - 'database/**'
   - 'routes/**'
