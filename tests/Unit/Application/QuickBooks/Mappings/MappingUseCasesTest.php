@@ -22,6 +22,8 @@ use App\Application\QuickBooks\OrderSync\Enums\MappingFindingKind;
 use App\Application\QuickBooks\OrderSync\Enums\MappingKey;
 use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -77,12 +79,12 @@ final class MappingUseCasesTest extends TestCase
         $active = new MappingCandidateDTO('2', 'Web', true);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingKey::SalesClass->entity(), null)
+            ->with(Mockery::type(ApiKeyToken::class), MappingKey::SalesClass->entity(), Mockery::type(Deadline::class))
             ->andReturn([new MappingCandidateDTO('1', 'Old', false), $active]);
 
         $useCase = new ListMappingCandidatesUseCase($this->candidates(), new NullLogger());
 
-        $this->assertSame([$active], $useCase->execute(MappingKey::SalesClass));
+        $this->assertSame([$active], $useCase->execute(MappingKey::SalesClass, Deadline::after(new DateTimeImmutable(), 60)));
     }
 
     /**
@@ -143,7 +145,7 @@ final class MappingUseCasesTest extends TestCase
             new MappingCandidateDTO('unlabelled', '', true),
         ]);
 
-        $findings = $this->check()->execute()->findings;
+        $findings = $this->check()->execute(Deadline::after(new DateTimeImmutable(), 60))->findings;
 
         $this->assertEqualsCanonicalizing([
             ['tax.standard', MappingFindingKind::Unresolved->value, null, null],
@@ -168,7 +170,7 @@ final class MappingUseCasesTest extends TestCase
             ->times(\count(MappingEntity::cases()))
             ->andReturn([new MappingCandidateDTO('ref', 'Name', true)]);
 
-        $this->assertSame([], $this->check()->execute()->findings);
+        $this->assertSame([], $this->check()->execute(Deadline::after(new DateTimeImmutable(), 60))->findings);
     }
 
     #[Test]
@@ -183,7 +185,7 @@ final class MappingUseCasesTest extends TestCase
             new MappingCandidateDTO('unlabelled', '', true),
         ]);
 
-        $this->assertSame([], $this->check()->execute()->findings);
+        $this->assertSame([], $this->check()->execute(Deadline::after(new DateTimeImmutable(), 60))->findings);
     }
 
     /**

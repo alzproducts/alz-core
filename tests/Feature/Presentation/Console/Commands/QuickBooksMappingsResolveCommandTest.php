@@ -15,6 +15,7 @@ use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\QuickBooks\Enums\QuickBooksFaultKind;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksFault;
+use App\Domain\Shared\ValueObjects\Deadline;
 use App\Infrastructure\QuickBooks\QuickBooksConfig;
 use App\Infrastructure\QuickBooks\QuickBooksEnvironment;
 use App\Presentation\Console\Commands\QuickBooksMappingsResolveCommand;
@@ -151,7 +152,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->clearRow(MappingKey::SalesClass);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Department, null)
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Department, Mockery::type(Deadline::class))
             ->andReturn([new MappingCandidateDTO('9', 'Other', true)]);
 
         $this->resolve(['--key' => 'department'])
@@ -187,7 +188,7 @@ final class QuickBooksMappingsResolveCommandTest extends TestCase
         $this->clearRow(MappingKey::DepositAccountPayPal);
         $this->adapter->shouldReceive('candidates')
             ->once()
-            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Account, null)
+            ->with(Mockery::type(ApiKeyToken::class), MappingEntity::Account, Mockery::type(Deadline::class))
             ->andReturn([
                 new MappingCandidateDTO('35', 'Cash:PayPal', true, 'Bank'),
                 new MappingCandidateDTO('36', 'Sales', true, 'Income'),

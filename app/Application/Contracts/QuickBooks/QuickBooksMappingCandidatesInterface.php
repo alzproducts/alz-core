@@ -20,7 +20,7 @@ use SensitiveParameter;
 interface QuickBooksMappingCandidatesInterface
 {
     /**
-     * @param Deadline|null $deadline shared by every call; null gives each call its own time limit
+     * @param Deadline $deadline shared by every call the read makes
      *
      * @return list<MappingCandidateDTO> active and inactive
      *
@@ -29,5 +29,5 @@ interface QuickBooksMappingCandidatesInterface
      * @throws QuickBooksFaultException            when QBO rejects a query
      * @throws UnexpectedApiResultException        when a row lacks a name or id, or Preferences lacks its sales form section
      */
-    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, ?Deadline $deadline = null): array;
+    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, Deadline $deadline): array;
 }

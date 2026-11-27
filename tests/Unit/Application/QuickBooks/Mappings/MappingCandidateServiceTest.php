@@ -12,6 +12,8 @@ use App\Application\QuickBooks\Services\QuickBooksTokenService;
 use App\Domain\Access\ValueObjects\ApiKeyToken;
 use App\Domain\Exceptions\Api\AuthenticationExpiredException;
 use App\Domain\Exceptions\Api\ExternalServiceUnavailableException;
+use App\Domain\Shared\ValueObjects\Deadline;
+use DateTimeImmutable;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
@@ -47,10 +49,10 @@ final class MappingCandidateServiceTest extends TestCase
         $candidate = new MappingCandidateDTO('1', 'Net 30', true);
         $this->tokens->shouldReceive('accessToken')->twice()->andReturn($this->accessToken);
         $this->tokens->shouldNotReceive('forgetAccessToken');
-        $this->adapter->shouldReceive('candidates')->twice()->with($this->accessToken, MappingEntity::Term, null)->andReturn([$candidate]);
+        $this->adapter->shouldReceive('candidates')->twice()->with($this->accessToken, MappingEntity::Term, Mockery::type(Deadline::class))->andReturn([$candidate]);
 
-        $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));
-        $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term));
+        $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term, Deadline::after(new DateTimeImmutable(), 60)));
+        $this->assertSame([$candidate], $this->service()->candidates(MappingEntity::Term, Deadline::after(new DateTimeImmutable(), 60)));
     }
 
     #[Test]
@@ -63,7 +65,7 @@ final class MappingCandidateServiceTest extends TestCase
 
         $this->expectExceptionObject($rejection);
 
-        $this->service()->candidates(MappingEntity::Term);
+        $this->service()->candidates(MappingEntity::Term, Deadline::after(new DateTimeImmutable(), 60));
     }
 
     #[Test]
@@ -75,7 +77,7 @@ final class MappingCandidateServiceTest extends TestCase
 
         $this->expectException(ExternalServiceUnavailableException::class);
 
-        $this->service()->candidates(MappingEntity::Term);
+        $this->service()->candidates(MappingEntity::Term, Deadline::after(new DateTimeImmutable(), 60));
     }
 
     private function service(): MappingCandidateService

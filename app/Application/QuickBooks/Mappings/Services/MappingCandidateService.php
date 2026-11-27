@@ -28,8 +28,6 @@ final readonly class MappingCandidateService
     ) {}
 
     /**
-     * @param Deadline|null $deadline bounds the token wait and every QuickBooks call; null keeps each call's own limit
-     *
      * @return list<MappingCandidateDTO> active and inactive
      *
      * @throws AuthenticationExpiredException
@@ -43,9 +41,9 @@ final readonly class MappingCandidateService
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function candidates(MappingEntity $entity, ?Deadline $deadline = null): array
+    public function candidates(MappingEntity $entity, Deadline $deadline): array
     {
-        $accessToken = $deadline === null ? $this->tokens->accessToken() : $this->tokens->accessTokenBy($deadline);
+        $accessToken = $this->tokens->accessToken();
 
         try {
             return $this->candidates->candidates($accessToken, $entity, $deadline);

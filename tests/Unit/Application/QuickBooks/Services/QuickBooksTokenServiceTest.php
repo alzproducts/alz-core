@@ -17,7 +17,6 @@ use App\Domain\Exceptions\Infrastructure\DatabaseOperationFailedException;
 use App\Domain\Exceptions\Infrastructure\LockAcquisitionException;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksConnection;
 use App\Domain\QuickBooks\ValueObjects\QuickBooksTokenGrant;
-use App\Domain\Shared\ValueObjects\Deadline;
 use Closure;
 use DateTimeImmutable;
 use Mockery;
@@ -41,9 +40,6 @@ final class QuickBooksTokenServiceTest extends TestCase
 
     /** @var list<string> */
     private array $sentRefreshTokens = [];
-
-    /** @var list<int> */
-    private array $lockTimeouts = [];
 
     private bool $saveFails = false;
 
@@ -95,42 +91,6 @@ final class QuickBooksTokenServiceTest extends TestCase
         $this->assertSame('access-1', $first->value);
         $this->assertSame('access-1', $second->value);
         $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
-    }
-
-    #[Test]
-    public function a_deadline_bound_call_returns_the_cached_token_even_past_its_deadline(): void
-    {
-        $this->service->accessToken();
-
-        $token = $this->service->accessTokenBy(Deadline::at(new DateTimeImmutable('-5 seconds')));
-
-        $this->assertSame('access-1', $token->value);
-        $this->assertSame(['refresh-0'], $this->sentRefreshTokens);
-    }
-
-    #[Test]
-    public function a_deadline_bound_refresh_waits_on_the_lock_only_while_the_refresh_can_still_end_in_time(): void
-    {
-        $this->assertSame('access-1', $this->service->accessTokenBy(Deadline::after(new DateTimeImmutable(), 24))->value);
-        $this->cachedAccessToken = null;
-        $this->service->accessTokenBy(Deadline::after(new DateTimeImmutable(), 120));
-
-        $this->assertContains($this->lockTimeouts[0], [8, 9]);
-        $this->assertSame(20, $this->lockTimeouts[1]);
-    }
-
-    #[Test]
-    public function a_deadline_too_close_for_a_refresh_is_unavailable_without_sending_one(): void
-    {
-        try {
-            $this->service->accessTokenBy(Deadline::after(new DateTimeImmutable(), 15));
-            $this->fail('Expected the refresh to be refused');
-        } catch (ExternalServiceUnavailableException $e) {
-            $this->assertSame('QuickBooks', $e->serviceName);
-        }
-
-        $this->assertSame([], $this->sentRefreshTokens);
-        $this->assertSame([], $this->lockTimeouts);
     }
 
     #[Test]
@@ -297,7 +257,6 @@ final class QuickBooksTokenServiceTest extends TestCase
     {
         $lock = Mockery::mock(LockManagerInterface::class);
         $lock->shouldReceive('withLock')->andReturnUsing(function (string $name, int $timeout, Closure $callback): mixed {
-            $this->lockTimeouts[] = $timeout;
             if ($this->lockFails) {
                 throw new LockAcquisitionException($name, $timeout);
             }

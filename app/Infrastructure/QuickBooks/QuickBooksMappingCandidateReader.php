@@ -14,7 +14,6 @@ use App\Domain\Exceptions\Api\UnexpectedApiResultException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksDeadlineExceededException;
 use App\Domain\QuickBooks\Exceptions\QuickBooksFaultException;
 use App\Domain\Shared\ValueObjects\Deadline;
-use DateTimeImmutable;
 use Override;
 use Psr\Log\LoggerInterface;
 use SensitiveParameter;
@@ -24,8 +23,6 @@ use SensitiveParameter;
  */
 final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappingCandidatesInterface
 {
-    private const int CALL_SECONDS = 60;
-
     // intentional: entries are nested and unordered, so the slot is the name's trailing digit, never a position.
     private const string SLOT_PATTERN = '/(UseSalesCustom|SalesCustomName)([1-3])$/';
 
@@ -41,7 +38,7 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
      * @throws UnexpectedApiResultException
      */
     #[Override]
-    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, ?Deadline $deadline = null): array
+    public function candidates(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, Deadline $deadline): array
     {
         return $entity === MappingEntity::CustomField
             ? $this->customFields($accessToken, $deadline)
@@ -56,7 +53,7 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
-    private function entities(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, ?Deadline $deadline): array
+    private function entities(#[SensitiveParameter] ApiKeyToken $accessToken, MappingEntity $entity, Deadline $deadline): array
     {
         $candidates = [];
         $start = 1;
@@ -113,7 +110,7 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException        when Preferences lacks its sales form section
      */
-    private function customFields(#[SensitiveParameter] ApiKeyToken $accessToken, ?Deadline $deadline): array
+    private function customFields(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): array
     {
         $enabled = [];
         $labels = [];
@@ -140,7 +137,7 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException        when Preferences lacks its sales form section
      */
-    private function salesForms(#[SensitiveParameter] ApiKeyToken $accessToken, ?Deadline $deadline): object
+    private function salesForms(#[SensitiveParameter] ApiKeyToken $accessToken, Deadline $deadline): object
     {
         $rows = $this->query($accessToken, 'SELECT * FROM Preferences', $deadline);
         $salesForms = isset($rows[0]) ? \get_object_vars($rows[0])['SalesFormsPrefs'] ?? null : null;
@@ -181,18 +178,13 @@ final readonly class QuickBooksMappingCandidateReader implements QuickBooksMappi
      * @throws QuickBooksFaultException
      * @throws UnexpectedApiResultException
      */
-    private function query(#[SensitiveParameter] ApiKeyToken $accessToken, string $query, ?Deadline $deadline): array
+    private function query(#[SensitiveParameter] ApiKeyToken $accessToken, string $query, Deadline $deadline): array
     {
         try {
-            return $this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::MappingCandidates, $deadline ?? self::deadline()));
+            return $this->transport->query($accessToken, $query, new QuickBooksCallSpec(QuickBooksCall::MappingCandidates, $deadline));
         } catch (QuickBooksDeadlineExceededException $e) {
             throw $this->unavailable($e);
         }
-    }
-
-    private static function deadline(): Deadline
-    {
-        return Deadline::after(new DateTimeImmutable(), self::CALL_SECONDS);
     }
 
     private function unavailable(QuickBooksDeadlineExceededException $e): ExternalServiceUnavailableException

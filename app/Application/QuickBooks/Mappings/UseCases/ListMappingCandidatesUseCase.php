@@ -41,7 +41,7 @@ final readonly class ListMappingCandidatesUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function execute(MappingKey $key, ?Deadline $deadline = null): array
+    public function execute(MappingKey $key, Deadline $deadline): array
     {
         $this->logger->info('Listing QuickBooks mapping candidates', ['key' => $key->value]);
         $active = \array_values(\array_filter(

@@ -50,7 +50,7 @@ final readonly class CheckMappingsUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    public function execute(?Deadline $deadline = null): MappingCheckResult
+    public function execute(Deadline $deadline): MappingCheckResult
     {
         $this->logger->info('Checking QuickBooks mappings');
         $unresolved = $this->mappings->unresolvedKeys($this->realm->realmId());
@@ -77,7 +77,7 @@ final readonly class CheckMappingsUseCase
      * @throws CorruptApiKeyException
      * @throws KeyEncryptionFailedException
      */
-    private function findings(array $unresolved, array $rows, ?Deadline $deadline): array
+    private function findings(array $unresolved, array $rows, Deadline $deadline): array
     {
         $findings = [];
         $candidates = [];
